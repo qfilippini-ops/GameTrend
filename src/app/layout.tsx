@@ -5,6 +5,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import ActiveRoomBadge from "@/components/ActiveRoomBadge";
 import KickedToast from "@/components/KickedToast";
 import Heartbeat from "@/components/Heartbeat";
+import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { Suspense } from "react";
 
 const inter = Inter({
@@ -57,6 +58,7 @@ export default function RootLayout({
     <html lang="fr" className={`${inter.variable} ${spaceGrotesk.variable}`}>
         <body className="min-h-screen">
         <Suspense><KickedToast /></Suspense>
+        <Suspense><PWAInstallBanner /></Suspense>
         <Heartbeat />
         <main className="pb-24 max-w-lg mx-auto">{children}</main>
         <BottomNav />

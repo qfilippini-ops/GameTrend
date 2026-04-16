@@ -518,14 +518,42 @@ export default function RoomPage() {
   const eventToastEl = (
     <AnimatePresence>
       {eventToast && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] w-[calc(100%-2rem)] max-w-sm px-4 py-3 rounded-2xl border border-surface-700/40 bg-surface-950/95 backdrop-blur-xl text-white text-sm font-medium shadow-xl text-center"
-        >
-          {eventToast}
-        </motion.div>
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[59] bg-black/40 backdrop-blur-sm"
+            onClick={() => setEventToast(null)}
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.85, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.85, y: 20 }}
+            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none px-6"
+          >
+            <div
+              className="pointer-events-auto w-full max-w-xs rounded-3xl border border-surface-700/30 bg-surface-950/98 backdrop-blur-xl shadow-2xl overflow-hidden"
+              style={{ boxShadow: "0 0 40px rgba(109,40,217,0.1), 0 20px 60px rgba(0,0,0,0.8)" }}
+            >
+              <div className="px-6 py-6 text-center space-y-3">
+                <div className="text-3xl">
+                  {eventToast.includes("hôte") ? "👑" :
+                   eventToast.includes("quitté") || eventToast.includes("déconnecté") ? "👋" :
+                   eventToast.includes("expulsé") || eventToast.includes("kické") ? "🚪" : "ℹ️"}
+                </div>
+                <p className="text-white font-display font-bold text-sm leading-snug">{eventToast}</p>
+                <button
+                  onClick={() => setEventToast(null)}
+                  className="w-full py-2.5 rounded-xl bg-surface-800/80 text-surface-300 text-sm font-medium hover:bg-surface-700/80 transition-colors border border-surface-700/40"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
