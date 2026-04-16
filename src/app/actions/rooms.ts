@@ -25,9 +25,8 @@ export async function leaveAllOtherRooms(keepRoomId?: string): Promise<void> {
     .select("room_id, is_host")
     .eq("user_id", user.id);
 
-  const { data: memberships } = keepRoomId
-    ? await query.neq("room_id", keepRoomId)
-    : await query;
+  const result = keepRoomId ? await query.neq("room_id", keepRoomId) : await query;
+  const memberships = result.data as Array<{ room_id: string; is_host: boolean }> | null;
 
   if (!memberships || memberships.length === 0) return;
 
