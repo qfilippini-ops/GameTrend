@@ -63,7 +63,7 @@ function LoginPageContent() {
 
     setLoading(false);
     if (error) {
-      setError("Erreur lors de l'envoi. Réessaie.");
+      setError(error.message);
       return;
     }
     setMagicSent(true);
