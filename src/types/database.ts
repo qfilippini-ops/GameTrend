@@ -301,6 +301,8 @@ export interface Database {
     Views: {
       [_ in never]: never;
     };
+    // Tables non listées explicitement sont acceptées sans erreur
+    // (évite les `never` sur des tables ajoutées après génération des types)
     Functions: {
       increment_play_count: {
         Args: { preset_id: string };
@@ -329,6 +331,11 @@ export interface Database {
       send_friend_request: {
         Args: { p_addressee_id: string };
         Returns: void;
+      };
+      // Signature index : toute RPC non listée ci-dessus est acceptée sans erreur
+      [key: string]: {
+        Args: Record<string, unknown>;
+        Returns: unknown;
       };
     };
     Enums: {
