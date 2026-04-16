@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Header from "@/components/layout/Header";
@@ -10,6 +10,14 @@ import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compressImage";
 
 export default function NewPresetPage() {
+  return (
+    <Suspense fallback={null}>
+      <NewPresetPageContent />
+    </Suspense>
+  );
+}
+
+function NewPresetPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [gameType, setGameType] = useState(searchParams.get("game") ?? "ghostword");

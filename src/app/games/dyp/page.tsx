@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Header from "@/components/layout/Header";
@@ -27,6 +27,14 @@ function loadLobby(): { presetId: string; bracketSize: number } {
 }
 
 export default function DYPLobbyPage() {
+  return (
+    <Suspense fallback={null}>
+      <DYPLobbyPageContent />
+    </Suspense>
+  );
+}
+
+function DYPLobbyPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
