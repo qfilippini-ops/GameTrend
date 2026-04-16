@@ -7,7 +7,9 @@ import type { Notification } from "@/types/social";
 export function useNotifications(userId: string | null) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  // Client stable — évite de recréer un client (et ses channels) à chaque render
+  const supabaseRef = useRef(createClient());
+  const supabase = supabaseRef.current;
 
   // Ref pour éviter les stale closures dans le callback Realtime
   const fetchRef = useRef<() => Promise<void>>(async () => {});
