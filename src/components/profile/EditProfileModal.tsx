@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/compressImage";
+import { compressImage, ModerationError } from "@/lib/compressImage";
 import Avatar from "@/components/ui/Avatar";
 import type { Profile } from "@/types/database";
 
@@ -63,11 +63,21 @@ export default function EditProfileModal({
 
     // ── Upload nouvel avatar ───────────────────────────────────
     if (avatarFile) {
-      const optimized = await compressImage(avatarFile, {
-        maxWidthOrHeight: 400,
-        maxSizeMB: 0.2,
-        quality: 0.85,
-      });
+      let optimized: File;
+      try {
+        optimized = await compressImage(avatarFile, {
+          maxWidthOrHeight: 400,
+          maxSizeMB: 0.2,
+          quality: 0.85,
+        });
+      } catch (err) {
+        if (err instanceof ModerationError) {
+          setError(err.message);
+          setSaving(false);
+          return;
+        }
+        throw err;
+      }
 
       // Chemin fixe : {userId}/avatar.webp — upsert remplace l'ancien
       const path = `${userId}/avatar.webp`;

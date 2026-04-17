@@ -8,6 +8,7 @@ import type { GhostWordConfig, WordFamily, DYPConfig, DYPCard } from "@/types/ga
 import ShareButton from "./ShareButton";
 import FavoriteButton from "@/components/presets/FavoriteButton";
 import DeletePresetButton from "@/components/presets/DeletePresetButton";
+import ReportButton from "@/components/presets/ReportButton";
 
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
   ghostword: { icon: "👻", name: "GhostWord", color: "from-ghost-900/80 to-brand-900/60", gameHref: (id) => `/games/ghostword?presetId=${id}` },
@@ -206,6 +207,13 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
           <FavoriteButton presetId={preset.id} userId={user?.id ?? null} variant="full" />
           <ShareButton url={shareUrl} name={preset.name} fullWidth />
         </div>
+
+        {/* ── Signalement ── */}
+        {!isOwner && (
+          <div className="flex justify-end -mt-1">
+            <ReportButton presetId={preset.id} presetName={preset.name} userId={user?.id ?? null} />
+          </div>
+        )}
 
         {/* ── Familles GhostWord ── */}
         {isGhostWord && ghostConfig?.families && ghostConfig.families.length > 0 && (

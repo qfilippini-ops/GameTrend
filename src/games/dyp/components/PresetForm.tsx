@@ -7,6 +7,8 @@ import Image from "next/image";
 import type { PresetFormProps } from "@/types/adapters";
 import type { DYPConfig, DYPCard } from "@/types/games";
 import { getValidBracketSizes } from "@/games/dyp/engine";
+import { compressImage, ModerationError } from "@/lib/compressImage";
+import ModerationPopup from "@/components/ui/ModerationPopup";
 
 const EMPTY_CONFIG: DYPConfig = { cards: [] };
 
@@ -34,6 +36,14 @@ export default function DYPPresetForm({
   const [uploading, setUploading] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const coverRef = useRef<HTMLInputElement>(null);
+  // Popup modération NSFW
+  const [nsfwFields, setNsfwFields] = useState<string[]>([]);
+  const [nsfwPopupVisible, setNsfwPopupVisible] = useState(false);
+
+  function showNsfwPopup(fieldName: string) {
+    setNsfwFields((prev) => [...prev, fieldName]);
+    setNsfwPopupVisible(true);
+  }
 
   const validSizes = getValidBracketSizes(cards.length);
   const nextValidSize = [2, 4, 8, 16, 32, 64, 128].find((s) => s > cards.length);
@@ -55,19 +65,37 @@ export default function DYPPresetForm({
     try {
       const url = await uploadImage(file);
       updateCard(cardId, { imageUrl: url });
-    } catch {
-      setError("Erreur upload image");
+    } catch (err) {
+      if (err instanceof ModerationError) {
+        const card = cards.find((c) => c.id === cardId);
+        const label = card?.name?.trim() ? `Carte "${card.name}"` : "Carte sans nom";
+        showNsfwPopup(label);
+      } else {
+        setError("Erreur upload image");
+      }
     } finally {
       setUploading((prev) => { const n = new Set(prev); n.delete(cardId); return n; });
     }
   }
 
-  function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCoverFile(file);
-    const url = URL.createObjectURL(file);
-    setCoverPreview(url);
+
+    const blobUrl = URL.createObjectURL(file);
+    setCoverPreview(blobUrl);
+    setCoverFile(null);
+
+    try {
+      const compressed = await compressImage(file, { maxWidthOrHeight: 1200, maxSizeMB: 0.5, moderate: true });
+      setCoverFile(compressed);
+    } catch (err) {
+      URL.revokeObjectURL(blobUrl);
+      setCoverPreview(null);
+      if (err instanceof ModerationError) {
+        showNsfwPopup("Couverture");
+      }
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -283,6 +311,13 @@ export default function DYPPresetForm({
       >
         {loading ? "Sauvegarde…" : "Sauvegarder le preset ✨"}
       </button>
+
+      {nsfwPopupVisible && (
+        <ModerationPopup
+          fields={nsfwFields}
+          onClose={() => setNsfwPopupVisible(false)}
+        />
+      )}
     </form>
   );
 }

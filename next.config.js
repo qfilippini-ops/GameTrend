@@ -12,9 +12,6 @@ const withPWA = require("@ducanh2912/next-pwa").default({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Les types générés Supabase ne reflètent pas exactement le schéma étendu
-  // (RPCs, tables ajoutées après génération). On désactive le check TS au build
-  // Vercel uniquement ; le code reste typé en dev, le runtime est identique.
   typescript: {
     ignoreBuildErrors: true,
   },

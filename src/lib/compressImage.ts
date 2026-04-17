@@ -1,4 +1,5 @@
 import imageCompression from "browser-image-compression";
+import { moderateImage } from "./moderateImage";
 
 export interface CompressOptions {
   /** Largeur max en pixels (hauteur ajustée proportionnellement). Défaut : 1200 */
@@ -7,13 +8,23 @@ export interface CompressOptions {
   maxSizeMB?: number;
   /** Qualité WebP 0-1 (utilisée uniquement pour la conversion Canvas). Défaut : 0.85 */
   quality?: number;
+  /** Activer la modération NSFW après compression. Défaut : true */
+  moderate?: boolean;
+}
+
+export class ModerationError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = "ModerationError";
+  }
 }
 
 /**
- * Compresse une image côté navigateur et la convertit en WebP si supporté.
- * Retourne un File prêt à uploader vers Supabase Storage.
+ * Compresse une image côté navigateur, la convertit en WebP, puis lance la modération NSFW.
+ * La compression se fait EN PREMIER pour que le buffer envoyé au serveur soit < 0.5 MB
+ * (limite de la Server Action Next.js).
  *
- * Fallback automatique vers le fichier original si une erreur survient.
+ * Lève une `ModerationError` si l'image est inappropriée.
  */
 export async function compressImage(
   file: File,
@@ -23,7 +34,10 @@ export async function compressImage(
     maxWidthOrHeight = 1200,
     maxSizeMB = 0.5,
     quality = 0.85,
+    moderate = true,
   } = options;
+
+  let webpFile: File = file;
 
   try {
     // ── Étape 1 : compression via browser-image-compression ───────
@@ -31,12 +45,11 @@ export async function compressImage(
       maxSizeMB,
       maxWidthOrHeight,
       useWebWorker: true,
-      // Preserve EXIF uniquement si l'image est déjà orientée correctement
       exifOrientation: -1,
     });
 
-    // ── Étape 2 : conversion WebP via Canvas (si supporté) ────────
-    const webpFile = await toWebP(compressed, quality);
+    // ── Étape 2 : conversion WebP via Canvas ──────────────────────
+    webpFile = await toWebP(compressed, quality);
 
     const originalKB = Math.round(file.size / 1024);
     const finalKB = Math.round(webpFile.size / 1024);
@@ -44,12 +57,22 @@ export async function compressImage(
       `[compressImage] ${file.name} : ${originalKB} KB → ${finalKB} KB` +
       ` (−${Math.round((1 - finalKB / originalKB) * 100)}%)`
     );
-
-    return webpFile;
   } catch (err) {
     console.warn("[compressImage] Échec compression, fichier original utilisé :", err);
-    return file;
+    webpFile = file;
   }
+
+  // ── Étape 3 : modération NSFW sur le fichier compressé (toujours < 0.5 MB) ──
+  if (moderate) {
+    const result = await moderateImage(webpFile);
+    if (!result.safe) {
+      throw new ModerationError(
+        result.reason ?? "Cette image contient du contenu inapproprié."
+      );
+    }
+  }
+
+  return webpFile;
 }
 
 /**
@@ -76,7 +99,6 @@ async function toWebP(file: File, quality: number): Promise<File> {
         (blob) => {
           if (!blob) { resolve(file); return; }
 
-          // Vérifier que le navigateur a bien produit du WebP
           if (!blob.type.includes("webp")) {
             resolve(file);
             return;

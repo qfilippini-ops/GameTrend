@@ -6,6 +6,7 @@ import ActiveRoomBadge from "@/components/ActiveRoomBadge";
 import KickedToast from "@/components/KickedToast";
 import Heartbeat from "@/components/Heartbeat";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
+import CookieBanner from "@/components/CookieBanner";
 import { Suspense } from "react";
 
 const inter = Inter({
@@ -62,6 +63,7 @@ export default function RootLayout({
         <body className="min-h-screen">
         <Suspense><KickedToast /></Suspense>
         <Suspense><PWAInstallBanner /></Suspense>
+        <CookieBanner />
         <Heartbeat />
         <main className="pb-24 max-w-lg mx-auto">{children}</main>
         <BottomNav />

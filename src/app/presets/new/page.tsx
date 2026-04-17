@@ -24,10 +24,11 @@ function NewPresetPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function uploadWordImage(file: File): Promise<string> {
+  async function safeUploadWordImage(file: File): Promise<string> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Non connecté");
+    // La modération est déjà faite dans compressImage, on laisse l'erreur remonter au PresetForm
     const optimized = await compressImage(file, { maxWidthOrHeight: 800, maxSizeMB: 0.3 });
     const ext = optimized.name.split(".").pop();
     const path = `${user.id}/words/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -58,10 +59,10 @@ function NewPresetPageContent() {
     let coverUrl: string | null = null;
 
     if (data.coverFile) {
-      const optimizedCover = await compressImage(data.coverFile, { maxWidthOrHeight: 1200, maxSizeMB: 0.5 });
-      const ext = optimizedCover.name.split(".").pop();
+      // La cover est déjà compressée + modérée par PresetForm à la sélection
+      const ext = data.coverFile.name.split(".").pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from("covers").upload(path, optimizedCover);
+      const { error: uploadError } = await supabase.storage.from("covers").upload(path, data.coverFile);
 
       if (uploadError) {
         setError(`Erreur upload image : ${uploadError.message}`);
@@ -164,7 +165,7 @@ function NewPresetPageContent() {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18 }}
           >
-            <PresetForm onSave={handleSave} uploadImage={uploadWordImage} loading={loading} />
+            <PresetForm onSave={handleSave} uploadImage={safeUploadWordImage} loading={loading} />
           </motion.div>
         </AnimatePresence>
 

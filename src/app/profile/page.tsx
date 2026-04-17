@@ -12,6 +12,8 @@ import DeletePresetButton from "@/components/presets/DeletePresetButton";
 import { useAuth } from "@/hooks/useAuth";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import type { Preset, Profile } from "@/types/database";
+import LegalModal from "@/components/legal/LegalModal";
+import type { LegalType } from "@/components/legal/LegalModal";
 
 type Tab = "mes-presets" | "favoris";
 
@@ -24,6 +26,7 @@ export default function ProfilePage() {
   const [favoritePresets, setFavoritePresets] = useState<Preset[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("mes-presets");
+  const [legalModal, setLegalModal] = useState<LegalType | null>(null);
 
   const displayProfile = { ...profile, ...localProfile };
 
@@ -282,7 +285,183 @@ export default function ProfilePage() {
           )}
         </motion.div>
 
+        {/* ── Section légale & compte ── */}
+        {legalModal && <LegalModal type={legalModal} onClose={() => setLegalModal(null)} />}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-2xl border border-surface-800/60 bg-surface-900/30 overflow-hidden group/legal"
+        >
+          <details>
+            <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none hover:bg-surface-800/20 transition-colors">
+              <p className="text-surface-500 text-xs uppercase tracking-widest font-medium">Informations & compte</p>
+              <span className="text-surface-600 text-xs transition-transform details-open:rotate-180">▼</span>
+            </summary>
+            <div className="divide-y divide-surface-800/30 border-t border-surface-800/40">
+              {([
+                { type: "cgu" as LegalType, label: "Conditions générales d'utilisation", emoji: "📋" },
+                { type: "privacy" as LegalType, label: "Politique de confidentialité", emoji: "🔒" },
+                { type: "cgv" as LegalType, label: "Conditions de vente (abonnement)", emoji: "💳" },
+                { type: "mentions" as LegalType, label: "Mentions légales", emoji: "ℹ️" },
+              ]).map(({ type, label, emoji }) => (
+                <button
+                  key={type}
+                  onClick={() => setLegalModal(type)}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-800/30 transition-colors text-left"
+                >
+                  <span className="text-base shrink-0">{emoji}</span>
+                  <span className="flex-1 text-surface-300 text-sm">{label}</span>
+                  <span className="text-surface-600 text-xs">›</span>
+                </button>
+              ))}
+              <a
+                href="mailto:contact@gametrend.fr"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-surface-800/30 transition-colors"
+              >
+                <span className="text-base shrink-0">✉️</span>
+                <span className="flex-1 text-surface-300 text-sm">Contacter le support</span>
+                <span className="text-surface-600 text-xs">›</span>
+              </a>
+            </div>
+          </details>
+        </motion.div>
+
+        {/* ── Données personnelles ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="rounded-2xl border border-surface-800/60 bg-surface-900/30 overflow-hidden"
+        >
+          <details>
+            <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none hover:bg-surface-800/20 transition-colors">
+              <p className="text-surface-500 text-xs uppercase tracking-widest font-medium">Mes données (RGPD)</p>
+              <span className="text-surface-600 text-xs">▼</span>
+            </summary>
+            <div className="divide-y divide-surface-800/30 border-t border-surface-800/40">
+              <ExportDataButton />
+              <DeleteAccountButton userId={user.id} onDeleted={signOut} />
+            </div>
+          </details>
+        </motion.div>
+
       </div>
     </div>
+  );
+}
+
+function ExportDataButton() {
+  const [loading, setLoading] = useState(false);
+
+  async function handleExport() {
+    setLoading(true);
+    const supabase = createClient();
+    const { data: { user: u } } = await supabase.auth.getUser();
+    if (!u) { setLoading(false); return; }
+
+    const [
+      { data: profile },
+      { data: presets },
+      { data: dypResults },
+    ] = await Promise.all([
+      supabase.from("profiles").select("id, username, bio, avatar_url, created_at, cgu_accepted_at, cgu_version").eq("id", u.id).single(),
+      supabase.from("presets").select("id, name, description, game_type, is_public, play_count, created_at, config").eq("author_id", u.id),
+      supabase.from("dyp_results").select("id, preset_id, bracket_size, rankings, created_at").eq("player_id", u.id),
+    ]);
+
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      rgpd_info: "Export de vos données personnelles conformément au RGPD art. 20 (droit à la portabilité).",
+      account: {
+        email: u.email,
+        ...profile,
+      },
+      presets_created: presets ?? [],
+      dyp_results: dypResults ?? [],
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gametrend-mes-donnees-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setLoading(false);
+  }
+
+  return (
+    <button
+      onClick={handleExport}
+      disabled={loading}
+      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface-800/30 transition-colors text-left disabled:opacity-50"
+    >
+      <span className="text-base shrink-0">📥</span>
+      <span className="flex-1 text-surface-300 text-sm">{loading ? "Préparation…" : "Exporter mes données"}</span>
+      <span className="text-surface-600 text-xs">JSON</span>
+    </button>
+  );
+}
+
+function DeleteAccountButton({ userId, onDeleted }: { userId: string; onDeleted: () => void }) {
+  const [confirm, setConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleDelete() {
+    setLoading(true);
+    const supabase = createClient();
+    // Supprimer les presets et leur contenu (cascade via RLS + storage)
+    const { data: presets } = await supabase.from("presets").select("id, cover_url").eq("author_id", userId);
+    if (presets) {
+      const paths = presets.map((p) => p.cover_url).filter(Boolean).map((url) => {
+        const parts = url.split("/covers/");
+        return parts[1] ?? null;
+      }).filter(Boolean) as string[];
+      if (paths.length) await supabase.storage.from("covers").remove(paths);
+      await supabase.from("presets").delete().eq("author_id", userId);
+    }
+    // Supprimer l'avatar
+    await supabase.storage.from("avatars").remove([`${userId}/avatar.webp`]);
+    // Supprimer le profil
+    await supabase.from("profiles").delete().eq("id", userId);
+    // Déconnecter
+    await supabase.auth.signOut();
+    onDeleted();
+  }
+
+  if (confirm) {
+    return (
+      <div className="px-4 py-4 space-y-2">
+        <p className="text-red-400 text-sm font-medium">⚠️ Cette action est irréversible.</p>
+        <p className="text-surface-500 text-xs">Tous tes presets, données et historique seront supprimés définitivement.</p>
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => setConfirm(false)}
+            className="flex-1 py-2.5 rounded-xl bg-surface-800 text-surface-300 text-sm font-medium"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-red-900/60 border border-red-700/40 text-red-300 text-sm font-bold disabled:opacity-50"
+          >
+            {loading ? "Suppression…" : "Confirmer"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirm(true)}
+      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-950/20 transition-colors text-left"
+    >
+      <span className="text-base shrink-0">🗑️</span>
+      <span className="flex-1 text-red-500/70 text-sm">Supprimer mon compte</span>
+      <span className="text-surface-600 text-xs">›</span>
+    </button>
   );
 }

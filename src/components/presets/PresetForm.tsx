@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { vibrate } from "@/lib/utils";
 import { v4 as uuidv4 } from "uuid";
 import type { GhostWordConfig, WordFamily, WordItem } from "@/types/games";
+import { compressImage, ModerationError } from "@/lib/compressImage";
+import ModerationPopup from "@/components/ui/ModerationPopup";
 
 interface InitialData {
   name: string;
@@ -66,6 +68,14 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
   const [expandedFamily, setExpandedFamily] = useState<string | null>(
     config.families[0]?.id ?? null
   );
+  // Popup modération NSFW
+  const [nsfwFields, setNsfwFields] = useState<string[]>([]);
+  const [nsfwPopupVisible, setNsfwPopupVisible] = useState(false);
+
+  function showNsfwPopup(fieldName: string) {
+    setNsfwFields((prev) => [...prev, fieldName]);
+    setNsfwPopupVisible(true);
+  }
 
   // ── Familles ──────────────────────────────────────────────────────────────
 
@@ -155,9 +165,14 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
       try {
         const permanentUrl = await uploadImage(file);
         updateWord(familyId, wordId, "imageUrl", permanentUrl);
-      } catch {
-        // Upload échoué → on retire l'image pour ne pas persister une blob URL
+      } catch (err) {
         updateWord(familyId, wordId, "imageUrl", "");
+        if (err instanceof ModerationError) {
+          const family = config.families.find((f) => f.id === familyId);
+          const word = family?.words.find((w) => w.id === wordId);
+          const label = word?.name?.trim() ? `Carte "${word.name}"` : "Carte sans nom";
+          showNsfwPopup(label);
+        }
       } finally {
         URL.revokeObjectURL(blobUrl);
         setUploadingWords((prev) => {
@@ -171,11 +186,26 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
 
   // ── Cover ─────────────────────────────────────────────────────────────────
 
-  function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setCoverFile(file);
-    setCoverPreview(URL.createObjectURL(file));
+
+    // Prévisualisation immédiate
+    const blobUrl = URL.createObjectURL(file);
+    setCoverPreview(blobUrl);
+    setCoverFile(undefined);
+
+    // Compression + modération (la compression réduit le fichier avant l'envoi au serveur)
+    try {
+      const compressed = await compressImage(file, { maxWidthOrHeight: 1200, maxSizeMB: 0.5, moderate: true });
+      setCoverFile(compressed);
+    } catch (err) {
+      URL.revokeObjectURL(blobUrl);
+      setCoverPreview(null);
+      if (err instanceof ModerationError) {
+        showNsfwPopup("Couverture");
+      }
+    }
   }
 
   // ── Validation ────────────────────────────────────────────────────────────
@@ -449,6 +479,13 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
       >
         {loading ? "Sauvegarde…" : hasUploadsInProgress ? "Upload en cours…" : "Sauvegarder le preset ✨"}
       </button>
+
+      {nsfwPopupVisible && (
+        <ModerationPopup
+          fields={nsfwFields}
+          onClose={() => setNsfwPopupVisible(false)}
+        />
+      )}
     </form>
   );
 }
