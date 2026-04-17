@@ -9,6 +9,7 @@ import ShareButton from "./ShareButton";
 import FavoriteButton from "@/components/presets/FavoriteButton";
 import DeletePresetButton from "@/components/presets/DeletePresetButton";
 import ReportButton from "@/components/presets/ReportButton";
+import PresetComments from "@/components/presets/PresetComments";
 
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
   ghostword: { icon: "👻", name: "GhostWord", color: "from-ghost-900/80 to-brand-900/60", gameHref: (id) => `/games/ghostword?presetId=${id}` },
@@ -419,6 +420,11 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
             </details>
           </div>
         )}
+
+        {/* ── Commentaires ── */}
+        <div className="pt-2 border-t border-surface-800/60">
+          <PresetComments presetId={preset.id} />
+        </div>
 
         {/* ── Actions owner ── */}
         {isOwner && (

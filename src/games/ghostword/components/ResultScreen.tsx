@@ -2,12 +2,15 @@
 
 import { motion } from "framer-motion";
 import type { GhostWordGameState, GhostWordConfig } from "@/types/games";
+import ShareResultButton from "@/components/social/ShareResultButton";
 
 interface ResultScreenProps {
   state: GhostWordGameState;
   config: GhostWordConfig;
   onPlayAgain: () => void;
   onGoHome: () => void;
+  presetId?: string | null;
+  presetName?: string | null;
 }
 
 const ROLE_STYLES: Record<string, { border: string; bg: string; dot: string; label: string; emoji: string }> = {
@@ -16,7 +19,7 @@ const ROLE_STYLES: Record<string, { border: string; bg: string; dot: string; lab
   vide:   { border: "border-surface-700/30", bg: "bg-surface-900/30", dot: "bg-surface-500", label: "Le Vide", emoji: "💨" },
 };
 
-export default function ResultScreen({ state, config, onPlayAgain, onGoHome }: ResultScreenProps) {
+export default function ResultScreen({ state, config, onPlayAgain, onGoHome, presetId, presetName }: ResultScreenProps) {
   const winner = state.winner!;
   const winnerName = config.roles[winner].name;
   const winningPlayers = state.players.filter((p) => p.role === winner);
@@ -177,6 +180,22 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome }: R
         >
           Rejouer 🔄
         </button>
+
+        <ShareResultButton
+          result={{
+            gameType: "ghostword",
+            presetId: presetId ?? null,
+            presetName: presetName ?? null,
+            resultData: {
+              winner,
+              winnerLabel: winnerName,
+              winningPlayers: winningPlayers.map((p) => p.name),
+              players: state.players.map((p) => ({ name: p.name, role: p.role, eliminated: p.isEliminated })),
+            },
+          }}
+          shareText={`J'ai gagné une partie de GhostWord : ${winnerName} ${winnerEmoji} ! Viens jouer avec moi sur GameTrend.`}
+        />
+
         <button
           onClick={onGoHome}
           className="w-full bg-surface-800/50 hover:bg-surface-700/50 text-surface-200 font-semibold py-4 rounded-2xl transition-colors border border-surface-700/40 text-sm"

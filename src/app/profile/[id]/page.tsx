@@ -8,7 +8,10 @@ import { useAuth } from "@/hooks/useAuth";
 import Header from "@/components/layout/Header";
 import Avatar from "@/components/ui/Avatar";
 import FriendButton from "@/components/social/FriendButton";
+import FollowButton from "@/components/social/FollowButton";
+import CreatorStats from "@/components/profile/CreatorStats";
 import PresetCard from "@/components/presets/PresetCard";
+import Link from "next/link";
 import type { Preset } from "@/types/database";
 
 interface PublicProfile {
@@ -17,6 +20,8 @@ interface PublicProfile {
   avatar_url: string | null;
   bio: string | null;
   stats: Record<string, number>;
+  followers_count: number;
+  following_count: number;
 }
 
 export default function PublicProfilePage() {
@@ -42,7 +47,7 @@ export default function PublicProfilePage() {
     async function load() {
       const { data: p } = await supabase
         .from("profiles")
-        .select("id, username, avatar_url, bio, stats")
+        .select("id, username, avatar_url, bio, stats, followers_count, following_count")
         .eq("id", id)
         .maybeSingle();
 
@@ -128,12 +133,18 @@ export default function PublicProfilePage() {
                 {profile.username ?? "Joueur Anonyme"}
               </h1>
 
-              {/* Infos sociales */}
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {/* Compteurs followers / following */}
+              <div className="flex items-center gap-4 mt-2 text-xs">
+                <Link href={`/profile/${profile.id}/followers`} className="flex items-baseline gap-1.5 hover:text-white transition-colors">
+                  <span className="text-white font-bold text-sm">{profile.followers_count}</span>
+                  <span className="text-surface-400">abonnés</span>
+                </Link>
+                <Link href={`/profile/${profile.id}/following`} className="flex items-baseline gap-1.5 hover:text-white transition-colors">
+                  <span className="text-white font-bold text-sm">{profile.following_count}</span>
+                  <span className="text-surface-400">abonnements</span>
+                </Link>
                 {mutualCount !== null && mutualCount > 0 && (
-                  <span className="text-xs text-surface-400">
-                    {mutualCount} ami{mutualCount > 1 ? "s" : ""} en commun
-                  </span>
+                  <span className="text-surface-500">·  {mutualCount} ami{mutualCount > 1 ? "s" : ""} en commun</span>
                 )}
               </div>
 
@@ -141,12 +152,16 @@ export default function PublicProfilePage() {
                 <p className="text-surface-400 text-sm mt-2 leading-snug">{profile.bio}</p>
               )}
 
-              {/* FriendButton */}
-              {isLoggedIn && (
-                <div className="mt-3">
-                  <FriendButton targetUserId={profile.id} />
-                </div>
-              )}
+              {/* Boutons sociaux */}
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <FollowButton
+                  targetUserId={profile.id}
+                  onChange={(isFollowing) => {
+                    setProfile((p) => p ? { ...p, followers_count: p.followers_count + (isFollowing ? 1 : -1) } : p);
+                  }}
+                />
+                {isLoggedIn && <FriendButton targetUserId={profile.id} />}
+              </div>
             </div>
           </div>
         </motion.div>
@@ -185,6 +200,9 @@ export default function PublicProfilePage() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Stats créateur (uniquement si presets publics) */}
+        <CreatorStats userId={profile.id} followersCount={profile.followers_count} />
 
         {/* Presets publics */}
         {presets.length > 0 && (

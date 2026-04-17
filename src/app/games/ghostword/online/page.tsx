@@ -21,6 +21,7 @@ function OnlineLobbyContent() {
   const [displayName, setDisplayName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [speakerDuration, setSpeakerDuration] = useState(30);
+  const [isPrivate, setIsPrivate] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -44,6 +45,7 @@ function OnlineLobbyContent() {
         ombrePercent,
         discussionTurns,
         speakerDuration,
+        isPrivate,
       });
       if ("error" in res) {
         setError(res.error);
@@ -257,6 +259,42 @@ function OnlineLobbyContent() {
             </div>
             <div className="text-xs text-surface-600 text-center">
               Config héritée du lobby · {discussionTurns} tour{discussionTurns > 1 ? "s" : ""} · Ombre {ombrePercent}%
+            </div>
+          </motion.div>
+        )}
+
+        {/* Visibilité du salon */}
+        {tab === "create" && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-surface-700/40 bg-surface-900/50 p-4 space-y-3"
+          >
+            <div>
+              <p className="text-white font-display font-bold text-sm">🌐 Visibilité du salon</p>
+              <p className="text-surface-500 text-xs mt-0.5">
+                {isPrivate
+                  ? "Privé : seules les personnes avec le code peuvent rejoindre."
+                  : "Public : visible dans le feed Explorer pour tout le monde."}
+              </p>
+            </div>
+            <div className="flex bg-surface-800/60 rounded-xl p-1 gap-1">
+              <button
+                onClick={() => setIsPrivate(true)}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                  isPrivate ? "bg-surface-700 text-white" : "text-surface-500 hover:text-white"
+                }`}
+              >
+                🔒 Privé
+              </button>
+              <button
+                onClick={() => setIsPrivate(false)}
+                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                  !isPrivate ? "bg-brand-600 text-white" : "text-surface-500 hover:text-white"
+                }`}
+              >
+                🌐 Public
+              </button>
             </div>
           </motion.div>
         )}

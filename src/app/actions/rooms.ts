@@ -50,6 +50,7 @@ export async function createRoom(options: {
   ombrePercent: number;
   discussionTurns: number;
   speakerDuration: number;
+  isPrivate?: boolean;
 }): Promise<{ code: string } | { error: string }> {
   try {
     const supabase = createClient();
@@ -74,6 +75,7 @@ export async function createRoom(options: {
       },
       discussion_turns_per_round: options.discussionTurns,
       speaker_duration_seconds: options.speakerDuration,
+      is_private: options.isPrivate ?? true,
     });
     if (roomErr) {
       console.error("[createRoom] game_rooms insert:", roomErr);

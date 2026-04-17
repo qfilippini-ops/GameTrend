@@ -11,6 +11,7 @@ import PresetCard from "@/components/presets/PresetCard";
 import DeletePresetButton from "@/components/presets/DeletePresetButton";
 import { useAuth } from "@/hooks/useAuth";
 import EditProfileModal from "@/components/profile/EditProfileModal";
+import CreatorStats from "@/components/profile/CreatorStats";
 import type { Preset, Profile } from "@/types/database";
 import LegalModal from "@/components/legal/LegalModal";
 import type { LegalType } from "@/components/legal/LegalModal";
@@ -145,6 +146,19 @@ export default function ProfilePage() {
                 {displayProfile?.username ?? "Joueur"}
               </h1>
               <p className="text-surface-600 text-xs mt-0.5 truncate">{user.email}</p>
+
+              {/* Compteurs sociaux */}
+              <div className="flex items-center gap-4 mt-2 text-xs">
+                <Link href={`/profile/${user.id}/followers`} className="flex items-baseline gap-1.5 hover:text-white transition-colors">
+                  <span className="text-white font-bold text-sm">{(displayProfile as { followers_count?: number })?.followers_count ?? 0}</span>
+                  <span className="text-surface-400">abonnés</span>
+                </Link>
+                <Link href={`/profile/${user.id}/following`} className="flex items-baseline gap-1.5 hover:text-white transition-colors">
+                  <span className="text-white font-bold text-sm">{(displayProfile as { following_count?: number })?.following_count ?? 0}</span>
+                  <span className="text-surface-400">abonnements</span>
+                </Link>
+              </div>
+
               {displayProfile?.bio && (
                 <p className="text-surface-400 text-sm mt-2.5 leading-relaxed line-clamp-3 border-t border-surface-800/60 pt-2.5">
                   {displayProfile.bio}
@@ -165,6 +179,9 @@ export default function ProfilePage() {
             }}
           />
         )}
+
+        {/* ── Stats créateur ───────────────────────────────────────────────── */}
+        <CreatorStats userId={user.id} followersCount={(displayProfile as { followers_count?: number })?.followers_count ?? 0} />
 
         {/* ── Stats ────────────────────────────────────────────────────────── */}
         <motion.div
@@ -383,7 +400,7 @@ function ExportDataButton() {
       { data: presets },
       { data: dypResults },
     ] = await Promise.all([
-      supabase.from("profiles").select("id, username, bio, avatar_url, created_at, cgu_accepted_at, cgu_version").eq("id", u.id).single(),
+      supabase.from("profiles").select("id, username, bio, avatar_url, created_at, cgu_accepted_at, cgu_version, followers_count, following_count").eq("id", u.id).single(),
       supabase.from("presets").select("id, name, description, game_type, is_public, play_count, created_at, config").eq("author_id", u.id),
       supabase.from("dyp_results").select("id, preset_id, bracket_size, rankings, created_at").eq("player_id", u.id),
     ]);

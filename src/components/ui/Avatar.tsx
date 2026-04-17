@@ -3,11 +3,12 @@ import Image from "next/image";
 interface AvatarProps {
   src?: string | null;
   name?: string | null;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
 const sizes = {
+  xs: { container: "w-6 h-6", text: "text-[10px]" },
   sm: { container: "w-8 h-8", text: "text-xs" },
   md: { container: "w-10 h-10", text: "text-sm" },
   lg: { container: "w-14 h-14", text: "text-lg" },

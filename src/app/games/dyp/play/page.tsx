@@ -7,6 +7,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { castVote, continueToNextRound, getFinalRankings } from "@/games/dyp/engine";
 import type { DYPGameState, DYPCard } from "@/types/games";
+import ShareResultButton from "@/components/social/ShareResultButton";
 
 const GAME_KEY = "dyp:current_game";
 
@@ -360,6 +361,22 @@ export default function DYPPlayPage() {
               📋 Voir le preset
             </button>
           )}
+
+          {/* Partage du résultat */}
+          <ShareResultButton
+            result={{
+              gameType: "dyp",
+              presetId: state.presetId ?? null,
+              presetName: null,
+              resultData: {
+                champion: { id: state.champion.id, name: state.champion.name, imageUrl: state.champion.imageUrl ?? null },
+                bracketSize: state.bracketSize,
+                top3: rankings.slice(0, 3).map((r) => ({ name: r.card.name, position: r.position })),
+              },
+            }}
+            shareText={`Mon champion DYP : ${state.champion.name} 🏆 — Viens jouer sur GameTrend !`}
+            shareUrl={state.presetId ? `${typeof window !== "undefined" ? window.location.origin : ""}/presets/${state.presetId}` : undefined}
+          />
 
           {state.presetId && !resultsSaved && (
             <p className="text-surface-700 text-xs text-center">Sauvegarde des stats…</p>

@@ -18,6 +18,8 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           stats: Json;
+          followers_count: number;
+          following_count: number;
         };
         Insert: {
           id: string;
@@ -27,6 +29,8 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           stats?: Json;
+          followers_count?: number;
+          following_count?: number;
         };
         Update: {
           id?: string;
@@ -36,6 +40,100 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           stats?: Json;
+          followers_count?: number;
+          following_count?: number;
+        };
+      };
+      follows: {
+        Row: {
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+        };
+        Insert: {
+          follower_id: string;
+          following_id: string;
+          created_at?: string;
+        };
+        Update: {
+          follower_id?: string;
+          following_id?: string;
+          created_at?: string;
+        };
+      };
+      preset_comments: {
+        Row: {
+          id: string;
+          preset_id: string;
+          author_id: string;
+          content: string;
+          score: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          preset_id: string;
+          author_id: string;
+          content: string;
+          score?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          preset_id?: string;
+          author_id?: string;
+          content?: string;
+          score?: number;
+          created_at?: string;
+        };
+      };
+      comment_votes: {
+        Row: {
+          comment_id: string;
+          user_id: string;
+          vote: number;
+        };
+        Insert: {
+          comment_id: string;
+          user_id: string;
+          vote: number;
+        };
+        Update: {
+          comment_id?: string;
+          user_id?: string;
+          vote?: number;
+        };
+      };
+      game_results: {
+        Row: {
+          id: string;
+          user_id: string;
+          game_type: string;
+          preset_id: string | null;
+          preset_name: string | null;
+          result_data: Json;
+          is_shared: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          game_type: string;
+          preset_id?: string | null;
+          preset_name?: string | null;
+          result_data?: Json;
+          is_shared?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          game_type?: string;
+          preset_id?: string | null;
+          preset_name?: string | null;
+          result_data?: Json;
+          is_shared?: boolean;
+          created_at?: string;
         };
       };
       presets: {

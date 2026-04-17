@@ -22,6 +22,7 @@ function GhostWordPlayContent() {
   const router = useRouter();
   const [gameState, setGameState] = useState<GhostWordGameState | null>(null);
   const [activeConfig, setActiveConfig] = useState<GhostWordConfig>(DEFAULT_CONFIG);
+  const [activePreset, setActivePreset] = useState<{ id: string; name: string } | null>(null);
   const [showingReveal, setShowingReveal] = useState(false);
   // Évite de tracker la stat plusieurs fois si le composant re-rend
   const [statTracked, setStatTracked] = useState(false);
@@ -50,10 +51,10 @@ function GhostWordPlayContent() {
             const supabase = createClient();
             const { data: presetsRaw } = await supabase
               .from("presets")
-              .select("id, config")
+              .select("id, name, config")
               .in("id", ids);
 
-            const presets = (presetsRaw ?? []) as Array<{ id: string; config: unknown }>;
+            const presets = (presetsRaw ?? []) as Array<{ id: string; name: string; config: unknown }>;
             const validPresets = presets.filter((p) => {
               const c = p.config as GhostWordConfig;
               return c?.families?.length > 0 && c.families.some((f) => f.words.length >= 2);
@@ -62,7 +63,7 @@ function GhostWordPlayContent() {
             if (validPresets.length > 0) {
               const chosen = validPresets[Math.floor(Math.random() * validPresets.length)];
               config = chosen.config as GhostWordConfig;
-              // Incrémenter play_count du preset sélectionné (fire & forget)
+              setActivePreset({ id: chosen.id, name: chosen.name });
               supabase.rpc("increment_preset_play_count", { p_preset_id: chosen.id } as never);
             }
           }
@@ -169,6 +170,8 @@ function GhostWordPlayContent() {
             config={activeConfig}
             onPlayAgain={handlePlayAgain}
             onGoHome={handleGoHome}
+            presetId={activePreset?.id ?? null}
+            presetName={activePreset?.name ?? null}
           />
         ),
       };
