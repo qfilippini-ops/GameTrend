@@ -33,6 +33,9 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "GameTrend",
   },
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
   openGraph: {
     title: "GameTrend",
     description: "Le hub de jeux sociaux viraux",
