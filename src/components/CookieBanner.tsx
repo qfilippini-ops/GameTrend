@@ -15,6 +15,14 @@ export default function CookieBanner() {
   useEffect(() => {
     const saved = localStorage.getItem(COOKIE_KEY);
     if (!saved) setTimeout(() => setShow(true), 1500);
+
+    // Écoute l'événement déclenché depuis le profil
+    function handleOpen() {
+      setShowDetails(false);
+      setShow(true);
+    }
+    window.addEventListener("open-cookie-settings", handleOpen);
+    return () => window.removeEventListener("open-cookie-settings", handleOpen);
   }, []);
 
   function accept(choice: Consent) {

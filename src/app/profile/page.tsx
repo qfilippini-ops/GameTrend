@@ -340,6 +340,7 @@ export default function ProfilePage() {
               <span className="text-surface-600 text-xs">▼</span>
             </summary>
             <div className="divide-y divide-surface-800/30 border-t border-surface-800/40">
+              <CookieSettingsButton />
               <ExportDataButton />
               <DeleteAccountButton userId={user.id} onDeleted={signOut} />
             </div>
@@ -348,6 +349,23 @@ export default function ProfilePage() {
 
       </div>
     </div>
+  );
+}
+
+function CookieSettingsButton() {
+  function handleOpen() {
+    window.dispatchEvent(new CustomEvent("open-cookie-settings"));
+  }
+
+  return (
+    <button
+      onClick={handleOpen}
+      className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface-800/20 transition-colors text-left"
+    >
+      <span className="text-lg">🍪</span>
+      <span className="flex-1 text-surface-300 text-sm">Gérer mes cookies</span>
+      <span className="text-surface-600 text-xs">→</span>
+    </button>
   );
 }
 
