@@ -33,6 +33,27 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "GameTrend",
+    startupImage: [
+      {
+        url: "/icons/splash.png",
+        media: "(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        url: "/icons/splash.png",
+        media: "(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        url: "/icons/splash.png",
+        media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)",
+      },
+      {
+        url: "/icons/splash.png",
+        media: "(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)",
+      },
+      {
+        url: "/icons/splash.png",
+      },
+    ],
   },
   icons: {
     apple: "/icons/apple-touch-icon.png",
@@ -45,7 +66,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#06070d",
+  themeColor: "#3f2f8d",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
