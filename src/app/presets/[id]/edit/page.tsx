@@ -38,7 +38,7 @@ export default function EditPresetPage() {
 
       const { data: preset } = await supabase
         .from("presets")
-        .select("*")
+        .select("name, description, is_public, config, cover_url, game_type")
         .eq("id", params.id)
         .eq("author_id", user.id)
         .single();

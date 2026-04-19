@@ -1,20 +1,26 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 import PresetCard from "@/components/presets/PresetCard";
 import Header from "@/components/layout/Header";
 import QuickJoinBar from "@/components/QuickJoinBar";
 import { GAMES_REGISTRY } from "@/games/registry";
+import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
 
+// ISR : la page (popular presets) est régénérée au max toutes les 5 min.
+// L'état user reste géré côté client par Header/BottomNav (hydratation),
+// donc on peut cacher le HTML sans risque pour l'auth.
+export const revalidate = 300;
+
 export default async function HomePage() {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("presets")
-    .select("*")
+    .select(PRESET_LIST_COLS)
     .eq("is_public", true)
     .order("play_count", { ascending: false })
     .limit(5);
-  const popularPresets: Preset[] | null = data;
+  const popularPresets: Preset[] | null = data as Preset[] | null;
 
   return (
     <div className="bg-grid min-h-screen">

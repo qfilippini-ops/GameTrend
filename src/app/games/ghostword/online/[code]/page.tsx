@@ -14,6 +14,14 @@ import OnlineResult from "@/games/ghostword/components/online/OnlineResult";
 
 import type { OnlineRoom, RoomPlayer, RoomMessage, RoomVote, ReplayVote } from "@/types/rooms";
 
+// ── Sets de colonnes (limite l'egress Supabase) ─────────────────
+const ROOM_COLS =
+  "id, host_id, game_type, config, phase, reveal_index, discussion_turn, discussion_turns_per_round, current_speaker_index, speaker_started_at, speaker_duration_seconds, vote_round, tie_count, winner, created_at, expires_at";
+const MESSAGE_COLS =
+  "id, room_id, player_name, message, discussion_turn, vote_round, created_at";
+const VOTE_COLS = "room_id, voter_name, target_name, vote_round, created_at";
+const REPLAY_VOTE_COLS = "room_id, player_name, choice, created_at";
+
 // ── Boutons flottants "Quitter" et "Menu" visibles hors lobby ──
 function GameButtons({
   roomId, myName, onBeforeLeave, onLeave, onGoHome,
@@ -256,7 +264,10 @@ export default function RoomPage() {
 
   const roomId = code?.toUpperCase();
 
-  // ── Heartbeat : update last_seen_at toutes les 15s ────────────
+  // ── Heartbeat room : update last_seen_at toutes les 60s ──────────
+  // La présence "live" est déjà gérée par Realtime presence (canal WS),
+  // ce heartbeat ne sert qu'à dater la dernière activité en BDD.
+  // 60s suffit largement, soit 4x moins d'écritures qu'avec 15s.
   useEffect(() => {
     if (!roomId || !myName) return;
     const supabase = createClient();
@@ -268,7 +279,7 @@ export default function RoomPage() {
         .eq("room_id", roomId).eq("user_id", user.id);
     }
     heartbeat();
-    const interval = setInterval(heartbeat, 15000);
+    const interval = setInterval(heartbeat, 60000);
     return () => clearInterval(interval);
   }, [roomId, myName]);
 
@@ -280,7 +291,7 @@ export default function RoomPage() {
       if (user) setMyUserId(user.id);
 
       const { data: roomData, error: roomErr } = await supabase
-        .from("game_rooms").select("*").eq("id", roomId).maybeSingle();
+        .from("game_rooms").select(ROOM_COLS).eq("id", roomId).maybeSingle();
 
       if (!roomData) { setLoadError(`Salon introuvable (${roomErr?.message ?? "RLS"})`); return; }
       setRoom(roomData as OnlineRoom);
@@ -303,14 +314,14 @@ export default function RoomPage() {
         else setLoadError("La partie a déjà commencé");
       }
 
-      const { data: msgs } = await supabase.from("room_messages").select("*")
+      const { data: msgs } = await supabase.from("room_messages").select(MESSAGE_COLS)
         .eq("room_id", roomId).order("created_at");
       setMessages((msgs ?? []) as RoomMessage[]);
 
-      const { data: vts } = await supabase.from("room_votes").select("*").eq("room_id", roomId);
+      const { data: vts } = await supabase.from("room_votes").select(VOTE_COLS).eq("room_id", roomId);
       setVotes((vts ?? []) as RoomVote[]);
 
-      const { data: rvts } = await supabase.from("room_replay_votes").select("*").eq("room_id", roomId);
+      const { data: rvts } = await supabase.from("room_replay_votes").select(REPLAY_VOTE_COLS).eq("room_id", roomId);
       setReplayVotes((rvts ?? []) as ReplayVote[]);
     }
     init();
@@ -353,12 +364,12 @@ export default function RoomPage() {
         (payload) => setMessages((prev) => [...prev, payload.new as RoomMessage]))
       .on("postgres_changes", { event: "*", schema: "public", table: "room_votes", filter: `room_id=eq.${roomId}` },
         async () => {
-          const { data } = await supabase.from("room_votes").select("*").eq("room_id", roomId);
+          const { data } = await supabase.from("room_votes").select(VOTE_COLS).eq("room_id", roomId);
           if (data) setVotes(data as RoomVote[]);
         })
       .on("postgres_changes", { event: "*", schema: "public", table: "room_replay_votes", filter: `room_id=eq.${roomId}` },
         async () => {
-          const { data } = await supabase.from("room_replay_votes").select("*").eq("room_id", roomId);
+          const { data } = await supabase.from("room_replay_votes").select(REPLAY_VOTE_COLS).eq("room_id", roomId);
           if (data) setReplayVotes(data as ReplayVote[]);
         })
       // Presence : qui est en ligne dans ce salon

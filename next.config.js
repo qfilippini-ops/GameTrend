@@ -19,6 +19,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
+    // Désactive l'optimisation Vercel : les images Supabase sont déjà compressées en WebP
+    // côté client avant upload, donc l'optimisation Vercel ferait double emploi et coûterait
+    // du quota (1 000 sources/mois sur Hobby = vite atteint avec un feed actif).
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

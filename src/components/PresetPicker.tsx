@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
+import { PRESET_LIST_SEARCH_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
 
 interface PresetPickerProps {
@@ -50,10 +51,10 @@ export default function PresetPicker({
         if (ids.length === 0) { setFavorites([]); return; }
         const { data: presets } = await supabase
           .from("presets")
-          .select("*")
+          .select(PRESET_LIST_SEARCH_COLS)
           .in("id", ids)
           .eq("game_type", gameType);
-        setFavorites(presets ?? []);
+        setFavorites((presets ?? []) as Preset[]);
       });
   }, [userId]);
 
@@ -68,7 +69,7 @@ export default function PresetPicker({
       const supabase = createClient();
       const { data } = await supabase
         .from("presets")
-        .select("*")
+        .select(PRESET_LIST_SEARCH_COLS)
         .eq("game_type", gameType)
         .ilike("name", `%${q}%`)
         .order("play_count", { ascending: false })
@@ -76,7 +77,7 @@ export default function PresetPicker({
 
       // Filtre client-side supplémentaire sur familles et mots
       const qLow = q.toLowerCase();
-      const all: Preset[] = data ?? [];
+      const all: Preset[] = (data ?? []) as Preset[];
       const extra = all.filter((p) => {
         const cfg = p.config as { families?: Array<{ name: string; words?: Array<{ name: string }> }> } | null;
         if (!cfg?.families) return false;

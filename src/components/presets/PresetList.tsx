@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import PresetCard from "@/components/presets/PresetCard";
 import { GAMES_REGISTRY, getAdapter } from "@/games/registry";
+import { PRESET_LIST_SEARCH_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
 
 const GAME_FILTERS = [
@@ -43,7 +44,7 @@ export default function PresetList() {
 
       let q = supabase
         .from("presets")
-        .select("*")
+        .select(PRESET_LIST_SEARCH_COLS)
         .eq("is_public", true);
 
       if (gameFilter) q = q.eq("game_type", gameFilter);
@@ -55,7 +56,7 @@ export default function PresetList() {
       }
 
       const { data } = await q.limit(100);
-      setAllPresets(data ?? []);
+      setAllPresets((data ?? []) as Preset[]);
       setLoading(false);
     }
 

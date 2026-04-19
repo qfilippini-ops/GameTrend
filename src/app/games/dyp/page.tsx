@@ -12,6 +12,7 @@ import { DYP_META } from "@/games/dyp/config";
 import { DEFAULT_CONFIG, createGame, getValidBracketSizes } from "@/games/dyp/engine";
 import type { DYPConfig } from "@/types/games";
 import type { Preset } from "@/types/database";
+import { PRESET_FULL_COLS } from "@/lib/supabase/columns";
 
 const STORAGE_KEY = "dyp:lobby";
 const GAME_KEY = "dyp:current_game";
@@ -58,7 +59,7 @@ function DYPLobbyPageContent() {
       const supabase = createClient();
       supabase
         .from("presets")
-        .select("*")
+        .select(PRESET_FULL_COLS)
         .eq("id", urlPresetId)
         .maybeSingle()
         .then(({ data }) => {

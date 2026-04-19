@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import CreatorStats from "@/components/profile/CreatorStats";
 import type { Preset, Profile } from "@/types/database";
+import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import LegalModal from "@/components/legal/LegalModal";
 import type { LegalType } from "@/components/legal/LegalModal";
 
@@ -44,7 +45,7 @@ export default function ProfilePage() {
     Promise.all([
       supabase
         .from("presets")
-        .select("*")
+        .select(PRESET_LIST_COLS)
         .eq("author_id", user.id)
         .order("created_at", { ascending: false }),
       supabase
@@ -52,14 +53,14 @@ export default function ProfilePage() {
         .select("preset_id")
         .eq("user_id", user.id),
     ]).then(async ([myRes, likesRes]) => {
-      setMyPresets(myRes.data ?? []);
+      setMyPresets((myRes.data ?? []) as Preset[]);
       const likedIds = (likesRes.data ?? []).map((l) => l.preset_id);
       if (likedIds.length > 0) {
         const { data: favData } = await supabase
           .from("presets")
-          .select("*")
+          .select(PRESET_LIST_COLS)
           .in("id", likedIds);
-        setFavoritePresets(favData ?? []);
+        setFavoritePresets((favData ?? []) as Preset[]);
       }
       setPresetsLoading(false);
     });

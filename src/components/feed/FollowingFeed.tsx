@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -32,56 +32,59 @@ interface ResultData {
   result_data: Record<string, unknown>;
 }
 
+const PAGE_SIZE = 10;
+const SINCE_DAYS = 30;
+
 export default function FollowingFeed() {
   const { user } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [followingCount, setFollowingCount] = useState<number | null>(null);
+  const [followingIds, setFollowingIds] = useState<string[] | null>(null);
+  const [profileMap, setProfileMap] = useState<Map<string, FeedItem["author"]>>(new Map());
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (!user || user.is_anonymous) {
-      setLoading(false);
-      return;
-    }
-
-    async function load() {
+  /**
+   * Récupère une "page" du feed antérieure à `beforeDate` (ou la 1ère page si null).
+   * On surcharge volontairement à PAGE_SIZE pour chaque source : la fusion + tri
+   * permet ensuite de découper proprement et garantit qu'aucun item n'est sauté.
+   */
+  const fetchPage = useCallback(
+    async (
+      ids: string[],
+      pmap: Map<string, FeedItem["author"]>,
+      beforeDate: string | null
+    ): Promise<{ newItems: FeedItem[]; sourceFull: boolean }> => {
       const supabase = createClient();
+      const since = new Date(Date.now() - SINCE_DAYS * 24 * 3600 * 1000).toISOString();
 
-      const { data: follows } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", user!.id);
+      let presetsQ = supabase
+        .from("presets")
+        .select(
+          "id, name, description, game_type, cover_url, play_count, author_id, created_at, is_public"
+        )
+        .in("author_id", ids)
+        .eq("is_public", true)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(PAGE_SIZE);
+      if (beforeDate) presetsQ = presetsQ.lt("created_at", beforeDate);
 
-      const ids = (follows ?? []).map((f) => (f as { following_id: string }).following_id);
-      setFollowingCount(ids.length);
-      if (ids.length === 0) { setLoading(false); return; }
+      let resultsQ = supabase
+        .from("game_results")
+        .select(
+          "id, game_type, preset_id, preset_name, result_data, user_id, created_at, is_shared"
+        )
+        .in("user_id", ids)
+        .eq("is_shared", true)
+        .gte("created_at", since)
+        .order("created_at", { ascending: false })
+        .limit(PAGE_SIZE);
+      if (beforeDate) resultsQ = resultsQ.lt("created_at", beforeDate);
 
-      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-
-      const [presetsRes, resultsRes, profilesRes] = await Promise.all([
-        supabase
-          .from("presets")
-          .select("id, name, description, game_type, cover_url, play_count, author_id, created_at, is_public")
-          .in("author_id", ids)
-          .eq("is_public", true)
-          .gte("created_at", since)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("game_results")
-          .select("id, game_type, preset_id, preset_name, result_data, user_id, created_at, is_shared")
-          .in("user_id", ids)
-          .eq("is_shared", true)
-          .gte("created_at", since)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .in("id", ids),
-      ]);
-
-      const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.id, p]));
+      const [presetsRes, resultsRes] = await Promise.all([presetsQ, resultsQ]);
 
       const presetItems: FeedItem[] = (presetsRes.data ?? []).map((p) => {
         const row = p as PresetData & { author_id: string; created_at: string };
@@ -89,7 +92,12 @@ export default function FollowingFeed() {
           type: "preset",
           id: `preset-${row.id}`,
           created_at: row.created_at,
-          author: profileMap.get(row.author_id) ?? { id: row.author_id, username: null, avatar_url: null },
+          author:
+            pmap.get(row.author_id) ?? {
+              id: row.author_id,
+              username: null,
+              avatar_url: null,
+            },
           data: row,
         };
       });
@@ -100,7 +108,12 @@ export default function FollowingFeed() {
           type: "result",
           id: `result-${row.id}`,
           created_at: row.created_at,
-          author: profileMap.get(row.user_id) ?? { id: row.user_id, username: null, avatar_url: null },
+          author:
+            pmap.get(row.user_id) ?? {
+              id: row.user_id,
+              username: null,
+              avatar_url: null,
+            },
           data: row,
         };
       });
@@ -109,11 +122,100 @@ export default function FollowingFeed() {
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
-      setItems(merged);
+      // Au moins une source a rendu PAGE_SIZE → potentiellement encore des items derrière
+      const sourceFull =
+        (presetsRes.data?.length ?? 0) >= PAGE_SIZE ||
+        (resultsRes.data?.length ?? 0) >= PAGE_SIZE;
+
+      return { newItems: merged, sourceFull };
+    },
+    []
+  );
+
+  // Init : charge follows + profils + 1ère page
+  useEffect(() => {
+    if (!user || user.is_anonymous) {
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    async function init() {
+      const supabase = createClient();
+
+      const { data: follows } = await supabase
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", user!.id);
+
+      if (cancelled) return;
+
+      const ids = (follows ?? []).map((f) => (f as { following_id: string }).following_id);
+      setFollowingCount(ids.length);
+      if (ids.length === 0) {
+        setFollowingIds([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", ids);
+
+      if (cancelled) return;
+
+      const pmap = new Map<string, FeedItem["author"]>(
+        (profiles ?? []).map((p) => [p.id, p as FeedItem["author"]])
+      );
+      setProfileMap(pmap);
+      setFollowingIds(ids);
+
+      const { newItems, sourceFull } = await fetchPage(ids, pmap, null);
+      if (cancelled) return;
+
+      setItems(newItems);
+      setHasMore(sourceFull);
       setLoading(false);
     }
-    load();
-  }, [user]);
+    init();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, fetchPage]);
+
+  // Charge la page suivante en utilisant le dernier item visible comme cursor
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || !followingIds || followingIds.length === 0) return;
+    const last = items[items.length - 1];
+    if (!last) return;
+    setLoadingMore(true);
+    const { newItems, sourceFull } = await fetchPage(followingIds, profileMap, last.created_at);
+    setItems((prev) => {
+      // Dédup au cas où (overlap possible entre presets et results à dates proches)
+      const seen = new Set(prev.map((i) => i.id));
+      const filtered = newItems.filter((i) => !seen.has(i.id));
+      return [...prev, ...filtered];
+    });
+    setHasMore(sourceFull && newItems.length > 0);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, followingIds, profileMap, items, fetchPage]);
+
+  // Auto-load via IntersectionObserver quand le sentinel est visible
+  useEffect(() => {
+    if (!hasMore || loading) return;
+    const node = sentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "200px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadMore]);
 
   if (!user || user.is_anonymous) {
     return (
@@ -171,6 +273,28 @@ export default function FollowingFeed() {
           )}
         </motion.div>
       ))}
+
+      {/* Sentinel pour l'infinite scroll + état de chargement */}
+      {hasMore && (
+        <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
+          {loadingMore ? (
+            <div className="text-2xl animate-pulse">📰</div>
+          ) : (
+            <button
+              onClick={loadMore}
+              className="px-4 py-2 rounded-xl bg-surface-800/60 hover:bg-surface-800 text-surface-300 text-sm font-medium transition-colors"
+            >
+              Charger plus
+            </button>
+          )}
+        </div>
+      )}
+
+      {!hasMore && items.length >= PAGE_SIZE && (
+        <p className="text-center text-surface-700 text-xs py-4">
+          Tu as tout vu pour les 30 derniers jours.
+        </p>
+      )}
     </div>
   );
 }

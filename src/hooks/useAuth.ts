@@ -36,7 +36,9 @@ export function useAuth() {
   async function fetchProfile(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("*")
+      .select(
+        "id, username, avatar_url, bio, stats, followers_count, following_count, last_seen_at, created_at, cgu_accepted_at, cgu_version"
+      )
       .eq("id", userId)
       .single();
     setProfile(data);

@@ -13,6 +13,7 @@ import CreatorStats from "@/components/profile/CreatorStats";
 import PresetCard from "@/components/presets/PresetCard";
 import Link from "next/link";
 import type { Preset } from "@/types/database";
+import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 
 interface PublicProfile {
   id: string;
@@ -57,7 +58,7 @@ export default function PublicProfilePage() {
       // Presets publics
       const { data: ps } = await supabase
         .from("presets")
-        .select("*")
+        .select(PRESET_LIST_COLS)
         .eq("author_id", id)
         .eq("is_public", true)
         .order("created_at", { ascending: false })
