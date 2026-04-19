@@ -1,6 +1,7 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 // Remplace inconditionnellement sessionStorage par une version mémoire.
@@ -61,8 +62,15 @@ const safeStorage: Pick<Storage, "getItem" | "setItem" | "removeItem"> = {
   },
 };
 
+// Singleton : un SEUL client Supabase pour toute l'app browser.
+// Sans ça, chaque appel à createClient() instancie un nouveau client
+// (avec sa propre WebSocket Realtime), ce qui fait planter les `.on()`
+// des canaux partagés et explose la conso mémoire/sockets.
+let clientInstance: SupabaseClient<Database> | null = null;
+
 export function createClient() {
-  return createBrowserClient<Database>(
+  if (clientInstance) return clientInstance;
+  clientInstance = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -76,4 +84,5 @@ export function createClient() {
       },
     }
   );
+  return clientInstance;
 }

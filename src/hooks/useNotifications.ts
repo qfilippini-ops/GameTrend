@@ -1,21 +1,73 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { Notification } from "@/types/social";
 
+// ────────────────────────────────────────────────────────────────
+// État partagé module-level
+// ────────────────────────────────────────────────────────────────
+// Le hook peut être utilisé plusieurs fois sur la même page (BottomNav,
+// NotificationBell, FriendsPage). Pour éviter de multiplier les canaux
+// Realtime (et déclencher l'erreur "cannot add postgres_changes callbacks
+// after subscribe()"), on partage UN canal et UNE liste de subscribers.
+// ────────────────────────────────────────────────────────────────
+
+let sharedChannel: RealtimeChannel | null = null;
+let sharedUserId: string | null = null;
+const refreshSubscribers = new Set<() => void>();
+
+function ensureChannel(userId: string) {
+  // Même utilisateur que le canal courant → rien à faire
+  if (sharedChannel && sharedUserId === userId) return;
+
+  const supabase = createClient();
+
+  // Changement d'utilisateur → on ferme l'ancien
+  if (sharedChannel) {
+    supabase.removeChannel(sharedChannel);
+    sharedChannel = null;
+  }
+
+  sharedUserId = userId;
+  sharedChannel = supabase
+    .channel(`notifications:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${userId}`,
+      },
+      () => {
+        // Notifie tous les hooks abonnés
+        refreshSubscribers.forEach((cb) => {
+          try {
+            cb();
+          } catch {
+            /* ignore */
+          }
+        });
+      }
+    )
+    .subscribe();
+}
+
+// ────────────────────────────────────────────────────────────────
+// Hook
+// ────────────────────────────────────────────────────────────────
 export function useNotifications(userId: string | null) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  // Client stable — évite de recréer un client (et ses channels) à chaque render
-  const supabaseRef = useRef(createClient());
-  const supabase = supabaseRef.current;
-
-  // Ref pour éviter les stale closures dans le callback Realtime
-  const fetchRef = useRef<() => Promise<void>>(async () => {});
+  const supabase = createClient();
 
   const fetchNotifications = useCallback(async () => {
-    if (!userId) { setLoading(false); return; }
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     const { data: notifs } = await supabase
       .from("notifications")
@@ -24,17 +76,26 @@ export function useNotifications(userId: string | null) {
       .order("created_at", { ascending: false })
       .limit(30);
 
-    if (!notifs) { setLoading(false); return; }
+    if (!notifs) {
+      setLoading(false);
+      return;
+    }
 
     const fromIds = [...new Set(notifs.map((n) => n.from_user_id))];
     const { data: profiles } = fromIds.length
-      ? await supabase.from("profiles").select("id, username, avatar_url").in("id", fromIds)
+      ? await supabase
+          .from("profiles")
+          .select("id, username, avatar_url")
+          .in("id", fromIds)
       : { data: [] };
 
     const { data: friendships } = await supabase
       .from("friendships")
       .select("id, requester_id")
-      .in("requester_id", fromIds.length ? fromIds : ["00000000-0000-0000-0000-000000000000"])
+      .in(
+        "requester_id",
+        fromIds.length ? fromIds : ["00000000-0000-0000-0000-000000000000"]
+      )
       .eq("addressee_id", userId)
       .eq("status", "pending");
 
@@ -46,44 +107,23 @@ export function useNotifications(userId: string | null) {
 
     setNotifications(enriched);
     setLoading(false);
-  }, [userId]);
+  }, [userId, supabase]);
 
-  // Garder la ref à jour
+  // Setup : 1 canal partagé + abonnement aux refresh
   useEffect(() => {
-    fetchRef.current = fetchNotifications;
-  }, [fetchNotifications]);
-
-  // Fetch initial
-  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    ensureChannel(userId);
+    refreshSubscribers.add(fetchNotifications);
     fetchNotifications();
-  }, [fetchNotifications]);
-
-  // Realtime — canal dédié, séparé du fetch
-  useEffect(() => {
-    if (!userId) return;
-
-    // Nom unique pour éviter la réutilisation d'un canal déjà subscribed
-    const channelName = `notifications:${userId}:${Date.now()}`;
-
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${userId}`,
-        },
-        () => fetchRef.current()
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      refreshSubscribers.delete(fetchNotifications);
+      // On ne removeChannel pas ici : d'autres consumers peuvent en dépendre.
+      // Le canal est nettoyé uniquement quand on change d'utilisateur.
     };
-  // userId seul en dépendance — le fetchRef gère la fraîcheur de la callback
-  }, [userId]);
+  }, [userId, fetchNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
@@ -115,5 +155,13 @@ export function useNotifications(userId: string | null) {
     await supabase.from("notifications").delete().eq("id", id);
   }
 
-  return { notifications, unreadCount, loading, markAllRead, markRead, deleteNotification, refresh: fetchNotifications };
+  return {
+    notifications,
+    unreadCount,
+    loading,
+    markAllRead,
+    markRead,
+    deleteNotification,
+    refresh: fetchNotifications,
+  };
 }

@@ -22,12 +22,19 @@ export default function OnlineVote({ room, players, votes, messages, myName, pla
 
   const alive = players.filter((p) => !p.is_eliminated);
   const candidates = alive.filter((p) => p.display_name !== myName);
-  const myVote = votes.find((v) => v.voter_name === myName);
-  const votersCount = votes.length;
+
+  // Important : ne considérer QUE les votes du round courant.
+  // Sinon après un tour de prolongation (vote_round + 1), `myVote` trouverait
+  // l'ancien vote et bloquerait le nouveau.
+  const currentRoundVotes = votes.filter((v) => v.vote_round === room.vote_round);
+  const myVote = currentRoundVotes.find((v) => v.voter_name === myName);
+  const votersCount = currentRoundVotes.length;
   const totalAlive = alive.length;
 
   const tally: Record<string, number> = {};
-  votes.forEach((v) => { tally[v.target_name] = (tally[v.target_name] ?? 0) + 1; });
+  currentRoundVotes.forEach((v) => {
+    tally[v.target_name] = (tally[v.target_name] ?? 0) + 1;
+  });
 
   const roundMessages = messages.filter((m) => m.vote_round === room.vote_round);
   const msgByPlayer = (name: string) => roundMessages.filter((m) => m.player_name === name);

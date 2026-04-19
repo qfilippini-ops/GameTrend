@@ -453,7 +453,8 @@ export async function castOnlineVote(
   const topCandidates = Object.entries(tally)
     .filter(([, count]) => count === maxVotes);
 
-  // Égalité → Tour de prolongation : personne n'est éliminé, on re-vote
+  // Égalité → Tour de prolongation : on revient en phase discussion
+  // (les joueurs re-discutent puis re-votent), personne n'est éliminé.
   if (topCandidates.length > 1) {
     const { data: currentRoom } = await supabase
       .from("game_rooms")
@@ -464,10 +465,20 @@ export async function castOnlineVote(
     await supabase
       .from("game_rooms")
       .update({
+        phase: "discussion",
+        discussion_turn: 1,
+        current_speaker_index: 0,
+        speaker_started_at: new Date().toISOString(),
         vote_round: room.vote_round + 1,
         tie_count: (currentRoom?.tie_count ?? 0) + 1,
       })
       .eq("id", roomId);
+
+    // Reset des "ready" : tout le monde doit re-discuter
+    await supabase
+      .from("room_players")
+      .update({ is_ready: false })
+      .eq("room_id", roomId);
 
     return {};
   }
