@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import { vibrate } from "@/lib/utils";
 import { startOnlineGame } from "@/app/actions/rooms";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +23,7 @@ interface RoomWaitingProps {
 }
 
 export default function RoomWaiting({ room, players, myName, isHost, onlineNames, playerAvatars, onVoluntaryLeave }: RoomWaitingProps) {
+  const t = useTranslations("games.ghostword.online.waiting");
   const router = useRouter();
   const [starting, setStarting] = useState(false);
   const cfg = room.config as { abandon_reason?: string; presetIds?: string[]; ombrePercent?: number; auto_start?: boolean };
@@ -86,7 +88,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
 
   async function shareInvite() {
     try {
-      await navigator.share({ title: "GhostWord", text: "Rejoins ma partie !", url: inviteUrl });
+      await navigator.share({ title: t("shareTitle"), text: t("shareText"), url: inviteUrl });
     } catch { copyCode(); }
   }
 
@@ -104,7 +106,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
   }
 
   async function handleCloseLobby() {
-    if (!confirm("Fermer le salon et renvoyer tout le monde à l'accueil ?")) return;
+    if (!confirm(t("closeLobbyConfirm"))) return;
     vibrate([80, 60, 200]);
     const supabase = createClient();
     await supabase.from("game_rooms").delete().eq("id", room.id);
@@ -139,7 +141,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
         >
           <div className="absolute inset-0 pointer-events-none"
             style={{ background: "radial-gradient(circle at 50% 0%, rgba(68,96,255,0.12) 0%, transparent 65%)" }} />
-          <p className="text-surface-600 text-[10px] uppercase tracking-[0.25em] mb-3">Code du salon</p>
+          <p className="text-surface-600 text-[10px] uppercase tracking-[0.25em] mb-3">{t("roomCode")}</p>
           <p
             className="text-5xl font-display font-black text-white tracking-[0.25em] select-all cursor-pointer mb-4"
             style={{ textShadow: "0 0 40px rgba(68,96,255,0.4)" }}
@@ -156,13 +158,13 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                   : "border-surface-700/40 bg-surface-800/60 text-surface-400 hover:text-white hover:border-surface-600/60"
               }`}
             >
-              {copied ? "✓ Copié !" : "📋 Copier le lien"}
+              {copied ? t("copied") : t("copyLink")}
             </button>
             <button
               onClick={shareInvite}
               className="flex-1 py-2.5 rounded-xl text-xs font-bold border border-brand-700/30 bg-brand-950/50 text-brand-300 hover:bg-brand-900/50 transition-all"
             >
-              🔗 Partager
+              {t("share")}
             </button>
           </div>
         </motion.div>
@@ -170,7 +172,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
         {/* ── Joueurs ── */}
         <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 overflow-hidden">
           <div className="px-4 py-3 border-b border-surface-800/50 flex items-center justify-between">
-            <p className="text-white font-display font-bold text-sm">Joueurs</p>
+            <p className="text-white font-display font-bold text-sm">{t("players")}</p>
             <span className="text-surface-600 text-xs font-mono">
               {players.length} <span className="text-surface-800">· min 3</span>
             </span>
@@ -218,25 +220,25 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                       >
                         {p.is_host && <span className="mr-1">👑</span>}
                         {p.display_name}
-                        {!isOnline && <span className="text-surface-700 text-xs ml-1">hors ligne</span>}
+                        {!isOnline && <span className="text-surface-700 text-xs ml-1">{t("offline")}</span>}
                       </Link>
                     ) : (
                       <span className={`text-sm flex-1 ${isOnline ? "text-surface-100" : "text-surface-600"}`}>
                         {p.is_host && <span className="mr-1">👑</span>}
                         {p.display_name}
-                        <span className="text-brand-400/60 text-xs ml-1">(toi)</span>
-                        {!isOnline && <span className="text-surface-700 text-xs ml-1">hors ligne</span>}
+                        <span className="text-brand-400/60 text-xs ml-1">{t("you")}</span>
+                        {!isOnline && <span className="text-surface-700 text-xs ml-1">{t("offline")}</span>}
                       </span>
                     )}
 
                     {/* Badge hôte / kick */}
                     {p.is_host ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-brand-950/60 border border-brand-700/25 text-brand-400 font-medium shrink-0">Hôte</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-lg bg-brand-950/60 border border-brand-700/25 text-brand-400 font-medium shrink-0">{t("host")}</span>
                     ) : (
                       isHost && (
                         <button
                           onClick={() => handleKick(p.display_name)}
-                          title={`Expulser ${p.display_name}`}
+                          title={t("kickTitle", { name: p.display_name })}
                           className="w-7 h-7 rounded-lg flex items-center justify-center text-surface-700 hover:text-red-400 hover:bg-red-950/40 transition-all text-xs shrink-0"
                         >
                           ✕
@@ -257,8 +259,8 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
               onClick={() => setShowSettings(!showSettings)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface-800/30 transition-colors"
             >
-              <span className="text-white font-display font-bold text-sm">⚙️ Paramètres</span>
-              <span className="text-surface-600 text-xs">{showSettings ? "▲ Fermer" : "▼ Modifier"}</span>
+              <span className="text-white font-display font-bold text-sm">{t("settings")}</span>
+              <span className="text-surface-600 text-xs">{showSettings ? t("close") : t("edit")}</span>
             </button>
 
             <AnimatePresence>
@@ -274,13 +276,13 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                       selectedIds={selectedPresetIds}
                       onChange={setSelectedPresetIds}
                       userId={hostUserId}
-                      label="Presets"
+                      label={t("presets")}
                     />
 
                     {/* Ombre % */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-surface-400 text-xs font-medium">Ombre vs Fantôme</p>
+                        <p className="text-surface-400 text-xs font-medium">{t("ombreVsGhost")}</p>
                         <span className="text-white text-xs font-bold font-mono">{ombrePercent}% / {100 - ombrePercent}%</span>
                       </div>
                       <input type="range" min={0} max={100} step={10} value={ombrePercent}
@@ -291,7 +293,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                     {/* Tours */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-surface-400 text-xs font-medium">Tours avant vote</p>
+                        <p className="text-surface-400 text-xs font-medium">{t("turnsBeforeVote")}</p>
                         <span className="text-white text-xs font-bold font-mono">{discussionTurns}</span>
                       </div>
                       <div className="flex gap-2">
@@ -308,7 +310,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                     {/* Timer */}
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <p className="text-surface-400 text-xs font-medium">⏱ Timer par joueur</p>
+                        <p className="text-surface-400 text-xs font-medium">{t("timerPerPlayer")}</p>
                         <span className="text-white text-xs font-bold font-mono">{speakerDuration}s</span>
                       </div>
                       <div className="flex gap-1.5">
@@ -327,7 +329,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                       disabled={savingSettings}
                       className="w-full py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl transition-colors text-sm disabled:opacity-50"
                     >
-                      {savingSettings ? "Sauvegarde…" : "✓ Appliquer"}
+                      {savingSettings ? t("saving") : t("apply")}
                     </button>
                   </div>
                 </motion.div>
@@ -339,7 +341,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
         {/* Attente */}
         {!canStart && (
           <p className="text-center text-surface-700 text-sm">
-            En attente d'au moins 3 joueurs ({players.length}/3)…
+            {t("waitingForPlayers", { count: players.length })}
           </p>
         )}
 
@@ -362,20 +364,20 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
                   : "bg-surface-800/60 text-surface-700 cursor-not-allowed border border-surface-700/30"
               }`}
             >
-              {starting ? "Lancement…" : canStart ? `Lancer · ${players.length} joueurs 🚀` : "Il faut au moins 3 joueurs"}
+              {starting ? t("starting") : canStart ? t("launch", { count: players.length }) : t("needPlayers")}
             </motion.button>
             <button
               onClick={handleCloseLobby}
               className="w-full py-3 rounded-2xl text-sm font-medium border border-red-800/25 text-red-500/80 hover:bg-red-950/25 hover:border-red-700/40 hover:text-red-400 transition-all"
             >
-              🚪 Fermer le salon
+              {t("closeLobby")}
             </button>
           </div>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center justify-center gap-2 py-4 rounded-2xl border border-surface-800/40 bg-surface-900/30 text-surface-600 text-sm">
               <div className="w-3 h-3 rounded-full border-2 border-surface-700 border-t-transparent animate-spin" />
-              En attente que l'hôte lance…
+              {t("waitingHostStart")}
             </div>
             <button
               onClick={async () => {
@@ -386,7 +388,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
               }}
               className="w-full py-3 rounded-2xl text-sm font-medium border border-surface-700/25 text-surface-600 hover:text-red-400 hover:border-red-800/30 transition-all"
             >
-              🚪 Quitter le salon
+              {t("leaveRoom")}
             </button>
           </div>
         )}

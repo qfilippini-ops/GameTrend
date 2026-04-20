@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { v4 as uuidv4 } from "uuid";
 import type { GhostWordConfig, WordFamily, WordItem } from "@/types/games";
@@ -52,6 +53,7 @@ const defaultConfig: GhostWordConfig = {
 };
 
 export default function PresetForm({ initialData, initialConfig, onSave, uploadImage, loading }: PresetFormProps) {
+  const t = useTranslations("presets.form");
   const [name, setName] = useState(initialData?.name ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [isPublic, setIsPublic] = useState(initialData?.isPublic ?? true);
@@ -170,7 +172,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
         if (err instanceof ModerationError) {
           const family = config.families.find((f) => f.id === familyId);
           const word = family?.words.find((w) => w.id === wordId);
-          const label = word?.name?.trim() ? `Carte "${word.name}"` : "Carte sans nom";
+          const label = word?.name?.trim() ? t("cardNamed", { name: word.name }) : t("cardUnnamed");
           showNsfwPopup(label);
         }
       } finally {
@@ -203,7 +205,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
       URL.revokeObjectURL(blobUrl);
       setCoverPreview(null);
       if (err instanceof ModerationError) {
-        showNsfwPopup("Couverture");
+        showNsfwPopup(t("coverField"));
       }
     }
   }
@@ -216,11 +218,11 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
   const WORDS_MAX_PER_FAMILY = 30;
 
   const nameError = name.trim().length === 0
-    ? null // message géré par le disabled
+    ? null
     : name.trim().length < 2
-      ? "Le nom doit faire au moins 2 caractères"
+      ? t("nameTooShort")
       : name.length > NAME_MAX
-        ? `Maximum ${NAME_MAX} caractères`
+        ? t("nameMaxChars", { n: NAME_MAX })
         : null;
 
   const familiesWithTooFewWords = config.families.filter((f) => f.words.length < 2);
@@ -248,13 +250,13 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
   }
 
   const tabs = [
-    { id: "info" as const, label: "Infos" },
+    { id: "info" as const, label: t("tabInfo") },
     {
       id: "words" as const,
-      label: "Mots",
+      label: t("tabWords"),
       hasError: familiesWithTooFewWords.length > 0,
     },
-    { id: "roles" as const, label: "Rôles" },
+    { id: "roles" as const, label: t("tabRoles") },
   ];
 
   return (
@@ -293,7 +295,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
             {/* Cover */}
             <div className="space-y-2">
               <label className="block text-xs font-medium text-surface-400 uppercase tracking-wide">
-                Image de couverture
+                {t("coverLabel")}
               </label>
               <label className="relative block w-full cursor-pointer rounded-2xl overflow-hidden border-2 border-dashed border-surface-700/60 hover:border-brand-500/60 transition-colors"
                 style={{ aspectRatio: "16/9" }}>
@@ -303,14 +305,14 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                     <span className="text-4xl opacity-15">👻</span>
-                    <p className="text-surface-500 text-sm">Ajouter une couverture</p>
+                    <p className="text-surface-500 text-sm">{t("coverAddSimple")}</p>
                   </div>
                 )}
                 {coverPreview && (
                   <div className="absolute inset-0 bg-gradient-to-t from-surface-950/60 via-transparent to-transparent pointer-events-none" />
                 )}
                 <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-surface-950/80 backdrop-blur-sm border border-surface-700/40 text-surface-300 text-xs font-medium">
-                  {coverPreview ? "✏️ Changer" : "＋ Ajouter"}
+                  {coverPreview ? t("coverChange") : t("coverAddBadge")}
                 </div>
                 <input type="file" accept="image/*" onChange={handleCoverChange} className="sr-only" />
               </label>
@@ -318,7 +320,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-surface-400 uppercase tracking-wide">Nom *</label>
+                <label className="text-xs font-medium text-surface-400 uppercase tracking-wide">{t("nameLabel")}</label>
                 <span className={`text-xs tabular-nums ${name.length > NAME_MAX ? "text-red-400" : "text-surface-700"}`}>
                   {name.length}/{NAME_MAX}
                 </span>
@@ -327,7 +329,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Cinéma Culte"
+                placeholder={t("namePlaceholderShort")}
                 maxLength={NAME_MAX + 5}
                 className={`w-full bg-surface-800/80 border focus:border-brand-500 text-white placeholder-surface-600 rounded-xl px-4 py-3 outline-none transition-colors text-sm ${
                   nameError ? "border-red-500" : "border-surface-700/50"
@@ -338,7 +340,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-surface-400 uppercase tracking-wide">Description</label>
+                <label className="text-xs font-medium text-surface-400 uppercase tracking-wide">{t("descriptionLabel")}</label>
                 <span className={`text-xs tabular-nums ${description.length > DESC_MAX ? "text-red-400" : "text-surface-700"}`}>
                   {description.length}/{DESC_MAX}
                 </span>
@@ -346,7 +348,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value.slice(0, DESC_MAX))}
-                placeholder="Décris ton preset..."
+                placeholder={t("descriptionPlaceholderShort")}
                 rows={3}
                 className="w-full bg-surface-800/80 border border-surface-700/50 focus:border-brand-500 text-white placeholder-surface-600 rounded-xl px-4 py-3 outline-none transition-colors resize-none text-sm"
               />
@@ -354,8 +356,8 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
 
             <div className="flex items-center justify-between py-3.5 px-4 rounded-xl bg-surface-800/60 border border-surface-700/40">
               <div>
-                <p className="text-white font-medium text-sm">Preset public</p>
-                <p className="text-surface-500 text-xs mt-0.5">Visible dans la bibliothèque</p>
+                <p className="text-white font-medium text-sm">{t("publicLabel")}</p>
+                <p className="text-surface-500 text-xs mt-0.5">{t("publicHint")}</p>
               </div>
               <button
                 type="button"
@@ -381,7 +383,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
           >
             {familiesWithTooFewWords.length > 0 && (
               <p className="text-red-400 text-xs font-medium px-1">
-                ⚠ Chaque famille doit avoir au moins 2 mots.
+                {t("familiesNeed2Words")}
               </p>
             )}
 
@@ -410,7 +412,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
               onClick={addFamily}
               className="w-full py-3 rounded-xl border-2 border-dashed border-surface-700/50 hover:border-brand-500/60 text-surface-500 hover:text-white text-sm font-medium transition-colors"
             >
-              + Ajouter une famille
+              {t("addFamilyCta")}
             </button>
           </motion.div>
         )}
@@ -425,7 +427,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
             className="space-y-3"
           >
             <p className="text-surface-500 text-xs px-1">
-              Personnalise les noms des rôles pour ce preset.
+              {t("rolesIntro")}
             </p>
             {(["initie", "ombre", "vide"] as const).map((role) => (
               <div
@@ -437,7 +439,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
                 </span>
                 <div className="flex-1">
                   <p className="text-surface-500 text-[10px] uppercase tracking-wide mb-1">
-                    {role === "initie" ? "Initiés" : role === "ombre" ? "Ombre" : "Le Vide"}
+                    {role === "initie" ? t("rolesInitie") : role === "ombre" ? t("rolesOmbre") : t("rolesVide")}
                   </p>
                   <input
                     type="text"
@@ -448,7 +450,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
                         roles: { ...c.roles, [role]: { ...c.roles[role], name: e.target.value } },
                       }))
                     }
-                    placeholder={role === "initie" ? "Initié" : role === "ombre" ? "Ombre" : "Le Vide"}
+                    placeholder={role === "initie" ? t("rolePlaceholderInitie") : role === "ombre" ? t("rolePlaceholderOmbre") : t("rolePlaceholderVide")}
                     className="w-full bg-transparent border-b border-surface-700/50 focus:border-brand-500/70 text-white placeholder-surface-600 pb-0.5 text-sm font-semibold outline-none transition-colors"
                   />
                 </div>
@@ -462,12 +464,12 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
         <div className="space-y-1">
           {familiesWithEmptyWords.length > 0 && (
             <p className="text-red-400 text-xs text-center">
-              ⚠ Tous les mots doivent avoir un nom.
+              {t("wordsAllNamed")}
             </p>
           )}
           {hasUploadsInProgress && (
             <p className="text-amber-400 text-xs text-center animate-pulse">
-              ⏳ Upload en cours, patiente avant de sauvegarder…
+              {t("uploadInProgress")}
             </p>
           )}
         </div>
@@ -477,7 +479,7 @@ export default function PresetForm({ initialData, initialConfig, onSave, uploadI
         disabled={loading || !name.trim() || !!nameError || !isConfigValid || hasUploadsInProgress}
         className="w-full bg-gradient-brand text-white font-display font-bold py-4 rounded-2xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-92 text-base"
       >
-        {loading ? "Sauvegarde…" : hasUploadsInProgress ? "Upload en cours…" : "Sauvegarder le preset ✨"}
+        {loading ? t("saveInProgress") : hasUploadsInProgress ? t("saveUploading") : t("saveCta")}
       </button>
 
       {nsfwPopupVisible && (
@@ -521,6 +523,7 @@ function FamilyEditor({
   canRemove,
   uploadingWordIds,
 }: FamilyEditorProps) {
+  const t = useTranslations("presets.form");
   return (
     <div className="rounded-2xl border border-surface-700/40 bg-surface-800/40 overflow-hidden">
       {/* Header famille */}
@@ -536,7 +539,7 @@ function FamilyEditor({
           type="text"
           value={family.name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder={`Famille ${index + 1}`}
+          placeholder={t("familyNumberPlaceholder", { n: index + 1 })}
           className="flex-1 bg-transparent border-b border-surface-700/50 focus:border-brand-500/70 text-white placeholder-surface-600 pb-0.5 text-sm font-semibold outline-none transition-colors"
         />
         {canRemove && (
@@ -577,7 +580,7 @@ function FamilyEditor({
                 onClick={onAddWord}
                 className="w-full py-2 rounded-lg border border-dashed border-surface-700/40 hover:border-brand-500/50 text-surface-600 hover:text-surface-300 text-xs font-medium transition-colors"
               >
-                + Ajouter un mot
+                {t("addWordCta")}
               </button>
             </div>
           </motion.div>
@@ -599,6 +602,7 @@ interface WordEditorProps {
 }
 
 function WordEditor({ word, onUpdate, onRemove, onImageUpload, canRemove, uploading }: WordEditorProps) {
+  const t = useTranslations("presets.form");
   return (
     <div className="flex items-center gap-2.5">
       {/* Image optionnelle */}
@@ -623,7 +627,7 @@ function WordEditor({ word, onUpdate, onRemove, onImageUpload, canRemove, upload
         type="text"
         value={word.name}
         onChange={(e) => onUpdate("name", e.target.value)}
-        placeholder="Nom du mot"
+        placeholder={t("wordNamePlaceholder")}
         className="flex-1 bg-transparent border-b border-surface-700/40 focus:border-brand-500/60 text-white placeholder-surface-600 pb-0.5 text-sm outline-none transition-colors"
       />
 

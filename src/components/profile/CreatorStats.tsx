@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 interface CreatorStatsProps {
@@ -20,6 +21,8 @@ interface TopPreset {
 }
 
 export default function CreatorStats({ userId, followersCount }: CreatorStatsProps) {
+  const t = useTranslations("profile.creatorStats");
+  const tCard = useTranslations("presets.card");
   const [totalPlays, setTotalPlays] = useState<number | null>(null);
   const [presetsCount, setPresetsCount] = useState(0);
   const [topPreset, setTopPreset] = useState<TopPreset | null>(null);
@@ -75,14 +78,14 @@ export default function CreatorStats({ userId, followersCount }: CreatorStatsPro
 
       <div className="flex items-center gap-2">
         <span className="text-lg">⭐</span>
-        <p className="text-white font-display font-bold text-sm">Stats créateur</p>
+        <p className="text-white font-display font-bold text-sm">{t("title")}</p>
       </div>
 
       {/* Métriques */}
       <div className="grid grid-cols-3 gap-2 relative">
-        <Stat label="Parties" value={totalPlays ?? 0} accent="brand" />
-        <Stat label="Abonnés" value={followersCount} accent="ghost" />
-        <Stat label="7 jours" value={recentPlays} accent="brand" suffix={recentPlays > 0 ? "↗" : ""} />
+        <Stat label={t("games")} value={totalPlays ?? 0} accent="brand" />
+        <Stat label={t("followers")} value={followersCount} accent="ghost" />
+        <Stat label={t("weekly")} value={recentPlays} accent="brand" suffix={recentPlays > 0 ? "↗" : ""} />
       </div>
 
       {/* Top preset */}
@@ -99,9 +102,9 @@ export default function CreatorStats({ userId, followersCount }: CreatorStatsPro
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-0.5">🏆 Preset le + populaire</p>
+            <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-0.5">🏆 {t("topPreset")}</p>
             <p className="text-white text-sm font-semibold truncate group-hover:text-brand-300 transition-colors">{topPreset.name}</p>
-            <p className="text-surface-500 text-xs">{topPreset.play_count} parties</p>
+            <p className="text-surface-500 text-xs">{tCard("playCount", { count: topPreset.play_count })}</p>
           </div>
         </Link>
       )}

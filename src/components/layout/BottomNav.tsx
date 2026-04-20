@@ -1,13 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const { user } = useAuth();
   const isFullUser = !!user && !user.is_anonymous;
   const { unreadCount } = useNotifications(isFullUser ? user.id : null);
@@ -18,7 +19,7 @@ export default function BottomNav() {
   const navItems = [
     {
       href: "/",
-      label: "Feed",
+      label: t("feed"),
       badge: isFullUser ? unreadCount : 0,
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.4 : 2} strokeLinecap="round" strokeLinejoin="round">
@@ -31,7 +32,7 @@ export default function BottomNav() {
     },
     {
       href: "/home",
-      label: "Accueil",
+      label: t("play"),
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -41,7 +42,7 @@ export default function BottomNav() {
     },
     {
       href: "/presets",
-      label: "Presets",
+      label: t("presets"),
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -51,7 +52,7 @@ export default function BottomNav() {
     },
     {
       href: "/presets/new",
-      label: "Créer",
+      label: t("create"),
       icon: (_active: boolean) => (
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -62,7 +63,7 @@ export default function BottomNav() {
     },
     {
       href: "/profile",
-      label: "Profil",
+      label: t("profile"),
       icon: (active: boolean) => (
         <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -88,7 +89,7 @@ export default function BottomNav() {
                   key={item.href}
                   href={item.href}
                   className="flex-1 flex items-center justify-center px-1"
-                  aria-label="Créer un preset"
+                  aria-label={t("createAria")}
                 >
                   <span className="flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-brand glow-brand text-white transition-all hover:opacity-90 active:scale-95">
                     {item.icon(false)}

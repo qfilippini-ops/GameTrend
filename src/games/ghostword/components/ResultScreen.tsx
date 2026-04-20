@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import type { GhostWordGameState, GhostWordConfig } from "@/types/games";
 import ShareResultButton from "@/components/social/ShareResultButton";
 
@@ -13,13 +14,14 @@ interface ResultScreenProps {
   presetName?: string | null;
 }
 
-const ROLE_STYLES: Record<string, { border: string; bg: string; dot: string; label: string; emoji: string }> = {
-  initie: { border: "border-brand-700/30",   bg: "bg-brand-950/30",   dot: "bg-brand-500",   label: "Initié",  emoji: "🧠" },
-  ombre:  { border: "border-ghost-700/30",   bg: "bg-ghost-950/30",   dot: "bg-ghost-500",   label: "Ombre",   emoji: "👻" },
-  vide:   { border: "border-surface-700/30", bg: "bg-surface-900/30", dot: "bg-surface-500", label: "Le Vide", emoji: "💨" },
+const ROLE_STYLES: Record<string, { border: string; bg: string; dot: string; emoji: string }> = {
+  initie: { border: "border-brand-700/30",   bg: "bg-brand-950/30",   dot: "bg-brand-500",   emoji: "🧠" },
+  ombre:  { border: "border-ghost-700/30",   bg: "bg-ghost-950/30",   dot: "bg-ghost-500",   emoji: "👻" },
+  vide:   { border: "border-surface-700/30", bg: "bg-surface-900/30", dot: "bg-surface-500", emoji: "💨" },
 };
 
 export default function ResultScreen({ state, config, onPlayAgain, onGoHome, presetId, presetName }: ResultScreenProps) {
+  const t = useTranslations("games.ghostword.result");
   const winner = state.winner!;
   const winnerName = config.roles[winner].name;
   const winningPlayers = state.players.filter((p) => p.role === winner);
@@ -78,7 +80,7 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
           className="mb-5"
         >
           <p className="text-surface-600 text-[10px] uppercase tracking-[0.25em] mb-2">
-            Victoire de
+            {t("victoryOf")}
           </p>
           <h1
             className="text-5xl font-display font-black text-white mb-1 leading-none"
@@ -87,10 +89,10 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
             {winnerName}
           </h1>
           {winner === "ombre" && winnerName !== "Ombre" && (
-            <p className="text-surface-700 text-xs mt-1.5">le rôle caché</p>
+            <p className="text-surface-700 text-xs mt-1.5">{t("hiddenRole")}</p>
           )}
           {winner === "vide" && winnerName !== "Le Vide" && (
-            <p className="text-surface-700 text-xs mt-1.5">sans mot</p>
+            <p className="text-surface-700 text-xs mt-1.5">{t("withoutWord")}</p>
           )}
         </motion.div>
 
@@ -123,7 +125,7 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
           className="w-full max-w-sm"
         >
           <p className="text-surface-700 text-[10px] uppercase tracking-[0.2em] mb-3 font-mono">
-            Révélation des rôles & mots
+            {t("rolesReveal")}
           </p>
           <div className="space-y-2">
             {state.players.map((p, i) => {
@@ -147,7 +149,7 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
                     <div className="flex items-center gap-1.5">
                       <span className="text-white font-semibold text-sm">{p.name}</span>
                       {p.isEliminated && (
-                        <span className="text-[10px] text-surface-700 border border-surface-800 rounded px-1">éliminé</span>
+                        <span className="text-[10px] text-surface-700 border border-surface-800 rounded px-1">{t("eliminatedTag")}</span>
                       )}
                     </div>
                     <p className="text-surface-600 text-xs">{config.roles[p.role].name}</p>
@@ -157,7 +159,7 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
                     {p.word ? (
                       <p className="text-sm font-bold text-white">{p.word}</p>
                     ) : (
-                      <p className="text-xs text-surface-700 italic">aucun mot</p>
+                      <p className="text-xs text-surface-700 italic">{t("noWord")}</p>
                     )}
                   </div>
                 </motion.div>
@@ -178,7 +180,7 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
           onClick={onPlayAgain}
           className="w-full bg-gradient-brand text-white font-display font-bold py-5 rounded-2xl glow-brand hover:opacity-92 transition-opacity text-lg"
         >
-          Rejouer 🔄
+          {t("playAgain")}
         </button>
 
         <ShareResultButton
@@ -193,14 +195,14 @@ export default function ResultScreen({ state, config, onPlayAgain, onGoHome, pre
               players: state.players.map((p) => ({ name: p.name, role: p.role, eliminated: p.isEliminated })),
             },
           }}
-          shareText={`J'ai gagné une partie de GhostWord : ${winnerName} ${winnerEmoji} ! Viens jouer avec moi sur GameTrend.`}
+          shareText={t("shareText", { winner: winnerName, emoji: winnerEmoji })}
         />
 
         <button
           onClick={onGoHome}
           className="w-full bg-surface-800/50 hover:bg-surface-700/50 text-surface-200 font-semibold py-4 rounded-2xl transition-colors border border-surface-700/40 text-sm"
         >
-          Retour à l'accueil
+          {t("goHome")}
         </button>
       </motion.div>
     </motion.div>

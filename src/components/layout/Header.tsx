@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import NotificationBell from "@/components/social/NotificationBell";
 import FriendsPanel from "@/components/social/FriendsPanel";
 
@@ -10,7 +10,11 @@ interface HeaderProps {
   actions?: React.ReactNode;
 }
 
-export default function Header({ title, backHref, actions }: HeaderProps) {
+export default function Header({
+  title,
+  backHref,
+  actions,
+}: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 glass border-b border-white/5 px-4 py-3 pt-safe">
       <div className="flex items-center gap-3 max-w-lg mx-auto">
@@ -18,7 +22,6 @@ export default function Header({ title, backHref, actions }: HeaderProps) {
         {/* ── Gauche : navigation ── */}
         <div className="flex items-center gap-2.5 min-w-0 flex-1">
           {backHref ? (
-            /* Page secondaire → bouton retour + titre tronqué */
             <>
               <Link
                 href={backHref}
@@ -31,14 +34,11 @@ export default function Header({ title, backHref, actions }: HeaderProps) {
               )}
             </>
           ) : (
-            /* Page principale → icône ghost + texte "GameTrend" (masqué si titre présent sur mobile) */
             <>
               <Link href="/" className="flex items-center gap-2 shrink-0">
                 <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center text-sm glow-brand">
                   👻
                 </div>
-                {/* Texte "GameTrend" : toujours visible s'il n'y a pas de titre,
-                    masqué sur mobile quand un titre est présent */}
                 <span className={`font-display font-bold text-white text-lg tracking-tight ${title ? "hidden sm:inline" : ""}`}>
                   Game<span className="text-gradient-brand">Trend</span>
                 </span>

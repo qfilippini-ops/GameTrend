@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 
 export default function QuickJoinBar() {
+  const t = useTranslations("rooms");
   const router = useRouter();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -12,11 +14,10 @@ export default function QuickJoinBar() {
 
   async function handleJoin() {
     const c = code.trim().toUpperCase();
-    if (c.length !== 6) { setError("Code invalide (6 caractères)"); return; }
+    if (c.length !== 6) { setError(t("quickJoinInvalid")); return; }
     setLoading(true);
     setError("");
 
-    // Vérifier que le salon existe
     const supabase = createClient();
     const { data: room } = await supabase
       .from("game_rooms")
@@ -25,12 +26,12 @@ export default function QuickJoinBar() {
       .maybeSingle();
 
     if (!room) {
-      setError("Salon introuvable");
+      setError(t("quickJoinNotFound"));
       setLoading(false);
       return;
     }
     if (room.phase !== "lobby") {
-      setError("La partie a déjà commencé");
+      setError(t("quickJoinAlreadyStarted"));
       setLoading(false);
       return;
     }
@@ -42,7 +43,7 @@ export default function QuickJoinBar() {
   return (
     <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 p-3">
       <p className="text-surface-500 text-xs font-medium mb-2 px-1">
-        🔗 Rejoindre un salon
+        {t("quickJoinLabel")}
       </p>
       <div className="flex gap-2">
         <input
@@ -50,7 +51,7 @@ export default function QuickJoinBar() {
           value={code}
           onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(""); }}
           onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-          placeholder="Code · ex: AB3X9K"
+          placeholder={t("quickJoinPlaceholder")}
           maxLength={6}
           className="flex-1 bg-surface-800/60 border border-surface-700/40 focus:border-brand-500/60 text-white placeholder-surface-600 rounded-xl px-3 py-2.5 text-sm font-mono tracking-widest outline-none transition-all uppercase"
         />

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { extractStoragePath } from "@/lib/storageUtils";
 import type { GhostWordConfig } from "@/types/games";
@@ -24,6 +25,7 @@ export default function DeletePresetButton({
   className = "",
 }: DeletePresetButtonProps) {
   const router = useRouter();
+  const t = useTranslations("presets.detail");
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -98,13 +100,13 @@ export default function DeletePresetButton({
           disabled={loading}
           className="text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded-lg transition-colors disabled:opacity-50"
         >
-          {loading ? "..." : "Supprimer"}
+          {loading ? "..." : t("delete")}
         </button>
         <button
           onClick={() => setConfirming(false)}
           className="text-xs text-surface-400 hover:text-white px-2 py-1 rounded-lg transition-colors"
         >
-          Annuler
+          {t("cancel")}
         </button>
       </div>
     ) : (
@@ -122,21 +124,21 @@ export default function DeletePresetButton({
       {confirming ? (
         <div className="rounded-2xl bg-red-950/30 border border-red-700/50 p-4 space-y-3">
           <p className="text-red-300 text-sm font-medium text-center">
-            Supprimer définitivement ce preset ?
+            {t("deleteConfirmFull")}
           </p>
           <div className="flex gap-3">
             <button
               onClick={() => setConfirming(false)}
               className="flex-1 py-2.5 rounded-xl bg-surface-700 hover:bg-surface-600 text-white text-sm font-semibold transition-colors"
             >
-              Annuler
+              {t("cancel")}
             </button>
             <button
               onClick={handleDelete}
               disabled={loading}
               className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
             >
-              {loading ? "Suppression..." : "Oui, supprimer"}
+              {loading ? t("deleting") : t("confirmDelete")}
             </button>
           </div>
         </div>
@@ -145,7 +147,7 @@ export default function DeletePresetButton({
           onClick={() => setConfirming(true)}
           className="w-full text-center text-red-500 hover:text-red-400 hover:bg-red-950/20 border border-red-900/40 hover:border-red-700/50 font-semibold py-3 rounded-2xl transition-colors text-sm"
         >
-          🗑 Supprimer ce preset
+          {t("deleteCta")}
         </button>
       )}
     </div>

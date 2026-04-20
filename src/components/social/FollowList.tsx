@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/ui/Avatar";
 import FollowButton from "@/components/social/FollowButton";
@@ -20,6 +21,7 @@ interface UserRow {
 }
 
 export default function FollowList({ userId, mode }: FollowListProps) {
+  const t = useTranslations("friends");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,7 +67,7 @@ export default function FollowList({ userId, mode }: FollowListProps) {
       <div className="flex flex-col items-center gap-3 py-20 px-5 text-center">
         <div className="text-5xl opacity-40">{mode === "followers" ? "👥" : "🔭"}</div>
         <p className="text-surface-400 text-sm">
-          {mode === "followers" ? "Aucun abonné pour le moment" : "Aucun abonnement pour le moment"}
+          {mode === "followers" ? t("noFollowers") : t("noFollowing")}
         </p>
       </div>
     );
@@ -84,7 +86,7 @@ export default function FollowList({ userId, mode }: FollowListProps) {
           <Link href={`/profile/${u.id}`} className="flex items-center gap-3 flex-1 min-w-0">
             <Avatar src={u.avatar_url} name={u.username} size="md" className="rounded-xl shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold text-sm truncate">{u.username ?? "Joueur Anonyme"}</p>
+              <p className="text-white font-semibold text-sm truncate">{u.username ?? t("anonymousFull")}</p>
               {u.bio && <p className="text-surface-500 text-xs truncate">{u.bio}</p>}
             </div>
           </Link>

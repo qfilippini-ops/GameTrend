@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage, ModerationError } from "@/lib/compressImage";
 import Avatar from "@/components/ui/Avatar";
@@ -24,6 +25,7 @@ export default function EditProfileModal({
   onClose,
   onSaved,
 }: EditProfileModalProps) {
+  const t = useTranslations("profile.editModal");
   const [username, setUsername] = useState(profile.username ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -34,9 +36,9 @@ export default function EditProfileModal({
 
   const usernameError =
     username.trim().length > 0 && username.trim().length < USERNAME_MIN
-      ? `Minimum ${USERNAME_MIN} caractères`
+      ? t("usernameMin", { min: USERNAME_MIN })
       : username.length > USERNAME_MAX
-        ? `Maximum ${USERNAME_MAX} caractères`
+        ? t("usernameMax", { max: USERNAME_MAX })
         : null;
 
   const isValid =
@@ -86,7 +88,7 @@ export default function EditProfileModal({
         .upload(path, optimized, { upsert: true, contentType: "image/webp" });
 
       if (uploadErr) {
-        setError(`Erreur upload avatar : ${uploadErr.message}`);
+        setError(t("uploadError", { message: uploadErr.message }));
         setSaving(false);
         return;
       }
@@ -108,9 +110,9 @@ export default function EditProfileModal({
 
     if (updateErr) {
       if (updateErr.message.includes("username")) {
-        setError("Ce pseudo est déjà pris, choisis-en un autre.");
+        setError(t("usernameTaken"));
       } else {
-        setError("Erreur lors de la sauvegarde.");
+        setError(t("saveError"));
       }
       setSaving(false);
       return;
@@ -144,7 +146,7 @@ export default function EditProfileModal({
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-surface-800/60">
-            <h2 className="text-white font-display font-bold text-lg">Modifier le profil</h2>
+            <h2 className="text-white font-display font-bold text-lg">{t("headerTitle")}</h2>
             <button
               onClick={onClose}
               className="w-8 h-8 flex items-center justify-center rounded-xl text-surface-500 hover:text-white hover:bg-surface-800 transition-all text-lg"
@@ -166,7 +168,7 @@ export default function EditProfileModal({
                   type="button"
                   onClick={() => inputRef.current?.click()}
                   className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-brand-600 hover:bg-brand-500 border-2 border-surface-900 flex items-center justify-center text-white text-sm transition-colors"
-                  title="Changer l'avatar"
+                  title={t("changeAvatarTitle")}
                 >
                   ✏️
                 </button>
@@ -178,13 +180,13 @@ export default function EditProfileModal({
                 onChange={handleAvatarChange}
                 className="sr-only"
               />
-              <p className="text-surface-600 text-xs">Clique sur l&apos;avatar pour le changer</p>
+              <p className="text-surface-600 text-xs">{t("avatarHint")}</p>
             </div>
 
             {/* Pseudo */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-surface-300">Pseudo *</label>
+                <label className="text-sm font-medium text-surface-300">{t("usernameRequired")}</label>
                 <span className={`text-xs ${username.length > USERNAME_MAX ? "text-red-400" : "text-surface-600"}`}>
                   {username.length}/{USERNAME_MAX}
                 </span>
@@ -193,7 +195,7 @@ export default function EditProfileModal({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ton pseudo"
+                placeholder={t("usernamePlaceholder")}
                 maxLength={USERNAME_MAX + 5}
                 className={`w-full bg-surface-800 border text-white placeholder-surface-600 rounded-xl px-4 py-3 text-sm outline-none transition-colors ${
                   usernameError ? "border-red-500 focus:border-red-400" : "border-surface-700 focus:border-brand-500"
@@ -207,7 +209,7 @@ export default function EditProfileModal({
             {/* Bio */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-surface-300">Bio</label>
+                <label className="text-sm font-medium text-surface-300">{t("bio")}</label>
                 <span className={`text-xs ${bio.length > BIO_MAX ? "text-red-400" : "text-surface-600"}`}>
                   {bio.length}/{BIO_MAX}
                 </span>
@@ -215,7 +217,7 @@ export default function EditProfileModal({
               <textarea
                 value={bio}
                 onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
-                placeholder="Dis quelque chose sur toi…"
+                placeholder={t("bioPlaceholder")}
                 rows={3}
                 className="w-full bg-surface-800 border border-surface-700 focus:border-brand-500 text-white placeholder-surface-600 rounded-xl px-4 py-3 text-sm outline-none transition-colors resize-none"
               />
@@ -233,14 +235,14 @@ export default function EditProfileModal({
                 onClick={onClose}
                 className="flex-1 py-3 rounded-2xl border border-surface-700/40 text-surface-400 hover:text-white hover:border-surface-600 text-sm font-medium transition-all"
               >
-                Annuler
+                {t("cancel")}
               </button>
               <button
                 onClick={handleSave}
                 disabled={loading || !isValid}
                 className="flex-1 py-3 rounded-2xl bg-gradient-brand text-white text-sm font-bold glow-brand hover:opacity-92 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
-                {loading ? "Sauvegarde…" : "Enregistrer"}
+                {loading ? t("saving") : t("save")}
               </button>
             </div>
           </div>

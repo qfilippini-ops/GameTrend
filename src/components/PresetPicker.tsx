@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { PRESET_LIST_SEARCH_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
@@ -27,9 +28,11 @@ export default function PresetPicker({
   onChange,
   onPresetsChange,
   userId,
-  label = "Presets favoris",
+  label,
   maxSelections,
 }: PresetPickerProps) {
+  const t = useTranslations("presets.picker");
+  const resolvedLabel = label ?? t("favoritesLabel");
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Preset[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,7 +147,7 @@ export default function PresetPicker({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Chercher un preset par nom, famille ou mot…"
+          placeholder={t("searchPlaceholder")}
           className="w-full bg-surface-800/60 border border-surface-700/40 focus:border-brand-500/70 text-white placeholder-surface-600 rounded-xl pl-9 pr-8 py-2.5 text-sm outline-none transition-all"
         />
         {searchQuery && (
@@ -160,24 +163,24 @@ export default function PresetPicker({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-bold text-white text-base flex items-center gap-1.5">
-              <span className="text-amber-400">★</span> {label}
+              <span className="text-amber-400">★</span> {resolvedLabel}
             </h2>
             <div className="flex items-center gap-3">
               {selectedIds.length > 0 && (
                 <button type="button" onClick={() => onChange([])}
                   className="text-surface-600 hover:text-surface-400 text-xs transition-colors">
-                  Tout désélectionner
+                  {t("deselectAll")}
                 </button>
               )}
               <Link href="/presets" className="text-brand-400 text-xs hover:text-brand-300 font-medium">
-                Voir tout
+                {t("viewAll")}
               </Link>
             </div>
           </div>
 
           {selectedIds.length > 0 && maxSelections !== 1 && (
             <p className="text-xs text-brand-400/80">
-              {selectedIds.length} preset{selectedIds.length > 1 ? "s" : ""} sélectionné{selectedIds.length > 1 ? "s" : ""} · l&apos;un sera tiré au sort
+              {t("selectedHint", { count: selectedIds.length })}
             </p>
           )}
 
@@ -185,15 +188,15 @@ export default function PresetPicker({
             <div className="py-2 space-y-2">
               <p className="text-surface-600 text-xs">
                 {userId
-                  ? "Aucun favori — utilise la recherche ci-dessus"
-                  : "Connecte-toi pour voir tes favoris"}
+                  ? t("noFavorites")
+                  : t("loginToSeeFavorites")}
               </p>
               {userId && (
                 <Link
                   href={`/presets/new?game=${gameType}`}
                   className="inline-flex items-center gap-1.5 text-brand-400 text-xs font-medium hover:text-brand-300 transition-colors"
                 >
-                  ✨ Créer un preset {gameType === "ghostword" ? "GhostWord" : gameType === "dyp" ? "DYP" : gameType}
+                  {t("createPresetFor", { name: gameType === "ghostword" ? "GhostWord" : gameType === "dyp" ? "DYP" : gameType })}
                 </Link>
               )}
             </div>
@@ -205,6 +208,7 @@ export default function PresetPicker({
               onToggleSelect={toggle}
               onToggleFavorite={userId ? toggleFavorite : undefined}
               showFavBadge
+              t={t}
             />
           )}
         </div>
@@ -215,28 +219,28 @@ export default function PresetPicker({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-surface-400 text-xs font-medium">
-              {searching ? "Recherche…" : `${searchResults.length} résultat${searchResults.length !== 1 ? "s" : ""}`}
+              {searching ? t("searching") : t("resultsCount", { count: searchResults.length })}
             </p>
             {selectedIds.length > 0 && (
               <button type="button" onClick={() => onChange([])}
                 className="text-surface-600 hover:text-surface-400 text-xs transition-colors">
-                Tout désélectionner
+                {t("deselectAll")}
               </button>
             )}
           </div>
 
           {selectedIds.length > 0 && maxSelections !== 1 && (
             <p className="text-xs text-brand-400/80">
-              {selectedIds.length} preset{selectedIds.length > 1 ? "s" : ""} sélectionné{selectedIds.length > 1 ? "s" : ""} · l&apos;un sera tiré au sort
+              {t("selectedHint", { count: selectedIds.length })}
             </p>
           )}
 
           {searching ? (
             <div className="flex justify-center py-4">
-              <p className="text-surface-600 text-xs animate-pulse">Recherche en cours…</p>
+              <p className="text-surface-600 text-xs animate-pulse">{t("searchingFull")}</p>
             </div>
           ) : searchResults.length === 0 ? (
-            <p className="text-surface-600 text-xs py-2">Aucun preset ne correspond</p>
+            <p className="text-surface-600 text-xs py-2">{t("noMatch")}</p>
           ) : (
             <PresetCardList
               presets={searchResults}
@@ -244,6 +248,7 @@ export default function PresetPicker({
               favoriteIds={favoriteIds}
               onToggleSelect={toggle}
               onToggleFavorite={userId ? toggleFavorite : undefined}
+              t={t}
             />
           )}
         </div>
@@ -260,6 +265,7 @@ interface PresetCardListProps {
   onToggleSelect: (preset: Preset) => void;
   onToggleFavorite?: (e: React.MouseEvent, id: string) => void;
   showFavBadge?: boolean;
+  t: (key: string, values?: Record<string, unknown>) => string;
 }
 
 function PresetCardList({
@@ -269,6 +275,7 @@ function PresetCardList({
   onToggleSelect,
   onToggleFavorite,
   showFavBadge,
+  t,
 }: PresetCardListProps) {
   return (
     <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-4 px-4 snap-x snap-mandatory">
@@ -311,7 +318,7 @@ function PresetCardList({
                 </div>
                 <div className="px-2 py-1.5 bg-surface-900/80">
                   <p className="text-xs font-display font-bold text-white leading-none mb-0.5 truncate">{preset.name}</p>
-                  <p className="text-xs text-surface-600">{preset.play_count ?? 0} parties</p>
+                  <p className="text-xs text-surface-600">{t("playsLabel", { count: preset.play_count ?? 0 })}</p>
                 </div>
               </button>
 
@@ -320,7 +327,7 @@ function PresetCardList({
                 <button
                   type="button"
                   onClick={(e) => onToggleFavorite(e, preset.id)}
-                  title={isFav ? "Retirer des favoris" : "Ajouter aux favoris"}
+                  title={isFav ? t("favoriteRemove") : t("favoriteAdd")}
                   className={`absolute top-1 left-1 w-6 h-6 rounded-lg flex items-center justify-center text-xs transition-all ${
                     isFav
                       ? "bg-amber-900/80 text-amber-400 border border-amber-600/40"

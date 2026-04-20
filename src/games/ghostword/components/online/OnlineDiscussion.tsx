@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/ui/Avatar";
@@ -16,6 +17,7 @@ interface OnlineDiscussionProps {
 }
 
 export default function OnlineDiscussion({ room, players, messages, myName, playerAvatars }: OnlineDiscussionProps) {
+  const t = useTranslations("games.ghostword.online.discussion");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -102,7 +104,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
       {room.tie_count > 0 && (
         <div className="relative z-10 px-4 py-2.5 border-b border-amber-700/30 bg-amber-950/25 text-center">
           <p className="text-amber-300 text-xs font-display font-bold tracking-wide">
-            🔁 Prolongation ! Égalité ({room.tie_count}×) — nouveau tour
+            {t("extension", { count: room.tie_count })}
           </p>
         </div>
       )}
@@ -112,7 +114,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
         {/* Ligne info */}
         <div className="flex items-center justify-between mb-2">
           <p className="text-surface-700 text-[10px] uppercase tracking-widest font-mono">
-            Tour {room.discussion_turn}/{room.discussion_turns_per_round} · Round {room.vote_round + 1}
+            {t("turnInfo", { turn: room.discussion_turn, total: room.discussion_turns_per_round, round: room.vote_round + 1 })}
           </p>
           {room.speaker_started_at && isMyTurn && (
             <span className="text-sm font-display font-black tabular-nums" style={{ color: timerColor }}>
@@ -150,7 +152,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
 
         {/* Speaker */}
         <div className="flex items-center gap-2">
-          <span className="text-surface-600 text-xs">Tour de</span>
+          <span className="text-surface-600 text-xs">{t("turnOf")}</span>
           {currentSpeaker && (
             <Avatar
               src={playerAvatars?.[currentSpeaker.display_name]}
@@ -161,11 +163,11 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
           )}
           <span className={`text-sm font-display font-bold ${isMyTurn ? "text-brand-300" : "text-white"}`}>
             {currentSpeaker?.is_host && <span className="mr-1">👑</span>}
-            {isMyTurn ? "toi" : (currentSpeaker?.display_name ?? "…")}
+            {isMyTurn ? t("you") : (currentSpeaker?.display_name ?? "…")}
           </span>
           {isMyTurn && (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-500/15 text-brand-300 border border-brand-500/25 font-bold animate-pulse">
-              À toi !
+              {t("yourTurn")}
             </span>
           )}
         </div>
@@ -175,7 +177,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
       <div ref={chatRef} className="relative z-10 flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <AnimatePresence>
           {currentMessages.length === 0 && (
-            <div className="text-center py-10 text-surface-700 text-sm">La discussion commence…</div>
+            <div className="text-center py-10 text-surface-700 text-sm">{t("discussionStarting")}</div>
           )}
           {currentMessages.map((msg) => {
             const isMe = msg.player_name === myName;
@@ -205,7 +207,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
                       ? "bg-brand-600/20 text-white border border-brand-500/25 rounded-tr-sm"
                       : "bg-surface-800/70 text-surface-100 border border-surface-700/30 rounded-tl-sm"
                   }`}>
-                    {isPasse ? "— a passé son tour" : msg.message}
+                    {isPasse ? t("passedHerSuffix") : msg.message}
                   </div>
                 </div>
               </motion.div>
@@ -239,7 +241,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
               <span className={`text-xs font-medium whitespace-nowrap ${
                 isCurrent ? "text-brand-300" : hasSpoken ? "text-surface-600 line-through" : "text-surface-500"
               }`}>
-                {p.is_host ? "👑 " : ""}{p.display_name === myName ? `${p.display_name} (toi)` : p.display_name}
+                {p.is_host ? "👑 " : ""}{p.display_name === myName ? t("youSuffix", { name: p.display_name }) : p.display_name}
               </span>
             </div>
           );
@@ -255,7 +257,7 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !sending && handleSend()}
-              placeholder="Ton indice…"
+              placeholder={t("yourCluePlaceholder")}
               maxLength={80}
               autoFocus
               className="flex-1 bg-surface-800/50 border border-brand-500/35 focus:border-brand-400/60 text-white placeholder-surface-700 rounded-xl px-4 py-3 text-sm outline-none transition-all"
@@ -272,13 +274,13 @@ export default function OnlineDiscussion({ room, players, messages, myName, play
               disabled={sending}
               className="px-3 py-3 bg-surface-800/60 hover:bg-surface-700/60 text-surface-500 hover:text-white rounded-xl transition-colors text-xs shrink-0 border border-surface-700/30"
             >
-              Passer
+              {t("pass")}
             </button>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2 py-2.5 text-surface-600 text-sm">
             <div className="w-3 h-3 rounded-full border-2 border-surface-700 border-t-transparent animate-spin" />
-            En attente de {currentSpeaker?.display_name}…
+            {t("waitingFor", { name: currentSpeaker?.display_name ?? "…" })}
           </div>
         )}
       </div>

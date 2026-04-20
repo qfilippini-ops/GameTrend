@@ -2,19 +2,28 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { submitReport } from "@/app/actions/report";
 
-const REASONS = [
-  { id: "inappropriate_image", label: "Image inappropriée / choquante", emoji: "🔞" },
-  { id: "hate_speech",         label: "Discours haineux ou discriminatoire", emoji: "🚫" },
-  { id: "violence",            label: "Contenu violent ou gore", emoji: "⚠️" },
-  { id: "spam",                label: "Spam ou contenu trompeur", emoji: "📢" },
-  { id: "copyright",           label: "Violation de droits d'auteur", emoji: "©️" },
-  { id: "other",               label: "Autre raison", emoji: "✏️" },
+const REASON_IDS = [
+  "inappropriate_image",
+  "hate_speech",
+  "violence",
+  "spam",
+  "copyright",
+  "other",
 ] as const;
+const REASON_EMOJIS: Record<typeof REASON_IDS[number], string> = {
+  inappropriate_image: "🔞",
+  hate_speech: "🚫",
+  violence: "⚠️",
+  spam: "📢",
+  copyright: "©️",
+  other: "✏️",
+};
 
-type ReasonId = typeof REASONS[number]["id"];
+type ReasonId = typeof REASON_IDS[number];
 
 interface ReportButtonProps {
   presetId: string;
@@ -24,6 +33,7 @@ interface ReportButtonProps {
 
 export default function ReportButton({ presetId, presetName, userId }: ReportButtonProps) {
   const router = useRouter();
+  const t = useTranslations("presets.report");
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<ReasonId | null>(null);
   const [details, setDetails] = useState("");
@@ -54,7 +64,7 @@ export default function ReportButton({ presetId, presetName, userId }: ReportBut
     setLoading(false);
 
     if (!result.success) {
-      setError(result.error ?? "Erreur lors de l'envoi. Réessaie.");
+      setError(result.error ?? t("errorGeneric"));
       return;
     }
     setDone(true);
@@ -75,10 +85,10 @@ export default function ReportButton({ presetId, presetName, userId }: ReportBut
       <button
         onClick={handleOpen}
         className="text-surface-600 hover:text-red-400 text-xs transition-colors flex items-center gap-1"
-        title="Signaler ce contenu"
+        title={t("tooltip")}
       >
         <span>⚑</span>
-        <span>Signaler</span>
+        <span>{t("buttonLabel")}</span>
       </button>
 
       <AnimatePresence>
@@ -105,41 +115,41 @@ export default function ReportButton({ presetId, presetName, userId }: ReportBut
                 {done ? (
                   <div className="px-6 py-8 text-center space-y-3">
                     <div className="text-4xl">✅</div>
-                    <p className="text-white font-display font-bold">Signalement envoyé</p>
+                    <p className="text-white font-display font-bold">{t("doneTitle")}</p>
                     <p className="text-surface-400 text-sm">
-                      Merci. Notre équipe de modération va examiner ce contenu.
+                      {t("doneText")}
                     </p>
                     <button
                       onClick={handleClose}
                       className="w-full py-3 rounded-2xl bg-surface-800 text-white font-semibold text-sm mt-2"
                     >
-                      Fermer
+                      {t("close")}
                     </button>
                   </div>
                 ) : (
                   <>
                     <div className="flex items-center justify-between px-5 py-4 border-b border-surface-800/60">
-                      <p className="text-white font-display font-bold text-sm">Signaler ce preset</p>
+                      <p className="text-white font-display font-bold text-sm">{t("title")}</p>
                       <button onClick={handleClose} className="text-surface-600 hover:text-white transition-colors text-lg">✕</button>
                     </div>
 
                     <div className="px-5 py-4 space-y-3">
-                      <p className="text-surface-400 text-xs">Choisis la raison du signalement :</p>
+                      <p className="text-surface-400 text-xs">{t("chooseReason")}</p>
 
                       <div className="space-y-1.5">
-                        {REASONS.map((r) => (
+                        {REASON_IDS.map((id) => (
                           <button
-                            key={r.id}
-                            onClick={() => setReason(r.id)}
+                            key={id}
+                            onClick={() => setReason(id)}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all text-sm border ${
-                              reason === r.id
+                              reason === id
                                 ? "bg-red-950/40 border-red-700/40 text-white"
                                 : "bg-surface-900/50 border-surface-800/40 text-surface-300 hover:border-surface-700/60"
                             }`}
                           >
-                            <span className="text-base shrink-0">{r.emoji}</span>
-                            <span className="flex-1">{r.label}</span>
-                            {reason === r.id && <span className="text-red-400 shrink-0">●</span>}
+                            <span className="text-base shrink-0">{REASON_EMOJIS[id]}</span>
+                            <span className="flex-1">{t(`reasons.${id}`)}</span>
+                            {reason === id && <span className="text-red-400 shrink-0">●</span>}
                           </button>
                         ))}
                       </div>
@@ -148,7 +158,7 @@ export default function ReportButton({ presetId, presetName, userId }: ReportBut
                         <textarea
                           value={details}
                           onChange={(e) => setDetails(e.target.value)}
-                          placeholder="Détails supplémentaires (optionnel)"
+                          placeholder={t("detailsPlaceholder")}
                           maxLength={500}
                           rows={2}
                           className="w-full bg-surface-900/60 border border-surface-700/40 rounded-xl px-3 py-2.5 text-sm text-white placeholder-surface-600 resize-none outline-none focus:border-surface-600"
@@ -163,7 +173,7 @@ export default function ReportButton({ presetId, presetName, userId }: ReportBut
                         className="w-full py-3 rounded-2xl font-display font-bold text-sm text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                         style={{ background: "linear-gradient(135deg, #dc2626, #b91c1c)" }}
                       >
-                        {loading ? "Envoi…" : "Envoyer le signalement"}
+                        {loading ? t("submitting") : t("submit")}
                       </button>
                     </div>
                   </>

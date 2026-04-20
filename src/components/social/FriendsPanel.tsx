@@ -2,13 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import Avatar from "@/components/ui/Avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useFriendsList } from "@/hooks/useFriendsList";
-import { getActivityStatus, ACTIVITY_LABELS, ACTIVITY_COLORS } from "@/types/social";
+import { getActivityStatus, ACTIVITY_COLORS } from "@/types/social";
 
 export default function FriendsPanel() {
+  const t = useTranslations("friends");
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -35,7 +37,7 @@ export default function FriendsPanel() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-surface-800/80 border border-surface-700/50 text-surface-300 hover:text-white hover:border-brand-500/50 transition-all"
-        aria-label="Amis"
+        aria-label={t("ariaLabel")}
       >
         👥
         {isConnected && onlineCount > 0 && (
@@ -58,26 +60,26 @@ export default function FriendsPanel() {
               /* Non connecté */
               <div className="px-5 py-6 text-center flex flex-col items-center gap-3">
                 <span className="text-3xl">👥</span>
-                <p className="text-white font-display font-bold text-sm">Tes amis</p>
+                <p className="text-white font-display font-bold text-sm">{t("panelTitle")}</p>
                 <p className="text-surface-400 text-xs leading-relaxed">
-                  Connecte-toi pour voir tes amis, rejoindre leurs parties et suivre leur activité.
+                  {t("panelText")}
                 </p>
                 <Link
                   href="/auth/login"
                   onClick={() => setOpen(false)}
                   className="mt-1 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-colors"
                 >
-                  Se connecter
+                  {t("loginCta")}
                 </Link>
               </div>
             ) : (
               /* Connecté */
               <>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800/60">
-                  <p className="text-white font-display font-bold text-sm">Amis</p>
+                  <p className="text-white font-display font-bold text-sm">{t("title")}</p>
                   {onlineCount > 0 && (
                     <span className="text-xs text-emerald-400 font-medium">
-                      {onlineCount} en ligne
+                      {t("onlineCount", { n: onlineCount })}
                     </span>
                   )}
                 </div>
@@ -85,14 +87,14 @@ export default function FriendsPanel() {
                 <div className="max-h-72 overflow-y-auto">
                   {loading ? (
                     <div className="py-6 text-center text-surface-600 text-sm">
-                      Chargement…
+                      {t("loading")}
                     </div>
                   ) : friends.length === 0 ? (
                     <div className="py-8 text-center">
                       <p className="text-3xl mb-2">👥</p>
-                      <p className="text-surface-500 text-sm">Aucun ami encore</p>
+                      <p className="text-surface-500 text-sm">{t("noFriends")}</p>
                       <p className="text-surface-700 text-xs mt-1">
-                        Visite le profil d&apos;un joueur pour l&apos;ajouter
+                        {t("noFriendsHint")}
                       </p>
                     </div>
                   ) : (
@@ -124,14 +126,14 @@ export default function FriendsPanel() {
 
                           <div className="flex-1 min-w-0">
                             <p className="text-white text-sm font-medium truncate">
-                              {f.username ?? "Joueur"}
+                              {f.username ?? t("anonymous")}
                             </p>
                             <p
                               className={`text-xs truncate ${
                                 status === "offline" ? "text-surface-600" : "text-surface-400"
                               }`}
                             >
-                              {ACTIVITY_LABELS[status]}
+                              {t(`activity.${status}`)}
                               {f.game_type && status !== "offline" && ` · ${f.game_type}`}
                             </p>
                           </div>
@@ -142,7 +144,7 @@ export default function FriendsPanel() {
                               onClick={() => setOpen(false)}
                               className="shrink-0 text-xs px-2.5 py-1.5 rounded-xl bg-brand-600/20 text-brand-300 border border-brand-600/30 hover:bg-brand-600/30 font-medium transition-colors"
                             >
-                              Rejoindre
+                              {t("join")}
                             </Link>
                           )}
                         </div>
@@ -157,7 +159,7 @@ export default function FriendsPanel() {
                     onClick={() => setOpen(false)}
                     className="block w-full text-center text-brand-400 text-xs font-medium hover:text-brand-300 transition-colors"
                   >
-                    Gérer mes amis →
+                    {t("manage")}
                   </Link>
                 </div>
               </>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useFavorites } from "@/hooks/useFavorites";
 
 interface FavoriteButtonProps {
@@ -16,6 +17,7 @@ export default function FavoriteButton({
   variant = "icon",
   className = "",
 }: FavoriteButtonProps) {
+  const t = useTranslations("presets.detail");
   const { isFavorited, toggle, loading } = useFavorites(presetId, userId);
 
   if (!userId) return null;
@@ -38,7 +40,7 @@ export default function FavoriteButton({
         } ${className}`}
       >
         <span>{isFavorited ? "★" : "☆"}</span>
-        <span>{isFavorited ? "Retiré des favoris" : "Ajouter aux favoris"}</span>
+        <span>{isFavorited ? t("unfavorite") : t("favorite")}</span>
       </button>
     );
   }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { getRoomResults, type RoomResultData } from "@/app/actions/rooms";
 import { createClient } from "@/lib/supabase/client";
@@ -17,7 +18,6 @@ interface OnlineResultProps {
   playerAvatars?: Record<string, string | null>;
 }
 
-const ROLE_LABELS: Record<string, string> = { initie: "Initié", ombre: "Ombre", vide: "Fantôme" };
 const ROLE_STYLES: Record<string, { border: string; bg: string; badge: string; dot: string }> = {
   initie: {
     border: "border-brand-700/25",
@@ -40,6 +40,8 @@ const ROLE_STYLES: Record<string, { border: string; bg: string; badge: string; d
 };
 
 export default function OnlineResult({ roomId, winner, myName, totalPlayers, replayVotes, playerAvatars }: OnlineResultProps) {
+  const t = useTranslations("games.ghostword.online.result");
+  const ROLE_LABELS: Record<string, string> = { initie: t("roleInitie"), ombre: t("roleOmbre"), vide: t("roleVide") };
   const [data, setData] = useState<RoomResultData | null>(null);
   const [voting, setVoting] = useState(false);
   const [showVotes, setShowVotes] = useState(false);
@@ -54,7 +56,7 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
   const myVote = replayVotes.find((v) => v.player_name === myName);
   const replayCount = replayVotes.filter((v) => v.choice === "replay").length;
 
-  const winnerLabel = winner === "ombre" ? "L'Ombre" : winner === "vide" ? "Le Fantôme" : "Les Initiés";
+  const winnerLabel = winner === "ombre" ? t("winnerOmbre") : winner === "vide" ? t("winnerVide") : t("winnerInities");
   const myRole = data?.players.find((p) => p.displayName === myName)?.role ?? "initie";
   const iWon = winner === "initie" ? myRole === "initie" : myRole !== "initie";
 
@@ -94,22 +96,22 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
           className="text-center pt-2"
         >
           <div className="text-6xl mb-4 animate-float">{winnerEmoji}</div>
-          <p className="text-surface-600 text-[10px] uppercase tracking-[0.25em] mb-1.5">Partie terminée</p>
+          <p className="text-surface-600 text-[10px] uppercase tracking-[0.25em] mb-1.5">{t("gameOver")}</p>
           <h1
             className="text-4xl font-display font-black text-white mb-2"
             style={{ textShadow: `0 0 40px ${winnerGlow}` }}
           >
-            {winnerLabel} gagne !
+            {t("winsSuffix", { name: winnerLabel })}
           </h1>
           <p className={`text-sm font-medium ${iWon ? "text-emerald-400" : "text-surface-600"}`}>
-            {iWon ? "Tu fais partie des vainqueurs 🏆" : "Mieux la prochaine fois…"}
+            {iWon ? t("youWon") : t("youLost")}
           </p>
         </motion.div>
 
         {/* ── Révélation des rôles ── */}
         {data && (
           <div className="space-y-2">
-            <p className="text-surface-700 text-[10px] uppercase tracking-widest text-center font-mono">Rôles révélés</p>
+            <p className="text-surface-700 text-[10px] uppercase tracking-widest text-center font-mono">{t("rolesRevealed")}</p>
             {data.players.map((p, i) => {
               const style = ROLE_STYLES[p.role] ?? ROLE_STYLES.initie;
               return (
@@ -129,8 +131,8 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
                   />
                   <div className="flex-1 min-w-0">
                     <p className={`font-semibold text-sm truncate ${p.displayName === myName ? "text-white" : "text-surface-200"}`}>
-                      {p.displayName}{p.displayName === myName && <span className="text-surface-600 text-xs ml-1">(toi)</span>}
-                      {p.isEliminated && <span className="text-surface-700 text-xs ml-1.5">éliminé</span>}
+                      {p.displayName}{p.displayName === myName && <span className="text-surface-600 text-xs ml-1">{t("you")}</span>}
+                      {p.isEliminated && <span className="text-surface-700 text-xs ml-1.5">{t("eliminated")}</span>}
                     </p>
                     {p.word && <p className="text-surface-600 text-xs mt-0.5 truncate">"{p.word}"</p>}
                   </div>
@@ -150,7 +152,7 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
               onClick={() => setShowVotes(!showVotes)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface-800/30 transition-colors"
             >
-              <span className="text-white font-display font-bold text-sm">🗳 Historique des votes</span>
+              <span className="text-white font-display font-bold text-sm">{t("voteHistory")}</span>
               <span className="text-surface-600 text-xs transition-transform" style={{ transform: showVotes ? "rotate(180deg)" : "none" }}>▼</span>
             </button>
 
@@ -172,9 +174,9 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
                       return (
                         <div key={round}>
                           <div className="flex items-center gap-2 mb-3">
-                            <p className="text-surface-600 text-[10px] uppercase tracking-widest font-mono">Vote {round + 1}</p>
+                            <p className="text-surface-600 text-[10px] uppercase tracking-widest font-mono">{t("voteN", { n: round + 1 })}</p>
                             {wasTie ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-950/50 text-amber-400 border border-amber-700/30">Égalité</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-950/50 text-amber-400 border border-amber-700/30">{t("tie")}</span>
                             ) : eliminated ? (
                               <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-950/50 text-red-400 border border-red-700/30">
                                 ☠ {eliminated}
@@ -191,7 +193,7 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
                                     <span className={`font-medium ${isElim ? "text-red-300" : "text-surface-400"}`}>
                                       {isElim && "☠ "}{target}
                                     </span>
-                                    <span className="text-surface-600">{voters.length}v</span>
+                                    <span className="text-surface-600">{t("voteNumberSuffix", { n: voters.length })}</span>
                                   </div>
                                   <div className="h-1.5 bg-surface-800 rounded-full overflow-hidden mb-1">
                                     <motion.div
@@ -225,7 +227,7 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
 
         {/* ── Zone Rejouer / Lobby ── */}
         <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 p-4 space-y-3">
-          <p className="text-white font-display font-bold text-sm text-center">Et maintenant ?</p>
+          <p className="text-white font-display font-bold text-sm text-center">{t("andNow")}</p>
 
           {!myVote ? (
             <div className="grid grid-cols-2 gap-2.5">
@@ -234,27 +236,27 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
                 disabled={voting}
                 className="py-4 rounded-2xl font-display font-bold text-sm bg-gradient-brand text-white glow-brand hover:opacity-92 transition-all disabled:opacity-50"
               >
-                🔄 Rejouer
+                {t("replay")}
               </button>
               <button
                 onClick={() => castReplayVote("lobby")}
                 disabled={voting}
                 className="py-4 rounded-2xl font-display font-bold text-sm border border-surface-600/50 bg-surface-800/60 text-surface-200 hover:border-surface-500/60 transition-all disabled:opacity-50"
               >
-                🏠 Lobby
+                {t("lobby")}
               </button>
             </div>
           ) : (
             <p className="text-surface-500 text-sm text-center py-1">
-              {myVote.choice === "replay" ? "Tu veux rejouer 🔄" : "Tu retournes au lobby 🏠"}
-              <span className="text-surface-700"> — En attente…</span>
+              {myVote.choice === "replay" ? t("wantsReplay") : t("wantsLobby")}
+              <span className="text-surface-700">{t("waitingChoice")}</span>
             </p>
           )}
 
           {/* Jauge rejouer */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-surface-700">
-              <span>🔄 Rejouer</span>
+              <span>{t("replayLabel")}</span>
               <span className="font-mono">{replayCount}/{totalPlayers}</span>
             </div>
             <div className="h-1.5 bg-surface-800 rounded-full overflow-hidden">
@@ -282,7 +284,7 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
             )}
           </div>
           <p className="text-surface-700 text-[10px] text-center">
-            Un seul "Lobby" renvoie tout le monde. Tous "Rejouer" relance la partie.
+            {t("tip")}
           </p>
         </div>
 

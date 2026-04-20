@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import FavoriteButton from "@/components/presets/FavoriteButton";
 import type { Preset } from "@/types/database";
 
@@ -17,6 +18,7 @@ interface PresetCardProps {
 }
 
 export default function PresetCard({ preset, index = 0, userId, compact = false }: PresetCardProps) {
+  const t = useTranslations("presets.card");
   if (compact) {
     return (
       <motion.div
@@ -50,7 +52,7 @@ export default function PresetCard({ preset, index = 0, userId, compact = false 
                 {preset.name}
               </p>
               <p className="text-surface-500 text-xs mt-0.5">
-                {preset.play_count} parties
+                {t("playCount", { count: preset.play_count })}
               </p>
             </div>
           </div>

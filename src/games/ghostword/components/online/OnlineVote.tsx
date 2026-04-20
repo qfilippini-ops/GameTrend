@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/ui/Avatar";
@@ -17,6 +18,7 @@ interface OnlineVoteProps {
 }
 
 export default function OnlineVote({ room, players, votes, messages, myName, playerAvatars }: OnlineVoteProps) {
+  const t = useTranslations("games.ghostword.online.vote");
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -67,14 +69,14 @@ export default function OnlineVote({ room, players, votes, messages, myName, pla
         <div className="text-center">
           {room.tie_count > 0 ? (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/12 border border-amber-500/25 text-amber-400 text-xs font-bold mb-2">
-              ⚡ Tour de prolongation !
+              {t("extensionRound")}
             </div>
           ) : (
             <p className="text-surface-700 text-[10px] uppercase tracking-[0.25em] font-mono mb-2">
-              Vote · Round {room.vote_round + 1}
+              {t("voteRound", { round: room.vote_round + 1 })}
             </p>
           )}
-          <h1 className="text-2xl font-display font-black text-white mb-3">Qui élimines-tu ?</h1>
+          <h1 className="text-2xl font-display font-black text-white mb-3">{t("whoEliminate")}</h1>
 
           {/* Progress votes */}
           <div className="flex items-center justify-center gap-2.5">
@@ -155,12 +157,12 @@ export default function OnlineVote({ room, players, votes, messages, myName, pla
                               ? "text-surface-700 italic"
                               : "text-surface-400"
                           }`}>
-                            {m.message === "(passe)" ? "— a passé" : `"${m.message}"`}
+                            {m.message === "(passe)" ? t("passed") : `"${m.message}"`}
                           </p>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-surface-800 italic pl-10">Aucun message ce tour</p>
+                      <p className="text-xs text-surface-800 italic pl-10">{t("noMessage")}</p>
                     )}
                   </div>
                 </motion.button>
@@ -177,7 +179,7 @@ export default function OnlineVote({ room, players, votes, messages, myName, pla
               }`}
               style={selected ? { boxShadow: "0 0 24px rgba(239,68,68,0.3)" } : undefined}
             >
-              {loading ? "Envoi…" : "Confirmer mon vote ⚡"}
+              {loading ? t("sending") : t("confirmVote")}
             </button>
           </div>
 
@@ -187,23 +189,26 @@ export default function OnlineVote({ room, players, votes, messages, myName, pla
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               <div className="text-center py-6 rounded-2xl border border-surface-700/40 bg-surface-900/50">
                 <div className="text-3xl mb-2">✅</div>
-                <p className="text-white font-semibold text-sm">Vote enregistré</p>
+                <p className="text-white font-semibold text-sm">{t("voteRecorded")}</p>
                 <p className="text-surface-500 text-xs mt-1">
-                  Tu as voté contre <span className="text-red-300 font-medium">{myVote.target_name}</span>
+                  {t.rich("votedAgainst", {
+                    name: myVote.target_name,
+                    strong: (chunks) => <span className="text-red-300 font-medium">{chunks}</span>,
+                  })}
                 </p>
                 <div className="flex items-center justify-center gap-2 mt-3 text-surface-700 text-xs">
                   <div className="w-3 h-3 rounded-full border-2 border-surface-700 border-t-transparent animate-spin" />
-                  En attente… ({votersCount}/{totalAlive})
+                  {t("waiting", { voted: votersCount, total: totalAlive })}
                 </div>
               </div>
 
               {votersCount >= totalAlive && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-                  <p className="text-surface-500 text-xs uppercase tracking-widest text-center font-mono">Résultats</p>
+                  <p className="text-surface-500 text-xs uppercase tracking-widest text-center font-mono">{t("results")}</p>
                   {Object.entries(tally).sort(([, a], [, b]) => b - a).map(([name, count]) => (
                     <div key={name} className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-surface-700/40 bg-surface-900/60">
                       <span className="text-white font-medium text-sm flex-1">{name}</span>
-                      <span className="text-red-400 font-bold font-mono text-sm">{count}v</span>
+                      <span className="text-red-400 font-bold font-mono text-sm">{t("votesShort", { n: count })}</span>
                     </div>
                   ))}
                 </motion.div>

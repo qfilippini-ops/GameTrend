@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { getMyPrivateData } from "@/app/actions/rooms";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +18,7 @@ interface OnlineRevealProps {
 }
 
 export default function OnlineReveal({ roomId, players, myName, playerAvatars }: OnlineRevealProps) {
+  const t = useTranslations("games.ghostword.online.reveal");
   const [privateData, setPrivateData] = useState<{
     role: string;
     word: string | null;
@@ -92,7 +94,7 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
           ))}
         </div>
         <p className="text-center text-surface-700 text-xs font-mono tracking-widest">
-          {readyCount} / {totalCount} prêts
+          {t("ready", { ready: readyCount, total: totalCount })}
         </p>
       </div>
 
@@ -100,7 +102,7 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
         {loading ? (
           <div className="text-center py-20">
             <div className="text-5xl animate-pulse mb-4">👻</div>
-            <p className="text-surface-500 text-sm">Récupération de ta carte…</p>
+            <p className="text-surface-500 text-sm">{t("loading")}</p>
           </div>
         ) : (
           <>
@@ -128,7 +130,7 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
                         style={{ background: "radial-gradient(circle, rgba(68,96,255,0.06) 0%, transparent 70%)" }} />
                     </div>
                   </div>
-                  <p className="text-surface-600 text-sm font-medium">Tape pour révéler ton mot</p>
+                  <p className="text-surface-600 text-sm font-medium">{t("tap")}</p>
                 </div>
 
                 {/* Face */}
@@ -149,7 +151,7 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
                 >
                   {hasWord ? (
                     <div className="text-center w-full">
-                      <p className="text-brand-400/40 text-[10px] uppercase tracking-[0.3em] mb-6">Ton mot secret</p>
+                      <p className="text-brand-400/40 text-[10px] uppercase tracking-[0.3em] mb-6">{t("yourSecret")}</p>
                       {privateData?.wordImageUrl && (
                         <div className="relative w-36 h-36 mx-auto mb-5 rounded-2xl overflow-hidden border border-brand-500/25"
                           style={{ boxShadow: "0 0 24px rgba(68,96,255,0.3)" }}>
@@ -162,16 +164,16 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
                       >
                         {privateData?.word}
                       </p>
-                      <p className="text-brand-400/20 text-xs mt-8 tracking-wide">Mémorise-le — ne le révèle pas.</p>
+                      <p className="text-brand-400/20 text-xs mt-8 tracking-wide">{t("memorize")}</p>
                     </div>
                   ) : (
                     <div className="text-center">
                       <div className="text-6xl mb-5 animate-float">💨</div>
-                      <p className="text-ghost-400/40 text-[10px] uppercase tracking-[0.3em] mb-3">Tu es le Vide</p>
+                      <p className="text-ghost-400/40 text-[10px] uppercase tracking-[0.3em] mb-3">{t("youAreVoid")}</p>
                       <p className="text-4xl font-display font-black text-white" style={{ textShadow: "0 0 40px rgba(217,70,239,0.6)" }}>
-                        Aucun mot
+                        {t("noWord")}
                       </p>
-                      <p className="text-ghost-400/20 text-xs mt-8 tracking-wide">Bluffe. Imite. Survie.</p>
+                      <p className="text-ghost-400/20 text-xs mt-8 tracking-wide">{t("voidTagline")}</p>
                     </div>
                   )}
                 </div>
@@ -188,7 +190,7 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
                   onClick={handleConfirm}
                   className="w-full bg-gradient-brand text-white font-display font-bold text-lg py-4 rounded-2xl glow-brand hover:opacity-92 transition-opacity"
                 >
-                  Mémorisé ✓
+                  {t("memorized")}
                 </motion.button>
               )}
               {confirmed && (
@@ -198,7 +200,7 @@ export default function OnlineReveal({ roomId, players, myName, playerAvatars }:
                   className="flex items-center justify-center gap-2 py-4 text-brand-400 text-sm font-medium"
                 >
                   <div className="w-4 h-4 rounded-full border-2 border-brand-400 border-t-transparent animate-spin" />
-                  En attente des autres joueurs…
+                  {t("waitingOthers")}
                 </motion.div>
               )}
             </AnimatePresence>

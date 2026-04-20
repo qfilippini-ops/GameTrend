@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import type { GhostWordGameState } from "@/types/games";
 
@@ -10,6 +11,7 @@ interface DiscussionScreenProps {
 }
 
 export default function DiscussionScreen({ state, onNext }: DiscussionScreenProps) {
+  const t = useTranslations("games.ghostword.discussion");
   const { discussionTurn, discussionTurnsPerRound } = state;
   const isVoteNext = discussionTurn === discussionTurnsPerRound;
   const alive = state.players.filter((p) => !p.isEliminated);
@@ -37,10 +39,10 @@ export default function DiscussionScreen({ state, onNext }: DiscussionScreenProp
       {/* Header */}
       <div className="relative z-10 pt-6 pb-4 text-center">
         <p className="text-surface-700 text-[10px] uppercase tracking-[0.25em] font-mono mb-1.5">
-          Round {state.voteRound + 1} · Tour {discussionTurn} / {discussionTurnsPerRound}
+          {t("header", { round: state.voteRound + 1, turn: discussionTurn, total: discussionTurnsPerRound })}
         </p>
         <h1 className={`text-2xl font-display font-black ${isVoteNext ? "text-red-300" : "text-white"}`}>
-          {isVoteNext ? "⚡ Dernier tour" : "🗣 Discussion"}
+          {isVoteNext ? t("lastTurnTitle") : t("discussionTitle")}
         </h1>
       </div>
 
@@ -80,21 +82,17 @@ export default function DiscussionScreen({ state, onNext }: DiscussionScreenProp
             {isVoteNext ? "⚡" : "💬"}
           </div>
           <p className={`font-display font-bold text-lg mb-2 ${isVoteNext ? "text-red-200" : "text-white"}`}>
-            {isVoteNext
-              ? "Dernier tour avant le vote !"
-              : "Chacun son tour, donnez un indice."}
+            {isVoteNext ? t("lastTurnHeading") : t("discussionHeading")}
           </p>
           <p className="text-surface-500 text-sm leading-relaxed max-w-xs mx-auto">
-            {isVoteNext
-              ? "Discutez, accusez, défendez-vous. Le vote suit immédiatement."
-              : "Un mot ou une phrase courte. Pas le droit de dire son mot directement."}
+            {isVoteNext ? t("lastTurnSubtitle") : t("discussionSubtitle")}
           </p>
         </motion.div>
 
         {/* Joueurs en vie */}
         <div className="w-full">
           <p className="text-surface-700 text-[10px] uppercase tracking-widest text-center mb-2">
-            Joueurs en jeu
+            {t("playersInGame")}
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             {alive.map((p) => (
@@ -124,7 +122,7 @@ export default function DiscussionScreen({ state, onNext }: DiscussionScreenProp
           }`}
           style={isVoteNext ? { boxShadow: "0 0 24px rgba(239,68,68,0.3)" } : undefined}
         >
-          {isVoteNext ? "Passer au vote ⚡" : "Tour suivant →"}
+          {isVoteNext ? t("goToVote") : t("nextTurn")}
         </motion.button>
       </div>
     </motion.div>

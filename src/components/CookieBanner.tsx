@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
 
 const COOKIE_KEY = "cookie-consent";
 
 type Consent = "all" | "essential" | null;
 
 export default function CookieBanner() {
+  const t = useTranslations("cookies.banner");
+  const tc = useTranslations("cookies");
   const [show, setShow] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -51,26 +54,26 @@ export default function CookieBanner() {
             <div className="px-5 pt-5 pb-4 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-xl">🍪</span>
-                <p className="text-white font-display font-bold text-sm">Cookies & confidentialité</p>
+                <p className="text-white font-display font-bold text-sm">{t("title")}</p>
               </div>
               <p className="text-surface-400 text-xs leading-relaxed">
-                GameTrend utilise des cookies essentiels pour fonctionner et, avec ton accord, des cookies analytiques (Google Analytics) pour améliorer le service. Des cookies publicitaires pourront être activés ultérieurement avec ton consentement.{" "}
+                {t("intro")}
                 <Link href="/legal/privacy" className="text-brand-400 underline underline-offset-2">
-                  En savoir plus
+                  {tc("learnMore")}
                 </Link>
               </p>
 
               {showDetails && (
                 <div className="space-y-2 rounded-xl bg-surface-900/60 border border-surface-700/30 p-3">
                   {[
-                    { label: "Essentiels", desc: "Session, préférences. Toujours actifs.", active: true, required: true },
-                    { label: "Analytiques (Google Analytics)", desc: "Statistiques d'utilisation anonymisées.", active: false, required: false },
-                    { label: "Publicitaires (futur)", desc: "Publicités personnalisées. Désactivés pour l'instant.", active: false, required: false, disabled: true },
+                    { label: t("essentialsLabel"), desc: t("essentialsDesc"), active: true, required: true },
+                    { label: t("analyticsLabel"), desc: t("analyticsDesc"), active: false, required: false },
+                    { label: t("adsLabel"), desc: t("adsDesc"), active: false, required: false, disabled: true },
                   ].map((item) => (
                     <div key={item.label} className="flex items-start gap-3">
                       <div className={`mt-0.5 w-3 h-3 rounded-full shrink-0 ${item.active || item.required ? "bg-brand-500" : item.disabled ? "bg-surface-700" : "bg-surface-600"}`} />
                       <div>
-                        <p className="text-white text-xs font-medium">{item.label} {item.required && <span className="text-surface-500">(requis)</span>}</p>
+                        <p className="text-white text-xs font-medium">{item.label} {item.required && <span className="text-surface-500">{t("required")}</span>}</p>
                         <p className="text-surface-500 text-[10px]">{item.desc}</p>
                       </div>
                     </div>
@@ -82,7 +85,7 @@ export default function CookieBanner() {
                 onClick={() => setShowDetails(!showDetails)}
                 className="text-surface-500 text-xs underline underline-offset-2 hover:text-surface-300 transition-colors"
               >
-                {showDetails ? "Masquer les détails" : "Voir les détails"}
+                {showDetails ? t("hideDetails") : t("showDetails")}
               </button>
             </div>
 
@@ -91,14 +94,14 @@ export default function CookieBanner() {
                 onClick={() => accept("essential")}
                 className="flex-1 py-2.5 rounded-2xl bg-surface-800/80 text-surface-300 text-xs font-semibold border border-surface-700/40 hover:border-surface-600/60 transition-all"
               >
-                Essentiels seulement
+                {t("essentialsOnly")}
               </button>
               <button
                 onClick={() => accept("all")}
                 className="flex-1 py-2.5 rounded-2xl font-semibold text-xs text-white transition-all"
                 style={{ background: "linear-gradient(135deg, #6d28d9, #4f46e5)" }}
               >
-                Tout accepter
+                {t("acceptAll")}
               </button>
             </div>
           </div>

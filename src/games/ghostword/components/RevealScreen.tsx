@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import type { GhostWordPlayer } from "@/types/games";
 
@@ -12,6 +13,7 @@ interface RevealScreenProps {
 }
 
 export default function RevealScreen({ player, onDone }: RevealScreenProps) {
+  const t = useTranslations("games.ghostword.reveal");
   const [flipped, setFlipped] = useState(false);
 
   function handleFlip() {
@@ -76,7 +78,7 @@ export default function RevealScreen({ player, onDone }: RevealScreenProps) {
                 </div>
               </div>
               <p className="text-surface-600 text-sm font-medium text-center">
-                Appuie pour révéler
+                {t("tapToReveal")}
               </p>
             </div>
 
@@ -99,7 +101,7 @@ export default function RevealScreen({ player, onDone }: RevealScreenProps) {
               {hasWord ? (
                 <div className="text-center w-full">
                   <p className="text-brand-400/40 text-[10px] uppercase tracking-[0.3em] mb-6">
-                    Ton mot secret
+                    {t("yourSecretWord")}
                   </p>
                   {player.wordImageUrl && (
                     <div
@@ -118,23 +120,23 @@ export default function RevealScreen({ player, onDone }: RevealScreenProps) {
                     {player.word}
                   </p>
                   <p className="text-brand-400/20 text-xs mt-8 tracking-wide">
-                    Mémorise-le — ne le révèle pas.
+                    {t("memorize")}
                   </p>
                 </div>
               ) : (
                 <div className="text-center">
                   <div className="text-6xl mb-5 animate-float">💨</div>
                   <p className="text-ghost-400/40 text-[10px] uppercase tracking-[0.3em] mb-3">
-                    Tu es le Vide
+                    {t("youAreVoid")}
                   </p>
                   <p
                     className="text-4xl font-display font-black text-white"
                     style={{ textShadow: "0 0 40px rgba(217, 70, 239, 0.6)" }}
                   >
-                    Aucun mot
+                    {t("noWordTitle")}
                   </p>
                   <p className="text-ghost-400/20 text-xs mt-8 tracking-wide">
-                    Bluffe. Imite. Survie.
+                    {t("voidTip")}
                   </p>
                 </div>
               )}
@@ -153,7 +155,7 @@ export default function RevealScreen({ player, onDone }: RevealScreenProps) {
               onClick={handleDone}
               className="w-full bg-surface-800/80 hover:bg-surface-700/80 text-white font-display font-bold text-base py-4 rounded-2xl transition-colors border border-surface-700/40"
             >
-              Mémorisé — Joueur suivant →
+              {t("memorized")}
             </motion.button>
           )}
         </AnimatePresence>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GAMES_REGISTRY } from "@/games/registry";
@@ -32,6 +33,8 @@ interface PublicRoom {
 }
 
 export default function ExploreFeed() {
+  const t = useTranslations("feed.explore");
+  const tCommon = useTranslations("common");
   const { user } = useAuth();
   const [trending, setTrending] = useState<TrendingPreset[]>([]);
   const [rooms, setRooms] = useState<PublicRoom[]>([]);
@@ -113,7 +116,7 @@ export default function ExploreFeed() {
       {/* Lobbies publics en direct */}
       {rooms.length > 0 && (
         <section>
-          <SectionHeader emoji="🟢" title="Lobbies publics" subtitle={`${rooms.length} salon${rooms.length > 1 ? "s" : ""} en attente de joueurs`} />
+          <SectionHeader emoji="🟢" title={t("publicLobbies")} subtitle={t("lobbiesWaiting", { count: rooms.length })} />
           <div className="space-y-2">
             {rooms.map((room, i) => {
               const game = gameMap.get(room.game_type);
@@ -140,13 +143,13 @@ export default function ExploreFeed() {
                       </p>
                       <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-surface-500">
                         <Avatar src={room.host?.avatar_url ?? null} name={room.host?.username} size="xs" className="rounded-full" />
-                        <span className="truncate">{room.host?.username ?? "Hôte"}</span>
+                        <span className="truncate">{room.host?.username ?? tCommon("host")}</span>
                         <span className="text-surface-700">·</span>
-                        <span>{room.player_count} joueur{room.player_count > 1 ? "s" : ""}</span>
+                        <span>{t("playersInRoom", { count: room.player_count })}</span>
                       </div>
                     </div>
                     <span className="text-xs px-2 py-1 rounded-full bg-emerald-950/40 text-emerald-400 border border-emerald-700/30 font-semibold shrink-0">
-                      Rejoindre
+                      {t("join")}
                     </span>
                   </Link>
                 </motion.div>
@@ -158,9 +161,9 @@ export default function ExploreFeed() {
 
       {/* Tendances */}
       <section>
-        <SectionHeader emoji="🔥" title="Presets tendances" subtitle="Les plus joués sur GameTrend" />
+        <SectionHeader emoji="🔥" title={t("trendingPresets")} subtitle={t("trendingSubtitle")} />
         {trending.length === 0 ? (
-          <p className="text-surface-600 text-sm text-center py-6">Aucun preset pour le moment.</p>
+          <p className="text-surface-600 text-sm text-center py-6">{t("noTrending")}</p>
         ) : (
           <div className="space-y-2">
             {trending.map((p, i) => {
@@ -187,12 +190,12 @@ export default function ExploreFeed() {
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-semibold text-sm truncate">{p.name}</p>
                       <p className="text-surface-500 text-xs truncate">
-                        {game?.name ?? p.game_type} · par {p.author?.username ?? "Anonyme"}
+                        {game?.name ?? p.game_type} · {t("by")} {p.author?.username ?? tCommon("anonymous")}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-brand-300 text-sm font-bold">▶ {p.play_count}</p>
-                      <p className="text-surface-700 text-[10px]">parties</p>
+                      <p className="text-surface-700 text-[10px]">{t("playsLabel")}</p>
                     </div>
                   </Link>
                 </motion.div>
@@ -204,8 +207,8 @@ export default function ExploreFeed() {
 
       {!user && (
         <p className="text-surface-600 text-xs text-center pt-2">
-          <Link href="/auth/login" className="text-brand-400 underline">Connecte-toi</Link>
-          {" "}pour personnaliser ton fil et suivre des créateurs.
+          <Link href="/auth/login" className="text-brand-400 underline">{t("loginLink")}</Link>
+          {" "}{t("ctaLogin")}
         </p>
       )}
     </div>

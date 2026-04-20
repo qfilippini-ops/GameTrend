@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { eliminatePlayer } from "@/games/ghostword/engine";
 import type { GhostWordGameState, GhostWordPlayer } from "@/types/games";
@@ -12,6 +13,7 @@ interface VoteScreenProps {
 }
 
 export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
+  const t = useTranslations("games.ghostword.vote");
   const [selected, setSelected] = useState<string | null>(null);
   const [votePhase, setVotePhase] = useState<"voting" | "result">("voting");
   const [eliminatedId, setEliminatedId] = useState<string | null>(null);
@@ -50,10 +52,10 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
       {/* Header */}
       <div className="relative z-10 pt-6 pb-4 text-center">
         <p className="text-surface-700 text-[10px] uppercase tracking-[0.25em] font-mono mb-1.5">
-          Vote · Round {state.voteRound + 1}
+          {t("headerLabel", { n: state.voteRound + 1 })}
         </p>
         <h1 className="text-2xl font-display font-black text-white">
-          {votePhase === "voting" ? "🗳 Qui éliminez-vous ?" : "Résultat du vote"}
+          {votePhase === "voting" ? t("votingTitle") : t("resultTitle")}
         </h1>
       </div>
 
@@ -67,7 +69,7 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
             className="relative z-10 flex-1 flex flex-col"
           >
             <p className="text-surface-600 text-sm text-center mb-5">
-              Qui cache un mot différent — ou pire, aucun mot ?
+              {t("votingSubtitle")}
             </p>
 
             <div className="flex flex-col gap-2.5 flex-1">
@@ -93,7 +95,7 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
                 }`}
                 style={selected ? { boxShadow: "0 0 24px rgba(239,68,68,0.3)" } : undefined}
               >
-                Confirmer l'élimination ⚡
+                {t("confirm")}
               </motion.button>
             </div>
           </motion.div>
@@ -117,7 +119,7 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
             </motion.div>
 
             <div className="relative z-10">
-              <p className="text-red-500/60 text-xs uppercase tracking-widest mb-2 font-mono">éliminé</p>
+              <p className="text-red-500/60 text-xs uppercase tracking-widest mb-2 font-mono">{t("eliminated")}</p>
               <h2
                 className="text-4xl font-display font-black text-white"
                 style={{ textShadow: "0 0 40px rgba(239, 68, 68, 0.5)" }}
@@ -127,7 +129,7 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
             </div>
 
             {!willEnd && (
-              <p className="text-surface-700 text-xs font-mono relative z-10">La partie continue…</p>
+              <p className="text-surface-700 text-xs font-mono relative z-10">{t("gameContinues")}</p>
             )}
           </motion.div>
         )}

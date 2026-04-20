@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 import {
   trackGameResult,
@@ -22,6 +23,7 @@ interface ShareResultButtonProps {
 }
 
 export default function ShareResultButton({ result, shareText, shareUrl }: ShareResultButtonProps) {
+  const t = useTranslations("share");
   const { user } = useAuth();
   // ID de la ligne `game_results` créée en mode minimal (sans result_data).
   // Permet d'updater la même ligne si l'utilisateur partage ensuite, plutôt
@@ -47,7 +49,7 @@ export default function ShareResultButton({ result, shareText, shareUrl }: Share
     setShareStatus("sharing");
 
     const url = shareUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
-    const text = shareText ?? "Viens jouer avec moi sur GameTrend !";
+    const text = shareText ?? t("defaultText");
 
     let didShare = false;
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -88,22 +90,22 @@ export default function ShareResultButton({ result, shareText, shareUrl }: Share
         className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-surface-800/60 hover:bg-surface-700/60 text-white font-semibold border border-surface-700/40 transition-colors text-sm disabled:opacity-60"
       >
         {shareStatus === "shared" ? (
-          <>✓ Partagé !</>
+          <>{t("shared")}</>
         ) : shareStatus === "sharing" ? (
-          <>Partage…</>
+          <>{t("sharing")}</>
         ) : (
-          <>📤 Partager le résultat</>
+          <>{t("shareResult")}</>
         )}
       </motion.button>
 
       {shareStatus === "shared" && isLoggedIn && (
         <p className="text-[11px] text-emerald-500/80 text-center">
-          ✓ Visible sur ton profil et chez tes abonnés
+          {t("visibilityHint")}
         </p>
       )}
       {!isLoggedIn && (
         <p className="text-[11px] text-surface-600 text-center">
-          Connecte-toi pour rendre tes résultats visibles sur ton profil
+          {t("loginHint")}
         </p>
       )}
     </div>

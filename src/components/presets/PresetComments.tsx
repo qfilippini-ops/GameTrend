@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Avatar from "@/components/ui/Avatar";
@@ -31,6 +32,8 @@ interface CommentRow {
 
 export default function PresetComments({ presetId }: PresetCommentsProps) {
   const router = useRouter();
+  const t = useTranslations("presets.comments");
+  const locale = useLocale();
   const { user } = useAuth();
   const isLoggedIn = user && !user.is_anonymous;
 
@@ -151,7 +154,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
   }
 
   async function handleDelete(commentId: string) {
-    if (!confirm("Supprimer ce commentaire ?")) return;
+    if (!confirm(t("deleteConfirm"))) return;
     const supabase = createClient();
     await supabase.from("preset_comments").delete().eq("id", commentId);
     setComments((cs) => cs.filter((c) => c.id !== commentId));
@@ -162,7 +165,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
       {/* Header avec tri */}
       <div className="flex items-center justify-between">
         <p className="text-surface-300 font-display font-bold text-base">
-          Commentaires <span className="text-surface-600 font-normal">({comments.length})</span>
+          {t("header")} <span className="text-surface-600 font-normal">({comments.length})</span>
         </p>
         <div className="flex bg-surface-900/60 rounded-full p-0.5 border border-surface-800/40 text-xs">
           <button
@@ -171,7 +174,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
               sortBy === "top" ? "bg-surface-700 text-white" : "text-surface-500 hover:text-surface-300"
             }`}
           >
-            Top
+            {t("sortTop")}
           </button>
           <button
             onClick={() => setSortBy("recent")}
@@ -179,7 +182,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
               sortBy === "recent" ? "bg-surface-700 text-white" : "text-surface-500 hover:text-surface-300"
             }`}
           >
-            Récents
+            {t("sortRecent")}
           </button>
         </div>
       </div>
@@ -190,7 +193,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value.slice(0, MAX_LENGTH))}
-            placeholder="Donne ton avis sur ce preset…"
+            placeholder={t("placeholder")}
             rows={2}
             className="w-full bg-transparent text-sm text-white placeholder-surface-600 resize-none outline-none"
           />
@@ -203,7 +206,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
               disabled={!content.trim() || posting}
               className="px-4 py-1.5 rounded-full bg-brand-600 text-white text-xs font-semibold hover:bg-brand-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {posting ? "Envoi…" : "Publier"}
+              {posting ? t("publishing") : t("publish")}
             </button>
           </div>
         </div>
@@ -212,16 +215,16 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
           href="/auth/login"
           className="block text-center py-3 rounded-2xl border border-dashed border-surface-700/50 text-surface-500 text-sm hover:border-surface-600/50 hover:text-surface-400 transition-colors"
         >
-          Connecte-toi pour commenter
+          {t("loginToComment")}
         </Link>
       )}
 
       {/* Liste des commentaires */}
       {loading ? (
-        <div className="text-center text-surface-600 text-sm py-6">Chargement…</div>
+        <div className="text-center text-surface-600 text-sm py-6">{t("loading")}</div>
       ) : comments.length === 0 ? (
         <div className="text-center text-surface-600 text-sm py-6">
-          Aucun commentaire pour le moment. Sois le premier !
+          {t("noComments")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -242,7 +245,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
                     className={`p-1 rounded transition-colors ${
                       c.myVote === 1 ? "text-brand-400" : "text-surface-600 hover:text-surface-400"
                     }`}
-                    aria-label="Upvote"
+                    aria-label={t("upvote")}
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M8 3l5 6H3l5-6z" />
@@ -258,7 +261,7 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
                     className={`p-1 rounded transition-colors ${
                       c.myVote === -1 ? "text-red-400" : "text-surface-600 hover:text-surface-400"
                     }`}
-                    aria-label="Downvote"
+                    aria-label={t("downvote")}
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M8 13L3 7h10l-5 6z" />
@@ -277,16 +280,16 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
                         className="rounded-full shrink-0"
                       />
                       <span className="text-xs font-semibold text-surface-300 group-hover:text-white truncate">
-                        {c.author?.username ?? "Joueur"}
+                        {c.author?.username ?? t("anonymous")}
                       </span>
                     </Link>
                     <span className="text-surface-700 text-[10px]">·</span>
-                    <span className="text-surface-600 text-[10px]">{relativeTime(c.created_at)}</span>
+                    <span className="text-surface-600 text-[10px]">{relativeTime(c.created_at, t, locale)}</span>
                     {user?.id === c.author_id && (
                       <button
                         onClick={() => handleDelete(c.id)}
                         className="ml-auto text-surface-700 hover:text-red-400 text-xs"
-                        aria-label="Supprimer"
+                        aria-label={t("deleteAria")}
                       >
                         ✕
                       </button>
@@ -305,14 +308,14 @@ export default function PresetComments({ presetId }: PresetCommentsProps) {
   );
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, t: (k: string, v?: Record<string, unknown>) => string, locale: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m} min`;
+  if (m < 1) return t("now");
+  if (m < 60) return t("minAgo", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `il y a ${h}h`;
+  if (h < 24) return t("hourAgo", { n: h });
   const d = Math.floor(h / 24);
-  if (d < 30) return `il y a ${d}j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
+  if (d < 30) return t("dayAgo", { n: d });
+  return new Date(iso).toLocaleDateString(locale === "en" ? "en-US" : "fr-FR");
 }

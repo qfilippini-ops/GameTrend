@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { v4 as uuidv4 } from "uuid";
 import Image from "next/image";
 import type { PresetFormProps } from "@/types/adapters";
@@ -25,6 +26,8 @@ export default function DYPPresetForm({
   uploadImage,
   loading = false,
 }: PresetFormProps) {
+  const t = useTranslations("presets.form");
+  const td = useTranslations("presets.form.dyp");
   const init = initialData ? getConfig(initialData.config) : EMPTY_CONFIG;
 
   const [name, setName] = useState(initialData?.name ?? "");
@@ -68,10 +71,10 @@ export default function DYPPresetForm({
     } catch (err) {
       if (err instanceof ModerationError) {
         const card = cards.find((c) => c.id === cardId);
-        const label = card?.name?.trim() ? `Carte "${card.name}"` : "Carte sans nom";
+        const label = card?.name?.trim() ? t("cardNamed", { name: card.name }) : t("cardUnnamed");
         showNsfwPopup(label);
       } else {
-        setError("Erreur upload image");
+        setError(t("errorUploadShort"));
       }
     } finally {
       setUploading((prev) => { const n = new Set(prev); n.delete(cardId); return n; });
@@ -93,7 +96,7 @@ export default function DYPPresetForm({
       URL.revokeObjectURL(blobUrl);
       setCoverPreview(null);
       if (err instanceof ModerationError) {
-        showNsfwPopup("Couverture");
+        showNsfwPopup(t("coverField"));
       }
     }
   }
@@ -102,10 +105,10 @@ export default function DYPPresetForm({
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) { setError("Nom requis"); return; }
-    if (cards.length < 2) { setError("Au minimum 2 cartes"); return; }
-    if (cards.some((c) => !c.name.trim())) { setError("Toutes les cartes doivent avoir un nom"); return; }
-    if (uploading.size > 0) { setError("Attends la fin des uploads"); return; }
+    if (!name.trim()) { setError(t("errorNameRequired")); return; }
+    if (cards.length < 2) { setError(t("errorMinCards", { min: 2 })); return; }
+    if (cards.some((c) => !c.name.trim())) { setError(t("errorAllNamed")); return; }
+    if (uploading.size > 0) { setError(t("errorWaitUploads")); return; }
 
     const config: DYPConfig = {
       cards: cards.map((c) => ({ id: c.id, name: c.name.trim(), imageUrl: c.imageUrl })),
@@ -125,25 +128,25 @@ export default function DYPPresetForm({
 
       {/* ── Infos générales ── */}
       <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 p-4 space-y-4">
-        <p className="text-xs font-medium text-surface-400 uppercase tracking-wide">Informations</p>
+        <p className="text-xs font-medium text-surface-400 uppercase tracking-wide">{t("infoSection")}</p>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-surface-400">Nom *</label>
+            <label className="text-xs font-medium text-surface-400">{t("nameRequired")}</label>
             <span className="text-xs tabular-nums text-surface-700">{name.length}/60</span>
           </div>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
-            placeholder="Ex : Films cultes des années 90"
+            placeholder={t("namePlaceholder")}
             className="w-full bg-surface-800/80 border border-surface-700/50 focus:border-brand-500 text-white placeholder-surface-600 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
           />
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-surface-400">Description</label>
+            <label className="text-xs font-medium text-surface-400">{t("description")}</label>
             <span className="text-xs tabular-nums text-surface-700">{description.length}/200</span>
           </div>
           <textarea
@@ -151,14 +154,14 @@ export default function DYPPresetForm({
             onChange={(e) => setDescription(e.target.value)}
             maxLength={200}
             rows={2}
-            placeholder="Décris ton preset…"
+            placeholder={t("descriptionPlaceholder")}
             className="w-full bg-surface-800/80 border border-surface-700/50 focus:border-brand-500 text-white placeholder-surface-600 rounded-xl px-4 py-3 text-sm outline-none transition-colors resize-none"
           />
         </div>
 
         {/* Cover */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-surface-400">Image de couverture</label>
+          <label className="text-xs font-medium text-surface-400">{t("cover")}</label>
           <div
             onClick={() => coverRef.current?.click()}
             className="relative rounded-2xl overflow-hidden border-2 border-dashed border-surface-700/50 hover:border-brand-500/60 cursor-pointer transition-all"
@@ -170,14 +173,14 @@ export default function DYPPresetForm({
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
                 <span className="text-3xl opacity-20">🃏</span>
-                <p className="text-surface-500 text-xs">Clique pour ajouter une image</p>
+                <p className="text-surface-500 text-xs">{t("coverAdd")}</p>
               </div>
             )}
             {coverPreview && (
               <div className="absolute inset-0 bg-gradient-to-t from-surface-950/60 via-transparent to-transparent pointer-events-none" />
             )}
             <div className="absolute bottom-2 right-2 px-2.5 py-1 rounded-lg bg-surface-950/80 backdrop-blur-sm border border-surface-700/40 text-surface-300 text-xs font-medium">
-              {coverPreview ? "✏️ Changer" : "＋ Ajouter"}
+              {coverPreview ? t("coverChange") : t("coverAddBadge")}
             </div>
           </div>
           <input ref={coverRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
@@ -185,8 +188,8 @@ export default function DYPPresetForm({
 
         <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-surface-800/60 border border-surface-700/40">
           <div>
-            <p className="text-white font-medium text-sm">Preset public</p>
-            <p className="text-surface-500 text-xs mt-0.5">Visible dans la bibliothèque</p>
+            <p className="text-white font-medium text-sm">{t("isPublic")}</p>
+            <p className="text-surface-500 text-xs mt-0.5">{t("isPublicHint")}</p>
           </div>
           <button
             type="button"
@@ -202,20 +205,20 @@ export default function DYPPresetForm({
       <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 overflow-hidden">
         <div className="px-4 py-3.5 border-b border-surface-800/60">
           <p className="text-white font-display font-bold text-sm flex items-center gap-2">
-            🃏 Cartes
+            🃏 {td("cards")}
             <span className={`text-xs font-mono px-1.5 py-0.5 rounded-md ${cards.length < 2 ? "text-red-400 bg-red-950/30" : "text-brand-400 bg-brand-950/30"}`}>
               {cards.length}
             </span>
           </p>
           {validSizes.length > 0 ? (
             <p className="text-surface-500 text-xs mt-0.5">
-              Tournois : {validSizes.map((s) => `${s}`).join(", ")} cartes
+              {td("tournamentSizes", { sizes: validSizes.join(", ") })}
             </p>
           ) : (
             <p className="text-surface-600 text-xs mt-0.5">
               {nextValidSize
-                ? `Encore ${nextValidSize - cards.length} carte${nextValidSize - cards.length > 1 ? "s" : ""} pour débloquer`
-                : "Ajoute des cartes pour débloquer"}
+                ? td("needMoreCards", { n: nextValidSize - cards.length })
+                : td("addCardsHint")}
             </p>
           )}
         </div>
@@ -261,7 +264,7 @@ export default function DYPPresetForm({
                   <input
                     value={card.name}
                     onChange={(e) => updateCard(card.id, { name: e.target.value })}
-                    placeholder={`Carte ${idx + 1}`}
+                    placeholder={td("cardPlaceholder", { n: idx + 1 })}
                     maxLength={60}
                     className="flex-1 bg-transparent text-white placeholder-surface-600 text-sm outline-none border-b border-surface-700/40 focus:border-brand-500/60 pb-0.5 transition-colors"
                   />
@@ -282,7 +285,7 @@ export default function DYPPresetForm({
           {cards.length === 0 && (
             <div className="px-4 py-10 text-center">
               <p className="text-4xl mb-2 opacity-30">🃏</p>
-              <p className="text-surface-500 text-sm">Aucune carte — clique sur &quot;+ Ajouter une carte&quot; pour commencer</p>
+              <p className="text-surface-500 text-sm">{td("noCards")}</p>
             </div>
           )}
         </div>
@@ -294,7 +297,7 @@ export default function DYPPresetForm({
             onClick={addCard}
             className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl bg-brand-600/15 border border-dashed border-brand-500/40 text-brand-300 text-sm font-semibold hover:bg-brand-600/25 hover:border-brand-500/60 transition-colors"
           >
-            <span className="text-base">+</span> Ajouter une carte
+            <span className="text-base">+</span> {td("addCard")}
           </button>
         </div>
       </div>
@@ -311,7 +314,7 @@ export default function DYPPresetForm({
         disabled={loading || uploading.size > 0 || cards.length < 2 || cards.some((c) => !c.name.trim())}
         className="w-full py-4 rounded-2xl bg-gradient-brand text-white font-display font-bold text-base hover:opacity-92 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {loading ? "Sauvegarde…" : "Sauvegarder le preset ✨"}
+        {loading ? t("saving") : t("save")}
       </button>
 
       {nsfwPopupVisible && (

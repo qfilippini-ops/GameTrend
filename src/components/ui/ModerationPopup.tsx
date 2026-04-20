@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 interface ModerationPopupProps {
   /** Liste des champs bloqués, ex: ["Couverture", 'Carte "Pomme"'] */
@@ -9,6 +10,7 @@ interface ModerationPopupProps {
 }
 
 export default function ModerationPopup({ fields, onClose }: ModerationPopupProps) {
+  const t = useTranslations("moderation.popup");
   if (fields.length === 0) return null;
 
   const last = fields[fields.length - 1];
@@ -32,25 +34,25 @@ export default function ModerationPopup({ fields, onClose }: ModerationPopupProp
             <span className="text-2xl shrink-0 mt-0.5">🔞</span>
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold text-sm leading-snug">
-                Image refusée
+                {t("imageRefused")}
                 {extra > 0 && (
                   <span className="ml-2 text-xs bg-red-900/60 text-red-300 px-1.5 py-0.5 rounded-full">
-                    +{extra} autre{extra > 1 ? "s" : ""}
+                    {t("moreCount", { count: extra })}
                   </span>
                 )}
               </p>
               <p className="text-surface-400 text-xs mt-0.5">
                 <span className="text-red-400 font-medium">{last}</span>
-                {" "}contient du contenu inapproprié et n&apos;a pas été ajouté.
+                {t("fieldInappropriateSuffix")}
               </p>
               <p className="text-surface-600 text-[11px] mt-1">
-                Choisis une autre image pour continuer.
+                {t("chooseAnother")}
               </p>
             </div>
             <button
               onClick={onClose}
               className="shrink-0 text-surface-600 hover:text-white transition-colors text-base leading-none mt-0.5"
-              aria-label="Fermer"
+              aria-label={t("closeAria")}
             >
               ✕
             </button>

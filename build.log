@@ -1,0 +1,108 @@
+﻿
+> gametrend@0.1.0 build
+> next build
+
+  Ôû▓ Next.js 14.2.29
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ Ô£ô (pwa) Compiling for server...
+ Ô£ô (pwa) Compiling for server...
+ Ô£ô (pwa) Compiling for client (static)...
+ Ôùï (pwa) Service worker: C:\Users\Quentin\Desktop\AieZen\gametrend\public\sw.js
+ Ôùï (pwa)   URL: /sw.js
+ Ôùï (pwa)   Scope: /
+node.exe : <w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (215kiB) impacts deserialization 
+performance (consider using Buffer instead and decode when needed)
+Au caractère Ligne:1 : 1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (<w> [webpack.ca...de when needed):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ Ô£ô Compiled successfully
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/39) ...
+   Generating static pages (9/39) 
+   Generating static pages (19/39) 
+   Generating static pages (29/39) 
+ Ô£ô Generating static pages (39/39)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                  Size     First Load JS
+Ôöî Ôùï /_not-found                              873 B          90.3 kB
+Ôö£ ÔùÅ /[locale]                                4.73 kB         229 kB
+Ôö£   Ôö£ /fr
+Ôö£   Ôöö /en
+Ôö£ ÔùÅ /[locale]/auth/login                     2.7 kB          212 kB
+Ôö£   Ôö£ /fr/auth/login
+Ôö£   Ôöö /en/auth/login
+Ôö£ ÔùÅ /[locale]/auth/signup                    3.97 kB         217 kB
+Ôö£   Ôö£ /fr/auth/signup
+Ôö£   Ôöö /en/auth/signup
+Ôö£ ÔùÅ /[locale]/friends                        3.06 kB         225 kB
+Ôö£   Ôö£ /fr/friends
+Ôö£   Ôöö /en/friends
+Ôö£ ÔùÅ /[locale]/games/dyp                      3.2 kB          228 kB
+Ôö£   Ôö£ /fr/games/dyp
+Ôö£   Ôöö /en/games/dyp
+Ôö£ ÔùÅ /[locale]/games/dyp/play                 5.85 kB         222 kB
+Ôö£   Ôö£ /fr/games/dyp/play
+Ôö£   Ôöö /en/games/dyp/play
+Ôö£ ÔùÅ /[locale]/games/ghostword                3.6 kB          228 kB
+Ôö£   Ôö£ /fr/games/ghostword
+Ôö£   Ôöö /en/games/ghostword
+Ôö£ ÔùÅ /[locale]/games/ghostword/online         3.39 kB         225 kB
+Ôö£   Ôö£ /fr/games/ghostword/online
+Ôö£   Ôöö /en/games/ghostword/online
+Ôö£ ãÆ /[locale]/games/ghostword/online/[code]  14.5 kB         233 kB
+Ôö£ ÔùÅ /[locale]/games/ghostword/play           9.44 kB         226 kB
+Ôö£   Ôö£ /fr/games/ghostword/play
+Ôö£   Ôöö /en/games/ghostword/play
+Ôö£ ÔùÅ /[locale]/home                           2.48 kB         224 kB
+Ôö£   Ôö£ /fr/home
+Ôö£   Ôöö /en/home
+Ôö£ ãÆ /[locale]/join/[code]                    286 B           112 kB
+Ôö£ ÔùÅ /[locale]/legal/cgu                      153 B          89.6 kB
+Ôö£   Ôö£ /fr/legal/cgu
+Ôö£   Ôöö /en/legal/cgu
+Ôö£ ÔùÅ /[locale]/legal/cgv                      153 B          89.6 kB
+Ôö£   Ôö£ /fr/legal/cgv
+Ôö£   Ôöö /en/legal/cgv
+Ôö£ ÔùÅ /[locale]/legal/mentions                 153 B          89.6 kB
+Ôö£   Ôö£ /fr/legal/mentions
+Ôö£   Ôöö /en/legal/mentions
+Ôö£ ÔùÅ /[locale]/legal/privacy                  153 B          89.6 kB
+Ôö£   Ôö£ /fr/legal/privacy
+Ôö£   Ôöö /en/legal/privacy
+Ôö£ ÔùÅ /[locale]/presets                        3.32 kB         228 kB
+Ôö£   Ôö£ /fr/presets
+Ôö£   Ôöö /en/presets
+Ôö£ ãÆ /[locale]/presets/[id]                   5.7 kB          227 kB
+Ôö£ ãÆ /[locale]/presets/[id]/edit              2.1 kB          251 kB
+Ôö£ ÔùÅ /[locale]/presets/new                    1.6 kB          253 kB
+Ôö£   Ôö£ /fr/presets/new
+Ôö£   Ôöö /en/presets/new
+Ôö£ ÔùÅ /[locale]/profile                        7.14 kB         255 kB
+Ôö£   Ôö£ /fr/profile
+Ôö£   Ôöö /en/profile
+Ôö£ ãÆ /[locale]/profile/[id]                   3.8 kB          228 kB
+Ôö£ ãÆ /[locale]/profile/[id]/followers         1.83 kB         223 kB
+Ôö£ ãÆ /[locale]/profile/[id]/following         1.84 kB         223 kB
+Ôö£ ãÆ /api/auth/set-session                    0 B                0 B
+Ôöö ãÆ /auth/callback                           0 B                0 B
++ First Load JS shared by all                89.5 kB
+  Ôö£ chunks/997-a09c8240f66bfee9.js           33.9 kB
+  Ôö£ chunks/fd9d1056-e45cea2c9d0f2b6e.js      53.6 kB
+  Ôöö other shared chunks (total)              1.96 kB
+
+
+ãÆ Middleware                                 91.2 kB
+
+Ôùï  (Static)   prerendered as static content
+ÔùÅ  (SSG)      prerendered as static HTML (uses getStaticProps)
+ãÆ  (Dynamic)  server-rendered on demand
+

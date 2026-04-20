@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 const STORAGE_KEY = "pwa-install-dismissed";
 
 export default function PWAInstallBanner() {
+  const t = useTranslations("pwa");
   const [show, setShow] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -72,11 +74,9 @@ export default function PWAInstallBanner() {
                 <span className="text-2xl">👻</span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white font-display font-bold text-sm">Installer GameTrend</p>
+                <p className="text-white font-display font-bold text-sm">{t("installTitle")}</p>
                 <p className="text-surface-400 text-xs mt-0.5 leading-snug">
-                  {isIOS
-                    ? "Tap le bouton partage puis \"Sur l'écran d'accueil\""
-                    : "Accède au jeu comme une vraie app, sans navigateur"}
+                  {isIOS ? t("iosHint") : t("androidHint")}
                 </p>
               </div>
               <button
@@ -97,7 +97,7 @@ export default function PWAInstallBanner() {
                     boxShadow: "0 0 20px rgba(109,40,217,0.3)",
                   }}
                 >
-                  ⚡ Installer l&apos;app
+                  {t("installCta")}
                 </button>
               </div>
             )}
@@ -105,7 +105,7 @@ export default function PWAInstallBanner() {
             {isIOS && (
               <div className="px-5 pb-4 flex items-center gap-2 bg-surface-900/40 mx-4 mb-4 rounded-2xl px-3 py-2.5">
                 <span className="text-lg">⬆️</span>
-                <p className="text-surface-400 text-xs">Partage → &quot;Sur l&apos;écran d&apos;accueil&quot;</p>
+                <p className="text-surface-400 text-xs">{t("iosShortcut")}</p>
               </div>
             )}
           </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Avatar from "@/components/ui/Avatar";
@@ -36,6 +37,10 @@ const PAGE_SIZE = 10;
 const SINCE_DAYS = 30;
 
 export default function FollowingFeed() {
+  const t = useTranslations("feed");
+  const tCommon = useTranslations("common");
+  const tTime = useTranslations("time");
+  const locale = useLocale();
   const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,9 +244,9 @@ export default function FollowingFeed() {
     return (
       <EmptyState
         icon="🔒"
-        title="Connexion requise"
-        text="Connecte-toi pour voir le fil d'actualité de tes abonnements."
-        cta={{ label: "Se connecter", href: "/auth/login" }}
+        title={t("empty.loginRequired.title")}
+        text={t("empty.loginRequired.text")}
+        cta={{ label: t("empty.loginRequired.cta"), href: "/auth/login" }}
       />
     );
   }
@@ -250,9 +255,9 @@ export default function FollowingFeed() {
     return (
       <EmptyState
         icon="🌱"
-        title="Aucun abonnement"
-        text="Suis des créateurs pour voir leur activité ici."
-        cta={{ label: "Explorer les presets", href: "/presets" }}
+        title={t("empty.noFollows.title")}
+        text={t("empty.noFollows.text")}
+        cta={{ label: t("empty.noFollows.cta"), href: "/presets" }}
       />
     );
   }
@@ -261,8 +266,8 @@ export default function FollowingFeed() {
     return (
       <EmptyState
         icon="🌌"
-        title="Pas d'activité récente"
-        text="Tes abonnements n'ont rien publié depuis 30 jours."
+        title={t("empty.noActivity.title")}
+        text={t("empty.noActivity.text")}
       />
     );
   }
@@ -277,9 +282,9 @@ export default function FollowingFeed() {
           transition={{ delay: Math.min(i * 0.03, 0.4) }}
         >
           {item.type === "preset" ? (
-            <PresetFeedCard item={item} data={item.data as PresetData} />
+            <PresetFeedCard item={item} data={item.data as PresetData} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
           ) : (
-            <ResultFeedCard item={item} data={item.data as ResultData} />
+            <ResultFeedCard item={item} data={item.data as ResultData} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
           )}
         </motion.div>
       ))}
@@ -294,7 +299,7 @@ export default function FollowingFeed() {
               onClick={loadMore}
               className="px-4 py-2 rounded-xl bg-surface-800/60 hover:bg-surface-800 text-surface-300 text-sm font-medium transition-colors"
             >
-              Charger plus
+              {t("loadMore")}
             </button>
           )}
         </div>
@@ -302,20 +307,24 @@ export default function FollowingFeed() {
 
       {!hasMore && items.length >= PAGE_SIZE && (
         <p className="text-center text-surface-700 text-xs py-4">
-          Tu as tout vu pour les 30 derniers jours.
+          {t("allCaughtUp")}
         </p>
       )}
     </div>
   );
 }
 
-function PresetFeedCard({ item, data }: { item: FeedItem; data: PresetData }) {
+type FeedT = ReturnType<typeof useTranslations<"feed">>;
+type CommonT = ReturnType<typeof useTranslations<"common">>;
+type TimeT = ReturnType<typeof useTranslations<"time">>;
+
+function PresetFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: PresetData; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   return (
     <Link
       href={`/presets/${data.id}`}
       className="block rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors"
     >
-      <FeedHeader author={item.author} action="a publié un nouveau preset" date={item.created_at} icon="✨" />
+      <FeedHeader author={item.author} action={t("actions.publishedPreset")} date={item.created_at} icon="✨" tTime={tTime} tCommon={tCommon} locale={locale} />
       <div className="flex gap-3 p-3">
         <div className="w-20 h-20 rounded-xl overflow-hidden bg-surface-800 shrink-0 relative">
           {data.cover_url ? (
@@ -329,28 +338,31 @@ function PresetFeedCard({ item, data }: { item: FeedItem; data: PresetData }) {
           {data.description && (
             <p className="text-surface-400 text-xs mt-1 line-clamp-2 leading-snug">{data.description}</p>
           )}
-          <p className="text-surface-600 text-[11px] mt-1.5">▶ {data.play_count} parties</p>
+          <p className="text-surface-600 text-[11px] mt-1.5">▶ {t("playCount", { count: data.play_count })}</p>
         </div>
       </div>
     </Link>
   );
 }
 
-function ResultFeedCard({ item, data }: { item: FeedItem; data: ResultData }) {
+function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultData; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   const { game_type, preset_id, preset_name, result_data } = data;
   const champion = (result_data as { champion?: { name: string; imageUrl?: string | null } })?.champion;
   const winnerLabel = (result_data as { winnerLabel?: string })?.winnerLabel;
+  // Format synthétique : "Victoire : <camp>" / "Champion : <nom>" — labels traduits via le namespace games.
+  const tGames = useTranslations("games");
   const titleSuffix =
-    game_type === "ghostword" ? `Victoire : ${winnerLabel ?? "?"}` :
-    game_type === "dyp" ? `Champion : ${champion?.name ?? "?"}` : "A joué une partie";
+    game_type === "ghostword" ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
+    game_type === "dyp" ? `${tGames("dyp.champion")} : ${champion?.name ?? "?"}` :
+    t("actions.sharedResult");
 
   const inner = (
     <>
-      <FeedHeader author={item.author} action="a partagé un résultat" date={item.created_at} icon="🏆" />
+      <FeedHeader author={item.author} action={t("actions.sharedResult")} date={item.created_at} icon="🏆" tTime={tTime} tCommon={tCommon} locale={locale} />
       <div className="px-3 py-3">
         <p className="text-white font-display font-bold text-sm leading-tight">{titleSuffix}</p>
         {preset_name && (
-          <p className="text-surface-500 text-xs mt-0.5">avec « {preset_name} »</p>
+          <p className="text-surface-500 text-xs mt-0.5">{tGames("ghostword.result.withPreset", { name: preset_name })}</p>
         )}
         {champion?.imageUrl && (
           <div className="relative w-full h-32 mt-3 rounded-xl overflow-hidden bg-surface-800">
@@ -378,16 +390,16 @@ function ResultFeedCard({ item, data }: { item: FeedItem; data: ResultData }) {
   );
 }
 
-function FeedHeader({ author, action, date, icon }: { author: FeedItem["author"]; action: string; date: string; icon: string }) {
+function FeedHeader({ author, action, date, icon, tTime, tCommon, locale }: { author: FeedItem["author"]; action: string; date: string; icon: string; tTime: TimeT; tCommon: CommonT; locale: string }) {
   return (
     <Link href={`/profile/${author.id}`} className="flex items-center gap-2.5 px-3 py-2.5 border-b border-surface-800/40 hover:bg-surface-800/20 transition-colors">
       <Avatar src={author.avatar_url} name={author.username} size="sm" className="rounded-full shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-surface-300 truncate">
-          <span className="font-semibold text-white">{author.username ?? "Joueur"}</span>{" "}
+          <span className="font-semibold text-white">{author.username ?? tCommon("player")}</span>{" "}
           <span className="text-surface-500">{action}</span>
         </p>
-        <p className="text-surface-700 text-[10px]">{relativeTime(date)}</p>
+        <p className="text-surface-700 text-[10px]">{relativeTime(date, tTime, locale)}</p>
       </div>
       <span className="text-base shrink-0">{icon}</span>
     </Link>
@@ -409,14 +421,14 @@ function EmptyState({ icon, title, text, cta }: { icon: string; title: string; t
   );
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(iso: string, tTime: TimeT, locale: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60_000);
-  if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m} min`;
+  if (m < 1) return tTime("now");
+  if (m < 60) return tTime("minutesAgo", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `il y a ${h}h`;
+  if (h < 24) return tTime("hoursAgo", { n: h });
   const d = Math.floor(h / 24);
-  if (d < 30) return `il y a ${d}j`;
-  return new Date(iso).toLocaleDateString("fr-FR");
+  if (d < 30) return tTime("daysAgo", { n: d });
+  return new Date(iso).toLocaleDateString(locale === "fr" ? "fr-FR" : "en-US");
 }

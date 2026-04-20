@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -16,6 +17,7 @@ interface FollowButtonProps {
 
 export default function FollowButton({ targetUserId, onChange, compact = false }: FollowButtonProps) {
   const router = useRouter();
+  const t = useTranslations("friends");
   const { user } = useAuth();
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,7 +66,7 @@ export default function FollowButton({ targetUserId, onChange, compact = false }
     setLoading(false);
   }
 
-  const label = isFollowing ? "Abonné" : "Suivre";
+  const label = isFollowing ? t("following") : t("follow");
   const icon  = isFollowing ? "✓" : "+";
 
   if (compact) {
@@ -79,7 +81,7 @@ export default function FollowButton({ targetUserId, onChange, compact = false }
             : "bg-brand-600 text-white hover:bg-brand-500"
         }`}
       >
-        {isFollowing ? "Abonné" : "+ Suivre"}
+        {isFollowing ? t("following") : t("followCompact")}
       </motion.button>
     );
   }

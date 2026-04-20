@@ -1,33 +1,33 @@
 "use client";
 
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useActiveRoom } from "@/hooks/useActiveRoom";
-
-const PHASE_LABELS: Record<string, string> = {
-  lobby:      "En lobby",
-  reveal:     "En partie",
-  discussion: "En partie",
-  vote:       "En partie",
-  result:     "Résultats",
-};
 
 const GAME_PATHS: Record<string, string> = {
   ghostword: "/games/ghostword/online",
 };
 
 export default function ActiveRoomBadge() {
+  const t = useTranslations("rooms");
   const router = useRouter();
   const pathname = usePathname();
   const { activeRoom, loading } = useActiveRoom();
 
   if (loading || !activeRoom) return null;
 
-  // Masquer si on est déjà dans cette room
   const roomPath = `${GAME_PATHS[activeRoom.game_type] ?? "/games"}/${activeRoom.id}`;
   if (pathname.startsWith(roomPath)) return null;
 
-  const label = PHASE_LABELS[activeRoom.phase] ?? "En jeu";
+  const PHASE_LABELS: Record<string, string> = {
+    lobby:      t("phaseLobby"),
+    reveal:     t("phasePlaying"),
+    discussion: t("phasePlaying"),
+    vote:       t("phasePlaying"),
+    result:     t("phaseResult"),
+  };
+  const label = PHASE_LABELS[activeRoom.phase] ?? t("phaseOther");
 
   return (
     <AnimatePresence>

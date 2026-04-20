@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 
 export default function KickedToast() {
+  const t = useTranslations("rooms");
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -16,8 +19,8 @@ export default function KickedToast() {
       const url = new URL(window.location.href);
       url.searchParams.delete("kicked");
       router.replace(url.pathname + (url.search || ""), { scroll: false });
-      const t = setTimeout(() => setVisible(false), 5000);
-      return () => clearTimeout(t);
+      const tm = setTimeout(() => setVisible(false), 5000);
+      return () => clearTimeout(tm);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams]);
@@ -49,14 +52,14 @@ export default function KickedToast() {
               <div className="px-6 py-6 text-center space-y-3">
                 <div className="text-4xl">🚪</div>
                 <div>
-                  <p className="text-white font-display font-bold text-base">Tu as été expulsé</p>
-                  <p className="text-surface-400 text-sm mt-1">L&apos;hôte t&apos;a retiré de la partie</p>
+                  <p className="text-white font-display font-bold text-base">{t("kickedTitle")}</p>
+                  <p className="text-surface-400 text-sm mt-1">{t("kickedSubtitle")}</p>
                 </div>
                 <button
                   onClick={() => setVisible(false)}
                   className="w-full py-2.5 rounded-xl bg-surface-800/80 text-surface-300 text-sm font-medium hover:bg-surface-700/80 transition-colors border border-surface-700/40"
                 >
-                  Fermer
+                  {t("kickedClose")}
                 </button>
               </div>
             </div>

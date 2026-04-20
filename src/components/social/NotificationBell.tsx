@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import Avatar from "@/components/ui/Avatar";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 
 export default function NotificationBell() {
+  const t = useTranslations("notifications");
+  const locale = useLocale();
   const { user } = useAuth();
   const {
     notifications,
@@ -42,7 +45,7 @@ export default function NotificationBell() {
         <button
           onClick={() => setOpen((v) => !v)}
           className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-surface-800/80 border border-surface-700/50 text-surface-300 hover:text-white hover:border-brand-500/50 transition-all"
-          aria-label="Notifications"
+          aria-label={t("ariaLabel")}
         >
           🔔
         </button>
@@ -58,16 +61,16 @@ export default function NotificationBell() {
             >
               <div className="px-5 py-6 text-center flex flex-col items-center gap-3">
                 <span className="text-3xl">👥</span>
-                <p className="text-white font-display font-bold text-sm">Rejoins la communauté</p>
+                <p className="text-white font-display font-bold text-sm">{t("joinCommunityTitle")}</p>
                 <p className="text-surface-400 text-xs leading-relaxed">
-                  Connecte-toi pour ajouter des amis, suivre leur activité et recevoir des notifications.
+                  {t("joinCommunityText")}
                 </p>
                 <Link
                   href="/auth/login"
                   onClick={() => setOpen(false)}
                   className="mt-1 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-colors"
                 >
-                  Se connecter
+                  {t("loginCta")}
                 </Link>
               </div>
             </motion.div>
@@ -107,7 +110,7 @@ export default function NotificationBell() {
       <button
         onClick={togglePanel}
         className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-surface-800/80 border border-surface-700/50 text-surface-300 hover:text-white hover:border-brand-500/50 transition-all"
-        aria-label="Notifications"
+        aria-label={t("ariaLabel")}
       >
         🔔
         <AnimatePresence>
@@ -137,7 +140,7 @@ export default function NotificationBell() {
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800/60">
-              <p className="text-white font-display font-bold text-sm">Notifications</p>
+              <p className="text-white font-display font-bold text-sm">{t("title")}</p>
             </div>
 
             {/* Liste */}
@@ -145,7 +148,7 @@ export default function NotificationBell() {
               {notifications.length === 0 ? (
                 <div className="py-8 text-center">
                   <p className="text-4xl mb-2">🔔</p>
-                  <p className="text-surface-500 text-sm">Aucune notification</p>
+                  <p className="text-surface-500 text-sm">{t("empty")}</p>
                 </div>
               ) : (
                 <AnimatePresence initial={false}>
@@ -177,9 +180,9 @@ export default function NotificationBell() {
                               <>
                                 <p className="text-white text-sm leading-snug">
                                   <span className="font-medium">
-                                    {notif.from_profile?.username ?? "Joueur"}
+                                    {notif.from_profile?.username ?? t("anonymous")}
                                   </span>{" "}
-                                  veut être ton ami
+                                  {t("wantsFriend")}
                                 </p>
                                 {notif.friendship_id && (
                                   <div className="flex gap-2 mt-2">
@@ -187,13 +190,13 @@ export default function NotificationBell() {
                                       onClick={() => handleRespond(notif, "accept")}
                                       className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors"
                                     >
-                                      ✓ Accepter
+                                      {t("accept")}
                                     </button>
                                     <button
                                       onClick={() => handleRespond(notif, "decline")}
                                       className="px-3 py-1 rounded-xl border border-surface-700/40 text-surface-400 text-xs hover:text-red-400 transition-colors"
                                     >
-                                      Refuser
+                                      {t("decline")}
                                     </button>
                                   </div>
                                 )}
@@ -201,13 +204,13 @@ export default function NotificationBell() {
                             ) : (
                               <p className="text-white text-sm leading-snug">
                                 <span className="font-medium">
-                                  {notif.from_profile?.username ?? "Joueur"}
+                                  {notif.from_profile?.username ?? t("anonymous")}
                                 </span>{" "}
-                                a accepté ta demande d&apos;ami 🎉
+                                {t("acceptedFriend")}
                               </p>
                             )}
                             <p className="text-surface-600 text-xs mt-1">
-                              {new Date(notif.created_at).toLocaleDateString("fr-FR", {
+                              {new Date(notif.created_at).toLocaleDateString(locale === "en" ? "en-US" : "fr-FR", {
                                 day: "numeric",
                                 month: "short",
                                 hour: "2-digit",
@@ -219,7 +222,7 @@ export default function NotificationBell() {
                           {/* Bouton supprimer */}
                           <button
                             onClick={() => deleteNotification(notif.id)}
-                            title="Supprimer"
+                            title={t("delete")}
                             className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-surface-600 hover:text-red-400 hover:bg-red-950/40 transition-all text-xs"
                           >
                             ✕
@@ -238,7 +241,7 @@ export default function NotificationBell() {
                 onClick={() => { setOpen(false); router.push("/friends"); }}
                 className="w-full text-center text-brand-400 text-xs font-medium hover:text-brand-300 transition-colors"
               >
-                Voir tous les amis →
+                {t("viewAllFriends")}
               </button>
             </div>
           </motion.div>

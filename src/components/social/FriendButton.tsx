@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { useFriendship } from "@/hooks/useFriendship";
 
 interface FriendButtonProps {
@@ -11,6 +12,7 @@ interface FriendButtonProps {
 }
 
 export default function FriendButton({ targetUserId, className = "" }: FriendButtonProps) {
+  const t = useTranslations("friends");
   const { state, loading, actionLoading, sendRequest, respond, removeFriend } = useFriendship(targetUserId);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
@@ -54,7 +56,7 @@ export default function FriendButton({ targetUserId, className = "" }: FriendBut
           disabled={actionLoading}
           className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-brand text-white text-sm font-bold glow-brand hover:opacity-92 disabled:opacity-50 transition-all"
         >
-          {actionLoading ? "…" : "👤 Ajouter"}
+          {actionLoading ? "…" : t("addFriend")}
         </button>
       )}
 
@@ -65,7 +67,7 @@ export default function FriendButton({ targetUserId, className = "" }: FriendBut
           disabled={actionLoading}
           className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-surface-600/50 bg-surface-800/60 text-surface-400 text-sm font-medium hover:border-red-700/50 hover:text-red-400 disabled:opacity-50 transition-all"
         >
-          {actionLoading ? "…" : "⏳ En attente"}
+          {actionLoading ? "…" : t("pending")}
         </button>
       )}
 
@@ -77,7 +79,7 @@ export default function FriendButton({ targetUserId, className = "" }: FriendBut
             disabled={actionLoading}
             className="px-4 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 transition-all"
           >
-            ✓ Accepter
+            {t("accept")}
           </button>
           <button
             onClick={() => handleRespond("decline")}
@@ -96,7 +98,7 @@ export default function FriendButton({ targetUserId, className = "" }: FriendBut
             onClick={() => setShowMenu(!showMenu)}
             className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-emerald-700/40 bg-emerald-950/30 text-emerald-400 text-sm font-bold hover:border-emerald-600/60 transition-all"
           >
-            ✓ Amis
+            {t("friends")}
           </button>
           <AnimatePresence>
             {showMenu && (
@@ -111,13 +113,13 @@ export default function FriendButton({ targetUserId, className = "" }: FriendBut
                   disabled={actionLoading}
                   className="w-full py-2 px-3 rounded-xl text-red-400 text-sm hover:bg-red-950/40 transition-colors text-left"
                 >
-                  Retirer des amis
+                  {t("removeFriend")}
                 </button>
                 <button
                   onClick={() => setShowMenu(false)}
                   className="w-full py-2 px-3 rounded-xl text-surface-500 text-xs hover:bg-surface-800 transition-colors text-left"
                 >
-                  Annuler
+                  {t("cancel")}
                 </button>
               </motion.div>
             )}
@@ -128,7 +130,7 @@ export default function FriendButton({ targetUserId, className = "" }: FriendBut
       {/* ── Bloqué ── */}
       {state.status === "blocked" && (
         <span className="px-4 py-2 rounded-2xl border border-surface-700/30 text-surface-600 text-sm">
-          Bloqué
+          {t("blocked")}
         </span>
       )}
     </div>

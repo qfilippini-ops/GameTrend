@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import type { GhostWordPlayer } from "@/types/games";
 
@@ -12,6 +13,7 @@ interface VeilScreenProps {
 }
 
 export default function VeilScreen({ player, playerNumber, totalPlayers, onReveal }: VeilScreenProps) {
+  const t = useTranslations("games.ghostword.veil");
   function handleReveal() {
     vibrate(50);
     onReveal();
@@ -63,7 +65,7 @@ export default function VeilScreen({ player, playerNumber, totalPlayers, onRevea
           <div className="text-7xl mb-8 animate-float">🫣</div>
 
           <p className="text-surface-600 text-xs uppercase tracking-[0.2em] font-medium mb-4">
-            Passe le téléphone à
+            {t("passPhoneTo")}
           </p>
 
           <h1 className="text-5xl font-display font-black text-white mb-3 leading-none tracking-tight">
@@ -80,10 +82,10 @@ export default function VeilScreen({ player, playerNumber, totalPlayers, onRevea
           />
 
           <p className="text-surface-500 text-sm max-w-xs mx-auto leading-relaxed">
-            Assure-toi que personne ne regarde.
+            {t("ensurePrivacy")}
           </p>
           <p className="text-surface-600 text-xs mt-1">
-            Appuie quand tu es prêt·e.
+            {t("tapWhenReady")}
           </p>
         </motion.div>
       </div>
@@ -98,7 +100,7 @@ export default function VeilScreen({ player, playerNumber, totalPlayers, onRevea
           onClick={handleReveal}
           className="w-full bg-gradient-brand text-white font-display font-bold text-xl py-5 rounded-2xl glow-brand hover:opacity-92 transition-opacity"
         >
-          Révéler mon mot 👁
+          {t("revealMyWord")}
         </motion.button>
       </div>
     </motion.div>
