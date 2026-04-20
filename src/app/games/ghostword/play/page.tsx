@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import VeilScreen from "@/games/ghostword/components/VeilScreen";
@@ -24,8 +24,13 @@ function GhostWordPlayContent() {
   const [activeConfig, setActiveConfig] = useState<GhostWordConfig>(DEFAULT_CONFIG);
   const [activePreset, setActivePreset] = useState<{ id: string; name: string } | null>(null);
   const [showingReveal, setShowingReveal] = useState(false);
-  // Évite de tracker la stat plusieurs fois si le composant re-rend
-  const [statTracked, setStatTracked] = useState(false);
+  // useRef plutôt qu'un useState pour ne PAS retrigger le useEffect après
+  // setStatTracked(true) — sinon on risque que la 2e exécution annule la
+  // première (cf. anciennes pertes d'incrémentation).
+  const statTrackedRef = useRef(false);
+  // Stocke l'id du preset utilisé dans une ref : capturée à la fin de
+  // partie même si le state React n'a pas eu le temps de se propager.
+  const activePresetIdRef = useRef<string | null>(null);
 
   // ── Init de la partie ──────────────────────────────────────────────────────
 
@@ -64,6 +69,10 @@ function GhostWordPlayContent() {
               const chosen = validPresets[Math.floor(Math.random() * validPresets.length)];
               config = chosen.config as GhostWordConfig;
               setActivePreset({ id: chosen.id, name: chosen.name });
+              // Capture immédiate de l'id du preset effectivement utilisé
+              // dans une ref : disponible synchroneusement à la fin de partie
+              // sans dépendre du cycle de re-render React.
+              activePresetIdRef.current = chosen.id;
               // L'incrémentation du play_count est faite à la fin de partie
               // (cf. useEffect de tracking) pour ne compter que les parties
               // réellement terminées.
@@ -85,17 +94,20 @@ function GhostWordPlayContent() {
   // ── Tracking stats quand la partie se termine ──────────────────────────────
 
   useEffect(() => {
-    if (!gameState?.winner || statTracked) return;
-    setStatTracked(true);
+    if (!gameState?.winner || statTrackedRef.current) return;
+    statTrackedRef.current = true;
 
     async function trackGamePlayed() {
       const supabase = createClient();
 
-      if (activePreset?.id) {
-        await supabase.rpc(
+      // Incrémente uniquement le preset effectivement utilisé pour la partie.
+      const presetId = activePresetIdRef.current;
+      if (presetId) {
+        const { error } = await supabase.rpc(
           "increment_preset_play_count",
-          { p_preset_id: activePreset.id } as never
+          { p_preset_id: presetId } as never
         );
+        if (error) console.error("[increment_preset_play_count]", error);
       }
 
       const { data: { user } } = await supabase.auth.getUser();
@@ -121,7 +133,7 @@ function GhostWordPlayContent() {
     }
 
     trackGamePlayed();
-  }, [gameState?.winner, statTracked, activePreset]);
+  }, [gameState?.winner]);
 
   // ── Chargement ─────────────────────────────────────────────────────────────
 

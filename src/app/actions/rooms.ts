@@ -208,8 +208,12 @@ export async function startOnlineGame(
       .maybeSingle();
     if (preset?.config) {
       presetConfig = preset.config;
-      // Incrémenter play_count du preset sélectionné
-      await supabase.rpc("increment_preset_play_count", { p_preset_id: presetId });
+      // Incrémenter play_count uniquement du preset effectivement utilisé.
+      const { error: rpcErr } = await supabase.rpc(
+        "increment_preset_play_count",
+        { p_preset_id: presetId }
+      );
+      if (rpcErr) console.error("[increment_preset_play_count]", rpcErr);
     }
   }
 
