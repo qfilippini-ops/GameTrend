@@ -395,143 +395,15 @@ export async function sendDiscussionMessage(
   return {};
 }
 
-// ── Voter (phase vote) ────────────────────────────────────────
-export async function castOnlineVote(
-  roomId: string,
-  targetName: string
-): Promise<{ error?: string }> {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Non connecté" };
-
-  const { data: me } = await supabase
-    .from("room_players")
-    .select("display_name")
-    .eq("room_id", roomId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: room } = await supabase
-    .from("game_rooms")
-    .select("vote_round, discussion_turns_per_round, game_type")
-    .eq("id", roomId)
-    .maybeSingle();
-
-  if (!me || !room) return { error: "Erreur" };
-
-  // Upsert vote (un vote par joueur par round)
-  await supabase.from("room_votes").upsert({
-    room_id: roomId,
-    voter_name: me.display_name,
-    target_name: targetName,
-    vote_round: room.vote_round,
-  });
-
-  // Vérifier si tous les joueurs en vie ont voté
-  const { data: alive } = await supabase
-    .from("room_players")
-    .select("display_name, role")
-    .eq("room_id", roomId)
-    .eq("is_eliminated", false);
-
-  const { data: votes } = await supabase
-    .from("room_votes")
-    .select("voter_name, target_name")
-    .eq("room_id", roomId)
-    .eq("vote_round", room.vote_round);
-
-  if (!alive || !votes || votes.length < alive.length) return {};
-
-  // Dépouillement
-  const tally: Record<string, number> = {};
-  votes.forEach((v) => {
-    tally[v.target_name] = (tally[v.target_name] ?? 0) + 1;
-  });
-  const maxVotes = Math.max(...Object.values(tally));
-  const topCandidates = Object.entries(tally)
-    .filter(([, count]) => count === maxVotes);
-
-  // Égalité → Tour de prolongation : on revient en phase discussion
-  // (les joueurs re-discutent puis re-votent), personne n'est éliminé.
-  if (topCandidates.length > 1) {
-    const { data: currentRoom } = await supabase
-      .from("game_rooms")
-      .select("tie_count")
-      .eq("id", roomId)
-      .maybeSingle();
-
-    await supabase
-      .from("game_rooms")
-      .update({
-        phase: "discussion",
-        discussion_turn: 1,
-        current_speaker_index: 0,
-        speaker_started_at: new Date().toISOString(),
-        vote_round: room.vote_round + 1,
-        tie_count: (currentRoom?.tie_count ?? 0) + 1,
-      })
-      .eq("id", roomId);
-
-    // Reset des "ready" : tout le monde doit re-discuter
-    await supabase
-      .from("room_players")
-      .update({ is_ready: false })
-      .eq("room_id", roomId);
-
-    return {};
-  }
-
-  const eliminated = topCandidates[0][0];
-
-  await supabase
-    .from("room_players")
-    .update({ is_eliminated: true })
-    .eq("room_id", roomId)
-    .eq("display_name", eliminated);
-
-  // Condition de victoire
-  const { data: stillAlive } = await supabase
-    .from("room_players")
-    .select("display_name, role")
-    .eq("room_id", roomId)
-    .eq("is_eliminated", false);
-
-  // Déléguer la condition de victoire à l'adapter du jeu
-  const adapter = getAdapter(room.game_type ?? "ghostword");
-  const eliminatedPlayer = alive?.find((p) => p.display_name === eliminated);
-  const { gameOver, winner } = adapter.resolveElimination({
-    eliminatedRole: eliminatedPlayer?.role ?? "",
-    remainingPlayers: stillAlive ?? [],
-  });
-
-  if (gameOver && winner) {
-    await supabase
-      .from("game_rooms")
-      .update({ phase: "result", winner })
-      .eq("id", roomId);
-  } else {
-    // Tour suivant — réinitialise tie_count (nouvelle phase d'élimination)
-    await supabase
-      .from("game_rooms")
-      .update({
-        phase: "discussion",
-        discussion_turn: 1,
-        vote_round: room.vote_round + 1,
-        current_speaker_index: 0,
-        speaker_started_at: new Date().toISOString(),
-        tie_count: 0,
-      })
-      .eq("id", roomId);
-    await supabase
-      .from("room_players")
-      .update({ is_ready: false })
-      .eq("room_id", roomId);
-  }
-
-  return {};
-}
+// ── Voter (phase vote) ────────────────────────────────────────────────
+// Le vote est inséré directement par le client (`OnlineVote.tsx`) dans la
+// table `room_votes`. C'est l'INSERT qui déclenche le trigger PostgreSQL
+// `process_vote_fn` (cf. supabase/schema_fix_vote_trigger.sql), qui gère
+// atomiquement : check du quorum, tally, égalité (tour de prolongation),
+// élimination, condition de victoire, transition de phase.
+//
+// Aucune Server Action n'est nécessaire ici : tout est en BDD pour éviter
+// toute duplication de logique et toute race condition.
 
 // ── Récupérer résultats complets (phase result) ───────────────
 export interface RoomResultData {

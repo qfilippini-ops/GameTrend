@@ -58,7 +58,9 @@ export interface GameAdapter {
 
   /**
    * Détermine si la partie est terminée après l'élimination d'un joueur.
-   * Appelé par castOnlineVote côté serveur.
+   * Note : pour le mode online, la logique d'élimination est gérée
+   * atomiquement par le trigger PG `process_vote_fn`. Cette méthode est
+   * conservée pour le mode solo et pour les futurs jeux.
    */
   resolveElimination(params: {
     eliminatedRole: string;
