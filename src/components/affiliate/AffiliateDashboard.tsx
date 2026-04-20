@@ -47,7 +47,7 @@ export default function AffiliateDashboard() {
 
   const fetchDashboard = useCallback(async () => {
     const supabase = createClient();
-    const { data: raw, error: rpcErr } = await supabase.rpc("get_affiliate_dashboard");
+    const { data: raw, error: rpcErr } = await supabase.rpc("get_referral_dashboard");
     if (rpcErr) throw rpcErr;
     return raw as DashboardData;
   }, []);
@@ -83,7 +83,7 @@ export default function AffiliateDashboard() {
     setError(null);
     try {
       const supabase = createClient();
-      const { error: rpcErr } = await supabase.rpc("activate_affiliate");
+      const { error: rpcErr } = await supabase.rpc("activate_referral_program");
       if (rpcErr) throw rpcErr;
       const fresh = await fetchDashboard();
       setData(fresh);
@@ -119,7 +119,7 @@ export default function AffiliateDashboard() {
     setEditError(null);
     try {
       const supabase = createClient();
-      const { error: rpcErr } = await supabase.rpc("update_affiliate_code", {
+      const { error: rpcErr } = await supabase.rpc("update_referral_code", {
         new_code: next,
       });
       if (rpcErr) {

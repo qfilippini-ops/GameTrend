@@ -7,10 +7,13 @@
 
 
 -- ─── 1. Extension de profiles ───────────────────────────────────────────────
--- Le code d'affiliation est généré paresseusement (RPC activate_affiliate)
+-- Le code d'affiliation est généré paresseusement (RPC activate_referral_program)
 -- à partir du username de l'utilisateur. Modifiable a posteriori via
--- update_affiliate_code. Snapshot indépendant du username pour ne pas casser
+-- update_referral_code. Snapshot indépendant du username pour ne pas casser
 -- les liens partagés en cas de renommage.
+-- Les colonnes gardent le préfixe `affiliate_` (interne, non exposé en URL) ;
+-- seuls les noms de RPC ont été neutralisés en `referral_*` pour éviter d'être
+-- bloqués par les extensions anti-trackers (uBlock, Brave Shields, etc.).
 
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS affiliate_code TEXT UNIQUE,
@@ -112,12 +115,18 @@ CREATE TRIGGER notify_new_referral_trg
   FOR EACH ROW EXECUTE FUNCTION public.notify_new_referral_fn();
 
 
--- ─── 7. RPC activate_affiliate() ────────────────────────────────────────────
+-- ─── 7. RPC activate_referral_program() ────────────────────────────────────
 -- Génère le code par défaut depuis le username (lowercase, normalisation
 -- vers [a-z0-9_-], min 3 caractères, fallback aléatoire si collision ou
 -- username trop court). Idempotent : retourne le code existant si déjà actif.
+--
+-- NOTE : nommé "referral_program" et non "affiliate" pour éviter le blocage
+-- par les extensions anti-trackers (uBlock, Brave Shields, EasyPrivacy)
+-- qui filtrent agressivement le mot "affiliate" dans les URLs.
 
-CREATE OR REPLACE FUNCTION public.activate_affiliate()
+DROP FUNCTION IF EXISTS public.activate_affiliate();
+
+CREATE OR REPLACE FUNCTION public.activate_referral_program()
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -189,14 +198,16 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.activate_affiliate() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.activate_referral_program() TO authenticated;
 
 
--- ─── 8. RPC update_affiliate_code(new_code text) ────────────────────────────
+-- ─── 8. RPC update_referral_code(new_code text) ─────────────────────────────
 -- Renomme le code d'affiliation. Validation regex + unicité.
 -- Erreur typée pour le client : 'invalid_format', 'taken', 'not_activated'.
 
-CREATE OR REPLACE FUNCTION public.update_affiliate_code(new_code text)
+DROP FUNCTION IF EXISTS public.update_affiliate_code(text);
+
+CREATE OR REPLACE FUNCTION public.update_referral_code(new_code text)
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -241,7 +252,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.update_affiliate_code(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_referral_code(text) TO authenticated;
 
 
 -- ─── 9. RPC claim_referral(code text) ───────────────────────────────────────
@@ -296,12 +307,14 @@ $$;
 GRANT EXECUTE ON FUNCTION public.claim_referral(text) TO authenticated;
 
 
--- ─── 10. RPC get_affiliate_dashboard() ──────────────────────────────────────
+-- ─── 10. RPC get_referral_dashboard() ───────────────────────────────────────
 -- Une seule passe pour toute la page : code, KPIs, liste des derniers
 -- filleuls (top 20). recent_referrals contient l'earned_cents par filleul
 -- (somme des earnings 'paid' liés à cette ligne referrals).
 
-CREATE OR REPLACE FUNCTION public.get_affiliate_dashboard()
+DROP FUNCTION IF EXISTS public.get_affiliate_dashboard();
+
+CREATE OR REPLACE FUNCTION public.get_referral_dashboard()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -382,4 +395,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.get_affiliate_dashboard() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_referral_dashboard() TO authenticated;
