@@ -71,14 +71,45 @@ function CGVFrench() {
         En cas de litige non résolu amiablement, vous pouvez recourir gratuitement à un médiateur de la consommation. Pour les consommateurs européens, la plateforme de résolution en ligne des litiges de la Commission européenne est accessible à l&apos;adresse : <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.
       </p>
 
-      <h2>7. Droit applicable</h2>
+      <h2>7. Programme d&apos;affiliation</h2>
+      <p>
+        GameTrend propose un programme d&apos;affiliation gratuit et facultatif, accessible à tout titulaire d&apos;un compte vérifié depuis l&apos;onglet « Affiliation » de son profil. Les conditions ci-dessous s&apos;appliquent à toute personne activant ce programme.
+      </p>
+      <h3>7.1 Mécanisme de commission</h3>
+      <ul>
+        <li><strong>Taux unique : 40 %</strong> du revenu net (après frais de paiement) perçu par GameTrend sur chaque abonnement souscrit par un filleul.</li>
+        <li><strong>Commission récurrente</strong> : versée chaque mois tant que le filleul conserve un abonnement actif et payé.</li>
+        <li><strong>Périmètre</strong> : la commission s&apos;applique uniquement aux abonnements payants. Les éventuels achats ponctuels (contenus, services à l&apos;unité) en sont exclus.</li>
+        <li><strong>Conditionnelle</strong> : aucune commission n&apos;est due en cas de résiliation, remboursement, chargeback ou défaut de paiement du filleul. Les commissions déjà créditées correspondant à un mois remboursé sont annulées (statut <em>reversed</em>).</li>
+      </ul>
+      <h3>7.2 Attribution</h3>
+      <p>
+        L&apos;attribution se fait au premier clic (« first-click wins ») via un cookie de durée 90 jours déposé lors du clic sur un lien d&apos;affiliation. Si le filleul s&apos;inscrit dans cette fenêtre, il est définitivement rattaché à l&apos;affilié initial. Un compte ne peut être rattaché qu&apos;à un seul affilié, de manière irrévocable. L&apos;auto-affiliation est interdite.
+      </p>
+      <h3>7.3 Validation et versement</h3>
+      <ul>
+        <li>Les gains sont d&apos;abord crédités en statut <strong>« en attente »</strong> pendant 30 jours après la perception du paiement par GameTrend, afin de couvrir la fenêtre de remboursement.</li>
+        <li>Passé ce délai, et en l&apos;absence de remboursement ou de chargeback, ils basculent en <strong>« validés »</strong> et deviennent éligibles au versement.</li>
+        <li>Le versement est déclenché lorsque le solde validé atteint <strong>25 €</strong>. En dessous, le solde est reporté.</li>
+        <li>Les versements sont effectués par virement bancaire SEPA, sur demande de l&apos;affilié, dans un délai maximal de 14 jours après réception des coordonnées bancaires complètes.</li>
+        <li>L&apos;affilié est responsable de la déclaration fiscale et sociale des sommes perçues dans son pays de résidence.</li>
+      </ul>
+      <h3>7.4 Fraude et résiliation du programme</h3>
+      <p>
+        GameTrend se réserve le droit de suspendre, annuler ou retenir tout gain en cas de comportement frauduleux ou abusif (création de faux comptes, achat de trafic, spam, incitation trompeuse, violation des CGU). En cas de fraude avérée, le compte affilié peut être résilié sans préavis et les sommes en attente définitivement annulées.
+      </p>
+      <p>
+        L&apos;affilié peut quitter le programme à tout moment depuis son tableau de bord. Les commissions déjà validées restent dues et seront versées selon les conditions ci-dessus.
+      </p>
+
+      <h2>8. Droit applicable</h2>
       <p>
         Les présentes CGV sont soumises au droit français. En cas de litige, les tribunaux compétents seront ceux du ressort du Tribunal Judiciaire de Chartres, sous réserve des dispositions impératives protectrices des consommateurs dans leur pays de résidence.
       </p>
 
-      <h2>8. Contact</h2>
+      <h2>9. Contact</h2>
       <p>
-        Pour toute question relative à votre abonnement : <a href="mailto:contact@gametrend.fr">contact@gametrend.fr</a>
+        Pour toute question relative à votre abonnement ou au programme d&apos;affiliation : <a href="mailto:contact@gametrend.fr">contact@gametrend.fr</a>
       </p>
     </>
   );
@@ -144,14 +175,45 @@ function CGVEnglish() {
         In case of an unresolved dispute, you may use a consumer mediator free of charge. For European consumers, the European Commission&apos;s online dispute resolution platform is available at: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.
       </p>
 
-      <h2>7. Governing law</h2>
+      <h2>7. Affiliate program</h2>
+      <p>
+        GameTrend offers a free, optional affiliate program available to any verified account holder from the &quot;Affiliate&quot; tab of their profile. The terms below apply to anyone activating this program.
+      </p>
+      <h3>7.1 Commission mechanism</h3>
+      <ul>
+        <li><strong>Single rate: 40 %</strong> of the net revenue (after payment fees) received by GameTrend on each subscription taken out by a referred user.</li>
+        <li><strong>Recurring commission</strong>: paid every month for as long as the referred user maintains an active and paid subscription.</li>
+        <li><strong>Scope</strong>: commission applies only to paid subscriptions. Any one-time purchases (content, à-la-carte services) are excluded.</li>
+        <li><strong>Conditional</strong>: no commission is owed in case of cancellation, refund, chargeback or payment failure by the referred user. Commissions already credited that correspond to a refunded month are reversed.</li>
+      </ul>
+      <h3>7.2 Attribution</h3>
+      <p>
+        Attribution is done on a first-click basis via a 90-day cookie set when the referral link is clicked. If the referred user signs up within this window, they are permanently attached to the original affiliate. An account can only be linked to a single affiliate, irrevocably. Self-referral is prohibited.
+      </p>
+      <h3>7.3 Validation and payout</h3>
+      <ul>
+        <li>Earnings are first credited as <strong>&quot;pending&quot;</strong> for 30 days after GameTrend receives the payment, to cover the refund window.</li>
+        <li>After this period, in the absence of any refund or chargeback, they switch to <strong>&quot;approved&quot;</strong> and become eligible for payout.</li>
+        <li>Payout is triggered when the approved balance reaches <strong>€25</strong>. Below this threshold, the balance carries over.</li>
+        <li>Payouts are made by SEPA bank transfer, upon request from the affiliate, within a maximum of 14 days after receipt of complete bank details.</li>
+        <li>The affiliate is responsible for declaring the amounts received under the tax and social security rules of their country of residence.</li>
+      </ul>
+      <h3>7.4 Fraud and termination</h3>
+      <p>
+        GameTrend reserves the right to suspend, cancel or withhold any earnings in case of fraudulent or abusive behavior (fake accounts, traffic buying, spam, misleading promotion, breach of the Terms of Service). In case of proven fraud, the affiliate account may be terminated without notice and pending earnings permanently cancelled.
+      </p>
+      <p>
+        The affiliate can leave the program at any time from their dashboard. Commissions already approved remain due and will be paid out under the conditions above.
+      </p>
+
+      <h2>8. Governing law</h2>
       <p>
         These Subscription Terms are governed by French law. In case of dispute, the competent courts shall be those within the jurisdiction of the Tribunal Judiciaire de Chartres, subject to mandatory consumer-protection rules applicable in the user&apos;s country of residence.
       </p>
 
-      <h2>8. Contact</h2>
+      <h2>9. Contact</h2>
       <p>
-        For any question regarding your subscription: <a href="mailto:contact@gametrend.fr">contact@gametrend.fr</a>
+        For any question regarding your subscription or the affiliate program: <a href="mailto:contact@gametrend.fr">contact@gametrend.fr</a>
       </p>
     </>
   );

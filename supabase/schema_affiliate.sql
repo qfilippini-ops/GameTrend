@@ -42,9 +42,23 @@ CREATE INDEX IF NOT EXISTS referrals_referrer_idx
 
 
 -- ─── 3. Table referral_earnings ─────────────────────────────────────────────
--- Ledger append-only des commissions. Reste vide tant que Stripe n'est pas
--- branché. eligible_at = created_at + PENDING_DAYS pour gérer l'anti-fraude
--- chargeback (cf. plan d'affiliation).
+-- Ledger append-only des commissions générées par les filleuls.
+--
+-- MODÈLE :
+--   - Commission FIXE de 40 % (cf. AFFILIATE_CONFIG.COMMISSION_RATE côté TS)
+--     appliquée au revenu net (après frais de paiement) perçu par GameTrend.
+--   - Récurrente : 1 ligne créée chaque mois où le filleul paie son abo,
+--     déclenchée par le webhook Stripe/Paddle (à brancher).
+--   - Conditionnelle : si le filleul est remboursé/chargeback, la ligne
+--     correspondante passe en `reversed`. Si l'abonné se désabonne,
+--     simplement plus aucune nouvelle ligne n'est créée (auto-régulation).
+--   - Périmètre : abonnements UNIQUEMENT (pas les achats one-shot, pour
+--     limiter l'auto-fraude).
+--   - eligible_at = created_at + PENDING_DAYS (30 j) pour couvrir la fenêtre
+--     de chargeback.
+--   - Reste vide tant que Stripe/Paddle n'est pas branché.
+--
+-- Voir docs/MONETIZATION.md pour le détail business.
 
 CREATE TABLE IF NOT EXISTS public.referral_earnings (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
