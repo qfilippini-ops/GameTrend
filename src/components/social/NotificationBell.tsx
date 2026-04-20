@@ -201,6 +201,13 @@ export default function NotificationBell() {
                                   </div>
                                 )}
                               </>
+                            ) : notif.type === "new_referral" ? (
+                              <p className="text-white text-sm leading-snug">
+                                <span className="mr-1">🎉</span>
+                                {t("newReferral", {
+                                  name: notif.from_profile?.username ?? t("anonymous"),
+                                })}
+                              </p>
                             ) : (
                               <p className="text-white text-sm leading-snug">
                                 <span className="font-medium">

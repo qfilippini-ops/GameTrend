@@ -15,6 +15,7 @@ import { routing } from "./i18n/routing";
  * Routes EXCLUES du préfixe locale (cf. matcher) :
  *   - /api/*           : routes serveur (auth, webhooks)
  *   - /auth/callback   : OAuth callback Supabase
+ *   - /r/*             : liens courts d'affiliation (pose le cookie + redirige)
  *   - /_next/*         : assets internes Next.js
  *   - /sw.js, *.png... : PWA + statiques
  */
@@ -71,6 +72,6 @@ export const config = {
   // On exclut explicitement les routes qui ne doivent JAMAIS être préfixées
   // par une locale (API, OAuth callback, statiques, service worker).
   matcher: [
-    "/((?!api|auth/callback|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|icons|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|auth/callback|r/|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|icons|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

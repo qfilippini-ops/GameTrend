@@ -7,10 +7,12 @@ export interface FriendshipState {
   isRequester?: boolean;
 }
 
+export type NotificationType = "friend_request" | "friend_accepted" | "new_referral";
+
 export interface Notification {
   id: string;
   user_id: string;
-  type: "friend_request" | "friend_accepted";
+  type: NotificationType;
   from_user_id: string;
   read_at: string | null;
   created_at: string;

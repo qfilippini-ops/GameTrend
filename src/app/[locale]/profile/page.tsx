@@ -17,6 +17,7 @@ import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import LegalModal from "@/components/legal/LegalModal";
 import type { LegalType } from "@/components/legal/LegalModal";
 import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
+import AffiliateDashboard from "@/components/affiliate/AffiliateDashboard";
 
 type Tab = "mes-presets" | "favoris";
 
@@ -317,6 +318,24 @@ export default function ProfilePage() {
               <label className="block text-surface-400 text-xs font-medium">{t("languageLabel")}</label>
               <LanguageSwitcher />
               <p className="text-surface-600 text-[11px]">{t("languageHint")}</p>
+            </div>
+          </details>
+        </motion.div>
+
+        {/* ── Affiliation ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.19 }}
+          className="rounded-2xl border border-surface-800/60 bg-surface-900/30 overflow-hidden"
+        >
+          <details>
+            <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none hover:bg-surface-800/20 transition-colors">
+              <p className="text-surface-500 text-xs uppercase tracking-widest font-medium">{t("sectionsAffiliate")}</p>
+              <span className="text-surface-600 text-xs">▼</span>
+            </summary>
+            <div className="px-4 py-4 border-t border-surface-800/40">
+              <AffiliateDashboard />
             </div>
           </details>
         </motion.div>
