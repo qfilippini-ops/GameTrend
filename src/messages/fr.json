@@ -71,6 +71,9 @@
     },
     "loadMore": "Charger plus",
     "allCaughtUp": "Tu as tout vu pour les 30 derniers jours.",
+    "newPosts": "{count, plural, one {# nouveau post} other {# nouveaux posts}} ↑",
+    "errorTitle": "Impossible de charger le fil",
+    "errorRetry": "Réessayer",
     "actions": {
       "publishedPreset": "a publié un nouveau preset",
       "sharedResult": "a partagé un résultat"

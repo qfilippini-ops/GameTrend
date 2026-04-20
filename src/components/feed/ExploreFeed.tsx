@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GAMES_REGISTRY } from "@/games/registry";
 import Avatar from "@/components/ui/Avatar";
+import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
 
 const gameMap = new Map(GAMES_REGISTRY.map((g) => [g.id, g]));
 
@@ -32,88 +33,197 @@ interface PublicRoom {
   host?: { username: string | null; avatar_url: string | null };
 }
 
+interface ExploreData {
+  trending: TrendingPreset[];
+  rooms: PublicRoom[];
+}
+
+/**
+ * Le cache stocke "items" comme un tuple { trending, rooms } sérialisé en
+ * tableau d'un seul élément pour respecter la shape FeedTabState générique.
+ * On l'expose via getData/setData pour rester ergonomique.
+ */
+type CachedState = FeedTabState<ExploreData, undefined>;
+
+interface RpcShape {
+  trending_presets: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    game_type: string;
+    cover_url: string | null;
+    play_count: number;
+    author_id: string;
+    author: { username: string | null; avatar_url: string | null } | null;
+  }>;
+  public_rooms: Array<{
+    id: string;
+    game_type: string;
+    host_id: string;
+    created_at: string;
+    player_count: number;
+    host: { username: string | null; avatar_url: string | null } | null;
+  }>;
+}
+
+function rpcToData(raw: RpcShape): ExploreData {
+  return {
+    trending: raw.trending_presets.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      game_type: p.game_type,
+      cover_url: p.cover_url,
+      play_count: p.play_count,
+      author_id: p.author_id,
+      author: p.author ?? undefined,
+    })),
+    rooms: raw.public_rooms.map((r) => ({
+      id: r.id,
+      game_type: r.game_type,
+      host_id: r.host_id,
+      created_at: r.created_at,
+      player_count: r.player_count,
+      host: r.host ?? undefined,
+    })),
+  };
+}
+
 export default function ExploreFeed() {
   const t = useTranslations("feed.explore");
+  const tFeed = useTranslations("feed");
   const tCommon = useTranslations("common");
   const { user } = useAuth();
-  const [trending, setTrending] = useState<TrendingPreset[]>([]);
-  const [rooms, setRooms] = useState<PublicRoom[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cache = useFeedCache();
 
+  const cached = cache.getState<ExploreData, undefined>("explore");
+  const [data, setData] = useState<ExploreData | null>(cached?.items[0] ?? null);
+  const [loading, setLoading] = useState<boolean>(!cached);
+  const [error, setError] = useState<string | null>(null);
+  const dataRef = useRef(data);
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
+    dataRef.current = data;
+  }, [data]);
 
-      const [presetsRes, roomsRes] = await Promise.all([
-        supabase
-          .from("presets")
-          .select("id, name, description, game_type, cover_url, play_count, author_id")
-          .eq("is_public", true)
-          .order("play_count", { ascending: false })
-          .limit(10),
-        supabase
-          .from("game_rooms")
-          .select("id, game_type, host_id, created_at, phase")
-          .eq("is_private", false)
-          .eq("phase", "lobby")
-          .order("created_at", { ascending: false })
-          .limit(10),
-      ]);
-
-      const presets = (presetsRes.data ?? []) as TrendingPreset[];
-      const rooms_ = (roomsRes.data ?? []) as Array<PublicRoom & { phase: string }>;
-
-      // Récupérer les profils auteurs
-      const userIds = Array.from(new Set([
-        ...presets.map((p) => p.author_id),
-        ...rooms_.map((r) => r.host_id),
-      ]));
-
-      let profileMap = new Map<string, { username: string | null; avatar_url: string | null }>();
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username, avatar_url")
-          .in("id", userIds);
-        profileMap = new Map((profiles ?? []).map((p) => [p.id, { username: p.username, avatar_url: p.avatar_url }]));
-      }
-
-      // Comptage de joueurs par room
-      const roomIds = rooms_.map((r) => r.id);
-      const playersCount = new Map<string, number>();
-      if (roomIds.length > 0) {
-        const { data: players } = await supabase
-          .from("room_players")
-          .select("room_id")
-          .in("room_id", roomIds);
-        (players ?? []).forEach((p) => {
-          const k = (p as { room_id: string }).room_id;
-          playersCount.set(k, (playersCount.get(k) ?? 0) + 1);
-        });
-      }
-
-      setTrending(presets.map((p) => ({ ...p, author: profileMap.get(p.author_id) })));
-      setRooms(rooms_.map((r) => ({
-        ...r,
-        player_count: playersCount.get(r.id) ?? 0,
-        host: profileMap.get(r.host_id),
-      })));
-      setLoading(false);
-    }
-    load();
+  const fetchExplore = useCallback(async (): Promise<ExploreData> => {
+    const supabase = createClient();
+    const { data: raw, error: rpcErr } = await supabase.rpc("get_explore_feed", {
+      top_presets: 10,
+      top_rooms: 10,
+    });
+    if (rpcErr) throw rpcErr;
+    return rpcToData(raw as RpcShape);
   }, []);
 
-  if (loading) {
+  // ─── Initial fetch ou refetch silencieux ───────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const cur = cache.getState<ExploreData, undefined>("explore");
+    const stale = cache.isStale("explore");
+    const silent = !!cur && stale;
+
+    if (cur && !stale) {
+      // Cache frais → rien à faire, tout est déjà rendu
+      setLoading(false);
+      return;
+    }
+
+    async function run() {
+      try {
+        const fresh = await fetchExplore();
+        if (cancelled) return;
+        setData(fresh);
+        setError(null);
+        cache.setState<ExploreData, undefined>("explore", {
+          items: [fresh],
+          lastFetchAt: Date.now(),
+          scrollY: cur?.scrollY ?? 0,
+          hasMore: false,
+          lastCursor: null,
+        });
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[ExploreFeed] fetch error", e);
+        if (!silent) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Restauration du scroll au mount ───────────────────────────────────────
+  useEffect(() => {
+    const cur = cache.getState<ExploreData, undefined>("explore");
+    if (!cur || cur.scrollY <= 0) return;
+    const raf = requestAnimationFrame(() => window.scrollTo(0, cur.scrollY));
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Sauvegarde du scroll au unmount ───────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      const cur = cache.getState<ExploreData, undefined>("explore");
+      if (!cur) return;
+      cache.patchState<ExploreData, undefined>("explore", {
+        scrollY: window.scrollY,
+      });
+    };
+  }, [cache]);
+
+  const retry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    cache.invalidate("explore");
+    (async () => {
+      try {
+        const fresh = await fetchExplore();
+        setData(fresh);
+        cache.setState<ExploreData, undefined>("explore", {
+          items: [fresh],
+          lastFetchAt: Date.now(),
+          scrollY: 0,
+          hasMore: false,
+          lastCursor: null,
+        });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [cache, fetchExplore]);
+
+  if (loading && !data && !error) {
+    return <SkeletonExplore />;
+  }
+
+  if (error && !data) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-400 animate-spin" />
+      <div className="flex flex-col items-center gap-3 py-12 px-5 text-center rounded-2xl border border-red-900/40 bg-red-950/20">
+        <div className="text-4xl">⚠️</div>
+        <p className="text-red-300 font-display font-bold text-sm">{tFeed("errorTitle")}</p>
+        <button
+          onClick={retry}
+          className="mt-1 px-5 py-2 rounded-xl bg-red-900/60 hover:bg-red-800 border border-red-700/40 text-red-200 text-xs font-bold transition-colors"
+        >
+          {tFeed("errorRetry")}
+        </button>
       </div>
     );
   }
 
+  const trending = data?.trending ?? [];
+  const rooms = data?.rooms ?? [];
+
   return (
     <div className="space-y-5">
-      {/* Lobbies publics en direct */}
       {rooms.length > 0 && (
         <section>
           <SectionHeader emoji="🟢" title={t("publicLobbies")} subtitle={t("lobbiesWaiting", { count: rooms.length })} />
@@ -123,7 +233,7 @@ export default function ExploreFeed() {
               return (
                 <motion.div
                   key={room.id}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={i < 4 ? { opacity: 0, x: -8 } : false}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
@@ -159,7 +269,6 @@ export default function ExploreFeed() {
         </section>
       )}
 
-      {/* Tendances */}
       <section>
         <SectionHeader emoji="🔥" title={t("trendingPresets")} subtitle={t("trendingSubtitle")} />
         {trending.length === 0 ? (
@@ -171,7 +280,7 @@ export default function ExploreFeed() {
               return (
                 <motion.div
                   key={p.id}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={i < 4 ? { opacity: 0, x: -8 } : false}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
                 >
@@ -221,6 +330,42 @@ function SectionHeader({ emoji, title, subtitle }: { emoji: string; title: strin
       <span className="text-base">{emoji}</span>
       <p className="text-white font-display font-bold text-sm">{title}</p>
       {subtitle && <p className="text-surface-600 text-[11px] ml-1">· {subtitle}</p>}
+    </div>
+  );
+}
+
+function SkeletonExplore() {
+  return (
+    <div className="space-y-5">
+      <section>
+        <div className="h-3 w-32 rounded bg-surface-800 mb-3 animate-pulse" />
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl border border-surface-800/40 bg-surface-900/30 animate-pulse">
+              <div className="w-11 h-11 rounded-xl bg-surface-800 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-surface-800 rounded w-2/3" />
+                <div className="h-2 bg-surface-800/60 rounded w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section>
+        <div className="h-3 w-40 rounded bg-surface-800 mb-3 animate-pulse" />
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 rounded-2xl border border-surface-800/40 bg-surface-900/30 animate-pulse">
+              <div className="w-6 h-3 bg-surface-800 rounded shrink-0" />
+              <div className="w-12 h-12 rounded-xl bg-surface-800 shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-surface-800 rounded w-3/4" />
+                <div className="h-2 bg-surface-800/60 rounded w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

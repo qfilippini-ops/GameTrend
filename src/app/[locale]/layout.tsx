@@ -13,6 +13,7 @@ import KickedToast from "@/components/KickedToast";
 import Heartbeat from "@/components/Heartbeat";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import CookieBanner from "@/components/CookieBanner";
+import { FeedCacheProvider } from "@/components/feed/FeedCacheContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -88,13 +89,15 @@ export default async function LocaleLayout({
     <html lang={locale} className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="min-h-screen">
         <NextIntlClientProvider>
-          <Suspense><KickedToast /></Suspense>
-          <Suspense><PWAInstallBanner /></Suspense>
-          <CookieBanner />
-          <Heartbeat />
-          <main className="pb-24 max-w-lg mx-auto">{children}</main>
-          <BottomNav />
-          <Suspense><ActiveRoomBadge /></Suspense>
+          <FeedCacheProvider>
+            <Suspense><KickedToast /></Suspense>
+            <Suspense><PWAInstallBanner /></Suspense>
+            <CookieBanner />
+            <Heartbeat />
+            <main className="pb-24 max-w-lg mx-auto">{children}</main>
+            <BottomNav />
+            <Suspense><ActiveRoomBadge /></Suspense>
+          </FeedCacheProvider>
         </NextIntlClientProvider>
       </body>
     </html>

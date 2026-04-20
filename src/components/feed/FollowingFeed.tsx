@@ -1,23 +1,18 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Avatar from "@/components/ui/Avatar";
+import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
 
-interface FeedItem {
-  type: "preset" | "result";
-  id: string;
-  created_at: string;
-  author: { id: string; username: string | null; avatar_url: string | null };
-  data: PresetData | ResultData;
-}
+const PAGE_SIZE = 10;
 
-interface PresetData {
+interface PresetPayload {
   id: string;
   name: string;
   description: string | null;
@@ -26,15 +21,55 @@ interface PresetData {
   play_count: number;
 }
 
-interface ResultData {
+interface ResultPayload {
+  id: string;
   game_type: string;
   preset_id: string | null;
   preset_name: string | null;
   result_data: Record<string, unknown>;
 }
 
-const PAGE_SIZE = 10;
-const SINCE_DAYS = 30;
+interface FeedItem {
+  type: "preset" | "result";
+  /** Identifiant React unique (préfixé pour éviter collision entre tables). */
+  key: string;
+  created_at: string;
+  author: { id: string; username: string | null; avatar_url: string | null };
+  data: PresetPayload | ResultPayload;
+}
+
+/** Shape brut renvoyé par le RPC `get_following_feed`. */
+interface RpcRow {
+  item_type: "preset" | "result";
+  item_id: string;
+  created_at: string;
+  author_id: string;
+  author_username: string | null;
+  author_avatar_url: string | null;
+  payload: PresetPayload | ResultPayload;
+}
+
+/** Métadonnées spécifiques cachées avec ce tab. */
+interface FollowingMeta {
+  /** -1 = pas encore vérifié, 0 = aucun follow, >0 = au moins un follow. */
+  followingCount: number;
+}
+
+type CachedState = FeedTabState<FeedItem, FollowingMeta>;
+
+function rowToItem(r: RpcRow): FeedItem {
+  return {
+    type: r.item_type,
+    key: `${r.item_type}-${r.item_id}`,
+    created_at: r.created_at,
+    author: {
+      id: r.author_id,
+      username: r.author_username,
+      avatar_url: r.author_avatar_url,
+    },
+    data: r.payload,
+  };
+}
 
 export default function FollowingFeed() {
   const t = useTranslations("feed");
@@ -42,184 +77,204 @@ export default function FollowingFeed() {
   const tTime = useTranslations("time");
   const locale = useLocale();
   const { user, loading: authLoading } = useAuth();
-  const [items, setItems] = useState<FeedItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [followingCount, setFollowingCount] = useState<number | null>(null);
-  const [followingIds, setFollowingIds] = useState<string[] | null>(null);
-  const [profileMap, setProfileMap] = useState<Map<string, FeedItem["author"]>>(new Map());
-  const [hasMore, setHasMore] = useState(true);
+  const cache = useFeedCache();
+
+  // État local hydraté depuis le cache si présent.
+  const initial = cache.getState<FeedItem, FollowingMeta>("following");
+  const [items, setItems] = useState<FeedItem[]>(initial?.items ?? []);
+  const [hasMore, setHasMore] = useState<boolean>(initial?.hasMore ?? true);
+  const [followingCount, setFollowingCount] = useState<number>(initial?.meta?.followingCount ?? -1);
+  /** loading = écran initial vide (skeleton). false dès qu'on a quelque chose à montrer. */
+  const [loading, setLoading] = useState<boolean>(!initial);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  /** Items détectés par le refetch silencieux mais pas encore insérés en tête. */
+  const [pendingNew, setPendingNew] = useState<FeedItem[]>([]);
+
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  /** Items courants en ref pour éviter les stale closures dans les fetchs async. */
+  const itemsRef = useRef(items);
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
-  /**
-   * Récupère une "page" du feed antérieure à `beforeDate` (ou la 1ère page si null).
-   * On surcharge volontairement à PAGE_SIZE pour chaque source : la fusion + tri
-   * permet ensuite de découper proprement et garantit qu'aucun item n'est sauté.
-   */
-  const fetchPage = useCallback(
-    async (
-      ids: string[],
-      pmap: Map<string, FeedItem["author"]>,
-      beforeDate: string | null
-    ): Promise<{ newItems: FeedItem[]; sourceFull: boolean }> => {
+  // ─── Fetch primitif ────────────────────────────────────────────────────────
+  const fetchFeed = useCallback(
+    async (beforeAt: string | null): Promise<RpcRow[]> => {
       const supabase = createClient();
-      const since = new Date(Date.now() - SINCE_DAYS * 24 * 3600 * 1000).toISOString();
-
-      let presetsQ = supabase
-        .from("presets")
-        .select(
-          "id, name, description, game_type, cover_url, play_count, author_id, created_at, is_public"
-        )
-        .in("author_id", ids)
-        .eq("is_public", true)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
-      if (beforeDate) presetsQ = presetsQ.lt("created_at", beforeDate);
-
-      let resultsQ = supabase
-        .from("game_results")
-        .select(
-          "id, game_type, preset_id, preset_name, result_data, user_id, created_at, is_shared"
-        )
-        .in("user_id", ids)
-        .eq("is_shared", true)
-        .gte("created_at", since)
-        .order("created_at", { ascending: false })
-        .limit(PAGE_SIZE);
-      if (beforeDate) resultsQ = resultsQ.lt("created_at", beforeDate);
-
-      const [presetsRes, resultsRes] = await Promise.all([presetsQ, resultsQ]);
-
-      const presetItems: FeedItem[] = (presetsRes.data ?? []).map((p) => {
-        const row = p as PresetData & { author_id: string; created_at: string };
-        return {
-          type: "preset",
-          id: `preset-${row.id}`,
-          created_at: row.created_at,
-          author:
-            pmap.get(row.author_id) ?? {
-              id: row.author_id,
-              username: null,
-              avatar_url: null,
-            },
-          data: row,
-        };
+      const { data, error: rpcErr } = await supabase.rpc("get_following_feed", {
+        before_at: beforeAt,
+        page_size: PAGE_SIZE,
       });
-
-      const resultItems: FeedItem[] = (resultsRes.data ?? []).map((r) => {
-        const row = r as ResultData & { id: string; user_id: string; created_at: string };
-        return {
-          type: "result",
-          id: `result-${row.id}`,
-          created_at: row.created_at,
-          author:
-            pmap.get(row.user_id) ?? {
-              id: row.user_id,
-              username: null,
-              avatar_url: null,
-            },
-          data: row,
-        };
-      });
-
-      const merged = [...presetItems, ...resultItems].sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-
-      // Au moins une source a rendu PAGE_SIZE → potentiellement encore des items derrière
-      const sourceFull =
-        (presetsRes.data?.length ?? 0) >= PAGE_SIZE ||
-        (resultsRes.data?.length ?? 0) >= PAGE_SIZE;
-
-      return { newItems: merged, sourceFull };
+      if (rpcErr) throw rpcErr;
+      return (data ?? []) as RpcRow[];
     },
     []
   );
 
-  // Init : charge follows + profils + 1ère page
-  useEffect(() => {
-    // Tant que l'auth se résout, on garde le loader (évite le flash
-    // "Pas d'activité récente" / "Connexion requise" pendant ~200ms).
-    if (authLoading) {
-      setLoading(true);
-      return;
-    }
+  // ─── Persistance dans le cache ─────────────────────────────────────────────
+  const persist = useCallback(
+    (next: Partial<CachedState>) => {
+      const prev = cache.getState<FeedItem, FollowingMeta>("following");
+      cache.setState<FeedItem, FollowingMeta>("following", {
+        items: next.items ?? prev?.items ?? itemsRef.current,
+        lastFetchAt: next.lastFetchAt ?? prev?.lastFetchAt ?? Date.now(),
+        scrollY: next.scrollY ?? prev?.scrollY ?? 0,
+        hasMore: next.hasMore ?? prev?.hasMore ?? hasMore,
+        lastCursor: next.lastCursor ?? prev?.lastCursor ?? null,
+        meta: next.meta ?? prev?.meta,
+      });
+    },
+    [cache, hasMore]
+  );
 
+  // ─── Première fetch (ou refetch silencieux si cache stale) ─────────────────
+  useEffect(() => {
+    if (authLoading) return;
     if (!user || user.is_anonymous) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
     let cancelled = false;
-    async function init() {
-      const supabase = createClient();
+    const cached = cache.getState<FeedItem, FollowingMeta>("following");
+    const stale = cache.isStale("following");
+    const silent = !!cached && !stale ? false : !!cached; // cache présent + stale → fetch silencieux
 
-      const { data: follows } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", user!.id);
+    async function run() {
+      try {
+        // Compte les follows seulement si on n'a pas encore l'info
+        let count = cached?.meta?.followingCount ?? -1;
+        if (count < 0) {
+          const supabase = createClient();
+          const { count: c } = await supabase
+            .from("follows")
+            .select("following_id", { count: "exact", head: true })
+            .eq("follower_id", user!.id);
+          if (cancelled) return;
+          count = c ?? 0;
+          setFollowingCount(count);
+          if (count === 0) {
+            setLoading(false);
+            persist({
+              items: [],
+              hasMore: false,
+              lastCursor: null,
+              lastFetchAt: Date.now(),
+              meta: { followingCount: 0 },
+            });
+            return;
+          }
+        }
 
-      if (cancelled) return;
+        if (count === 0) {
+          setLoading(false);
+          return;
+        }
 
-      const ids = (follows ?? []).map((f) => (f as { following_id: string }).following_id);
-      setFollowingCount(ids.length);
-      if (ids.length === 0) {
-        setFollowingIds([]);
+        const rows = await fetchFeed(null);
+        if (cancelled) return;
+
+        const fresh = rows.map(rowToItem);
+
+        if (silent && cached) {
+          // Refetch silencieux : compare avec ce qu'on a, expose les nouveaux via la pill
+          const knownKeys = new Set(cached.items.map((i) => i.key));
+          const newOnes = fresh.filter((i) => !knownKeys.has(i.key));
+          if (newOnes.length > 0) {
+            setPendingNew(newOnes);
+          }
+          // On met à jour le timestamp et hasMore en silence (sans toucher à la liste affichée)
+          persist({
+            lastFetchAt: Date.now(),
+            hasMore: rows.length >= PAGE_SIZE,
+          });
+        } else {
+          // Premier chargement (ou cache vidé)
+          setItems(fresh);
+          setHasMore(rows.length >= PAGE_SIZE);
+          persist({
+            items: fresh,
+            hasMore: rows.length >= PAGE_SIZE,
+            lastCursor: fresh[fresh.length - 1]?.created_at ?? null,
+            lastFetchAt: Date.now(),
+            meta: { followingCount: count },
+          });
+        }
+
+        setError(null);
         setLoading(false);
-        return;
+      } catch (e) {
+        if (cancelled) return;
+        console.error("[FollowingFeed] fetch error", e);
+        // En refetch silencieux : on garde la liste affichée, on ignore l'erreur
+        if (!silent) setError(e instanceof Error ? e.message : String(e));
+        setLoading(false);
       }
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, username, avatar_url")
-        .in("id", ids);
-
-      if (cancelled) return;
-
-      const pmap = new Map<string, FeedItem["author"]>(
-        (profiles ?? []).map((p) => [p.id, p as FeedItem["author"]])
-      );
-      setProfileMap(pmap);
-      setFollowingIds(ids);
-
-      const { newItems, sourceFull } = await fetchPage(ids, pmap, null);
-      if (cancelled) return;
-
-      setItems(newItems);
-      setHasMore(sourceFull);
-      setLoading(false);
     }
-    init();
+
+    run();
     return () => {
       cancelled = true;
     };
-  }, [user, authLoading, fetchPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading]);
 
-  // Charge la page suivante en utilisant le dernier item visible comme cursor
+  // ─── Restauration du scroll au mount (si cache présent) ────────────────────
+  useEffect(() => {
+    const cached = cache.getState<FeedItem, FollowingMeta>("following");
+    if (!cached || cached.scrollY <= 0) return;
+    // requestAnimationFrame pour s'assurer que le DOM est rendu avant le scroll
+    const raf = requestAnimationFrame(() => window.scrollTo(0, cached.scrollY));
+    return () => cancelAnimationFrame(raf);
+    // On veut le faire UNE fois au mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ─── Sauvegarde du scroll au unmount ───────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      const cached = cache.getState<FeedItem, FollowingMeta>("following");
+      if (!cached) return;
+      cache.patchState<FeedItem, FollowingMeta>("following", {
+        scrollY: window.scrollY,
+      });
+    };
+  }, [cache]);
+
+  // ─── Pagination (load more via cursor) ─────────────────────────────────────
   const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore || !followingIds || followingIds.length === 0) return;
-    const last = items[items.length - 1];
+    if (loadingMore || !hasMore) return;
+    const last = itemsRef.current[itemsRef.current.length - 1];
     if (!last) return;
     setLoadingMore(true);
-    const { newItems, sourceFull } = await fetchPage(followingIds, profileMap, last.created_at);
-    setItems((prev) => {
-      // Dédup au cas où (overlap possible entre presets et results à dates proches)
-      const seen = new Set(prev.map((i) => i.id));
-      const filtered = newItems.filter((i) => !seen.has(i.id));
-      return [...prev, ...filtered];
-    });
-    setHasMore(sourceFull && newItems.length > 0);
-    setLoadingMore(false);
-  }, [loadingMore, hasMore, followingIds, profileMap, items, fetchPage]);
+    try {
+      const rows = await fetchFeed(last.created_at);
+      const newOnes = rows.map(rowToItem);
+      const seen = new Set(itemsRef.current.map((i) => i.key));
+      const dedup = newOnes.filter((i) => !seen.has(i.key));
+      const merged = [...itemsRef.current, ...dedup];
+      setItems(merged);
+      const nextHasMore = rows.length >= PAGE_SIZE && dedup.length > 0;
+      setHasMore(nextHasMore);
+      persist({
+        items: merged,
+        hasMore: nextHasMore,
+        lastCursor: merged[merged.length - 1]?.created_at ?? null,
+        lastFetchAt: Date.now(),
+      });
+    } catch (e) {
+      console.error("[FollowingFeed] loadMore error", e);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, fetchFeed, persist]);
 
-  // Auto-load via IntersectionObserver quand le sentinel est visible
+  // ─── Auto-load via IntersectionObserver ────────────────────────────────────
   useEffect(() => {
     if (!hasMore || loading) return;
     const node = sentinelRef.current;
     if (!node) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting) loadMore();
@@ -230,14 +285,49 @@ export default function FollowingFeed() {
     return () => observer.disconnect();
   }, [hasMore, loading, loadMore]);
 
-  // Loader EN PREMIER : tant que l'auth ou le fetch initial sont en cours,
-  // on n'affiche aucun message d'état vide.
-  if (authLoading || loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-400 animate-spin" />
-      </div>
-    );
+  // ─── Insertion des nouveaux items via la pill ──────────────────────────────
+  const showNewPosts = useCallback(() => {
+    if (pendingNew.length === 0) return;
+    const merged = [...pendingNew, ...itemsRef.current];
+    setItems(merged);
+    setPendingNew([]);
+    persist({ items: merged });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [pendingNew, persist]);
+
+  // ─── Retry après erreur ────────────────────────────────────────────────────
+  const retry = useCallback(() => {
+    setError(null);
+    setLoading(true);
+    cache.invalidate("following");
+    // Trigger un re-run du useEffect en touchant l'identité du user
+    // Solution simple : on relance directement
+    (async () => {
+      try {
+        const rows = await fetchFeed(null);
+        const fresh = rows.map(rowToItem);
+        setItems(fresh);
+        setHasMore(rows.length >= PAGE_SIZE);
+        persist({
+          items: fresh,
+          hasMore: rows.length >= PAGE_SIZE,
+          lastCursor: fresh[fresh.length - 1]?.created_at ?? null,
+          lastFetchAt: Date.now(),
+          meta: { followingCount: Math.max(followingCount, 1) },
+        });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [cache, fetchFeed, followingCount, persist]);
+
+  // ─── Rendu ─────────────────────────────────────────────────────────────────
+
+  // Auth en cours sans cache → skeleton
+  if ((authLoading || loading) && items.length === 0 && !error) {
+    return <SkeletonList />;
   }
 
   if (!user || user.is_anonymous) {
@@ -249,6 +339,10 @@ export default function FollowingFeed() {
         cta={{ label: t("empty.loginRequired.cta"), href: "/auth/login" }}
       />
     );
+  }
+
+  if (error && items.length === 0) {
+    return <ErrorState message={t("errorTitle")} retryLabel={t("errorRetry")} onRetry={retry} />;
   }
 
   if (followingCount === 0) {
@@ -274,22 +368,37 @@ export default function FollowingFeed() {
 
   return (
     <div className="space-y-3">
+      {/* Pill "N nouveaux posts" — sticky en haut, au-dessus de la liste */}
+      <AnimatePresence>
+        {pendingNew.length > 0 && (
+          <motion.button
+            key="new-posts-pill"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            onClick={showNewPosts}
+            className="sticky top-28 z-20 mx-auto block px-4 py-2 rounded-full bg-brand-600 text-white text-xs font-bold shadow-lg glow-brand hover:bg-brand-500 transition-colors"
+          >
+            {t("newPosts", { count: pendingNew.length })}
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {items.map((item, i) => (
         <motion.div
-          key={item.id}
-          initial={{ opacity: 0, y: 8 }}
+          key={item.key}
+          initial={i < 3 ? { opacity: 0, y: 8 } : false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: Math.min(i * 0.03, 0.4) }}
         >
           {item.type === "preset" ? (
-            <PresetFeedCard item={item} data={item.data as PresetData} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
+            <PresetFeedCard item={item} data={item.data as PresetPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
           ) : (
-            <ResultFeedCard item={item} data={item.data as ResultData} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
+            <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
           )}
         </motion.div>
       ))}
 
-      {/* Sentinel pour l'infinite scroll + état de chargement */}
       {hasMore && (
         <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
           {loadingMore ? (
@@ -306,19 +415,19 @@ export default function FollowingFeed() {
       )}
 
       {!hasMore && items.length >= PAGE_SIZE && (
-        <p className="text-center text-surface-700 text-xs py-4">
-          {t("allCaughtUp")}
-        </p>
+        <p className="text-center text-surface-700 text-xs py-4">{t("allCaughtUp")}</p>
       )}
     </div>
   );
 }
 
+// ─── Sous-composants ─────────────────────────────────────────────────────────
+
 type FeedT = ReturnType<typeof useTranslations<"feed">>;
 type CommonT = ReturnType<typeof useTranslations<"common">>;
 type TimeT = ReturnType<typeof useTranslations<"time">>;
 
-function PresetFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: PresetData; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
+function PresetFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: PresetPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   return (
     <Link
       href={`/presets/${data.id}`}
@@ -345,11 +454,10 @@ function PresetFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   );
 }
 
-function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultData; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
+function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   const { game_type, preset_id, preset_name, result_data } = data;
   const champion = (result_data as { champion?: { name: string; imageUrl?: string | null } })?.champion;
   const winnerLabel = (result_data as { winnerLabel?: string })?.winnerLabel;
-  // Format synthétique : "Victoire : <camp>" / "Champion : <nom>" — labels traduits via le namespace games.
   const tGames = useTranslations("games");
   const titleSuffix =
     game_type === "ghostword" ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
@@ -417,6 +525,50 @@ function EmptyState({ icon, title, text, cta }: { icon: string; title: string; t
           {cta.label}
         </Link>
       )}
+    </div>
+  );
+}
+
+function ErrorState({ message, retryLabel, onRetry }: { message: string; retryLabel: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-12 px-5 text-center rounded-2xl border border-red-900/40 bg-red-950/20">
+      <div className="text-4xl">⚠️</div>
+      <p className="text-red-300 font-display font-bold text-sm">{message}</p>
+      <button
+        onClick={onRetry}
+        className="mt-1 px-5 py-2 rounded-xl bg-red-900/60 hover:bg-red-800 border border-red-700/40 text-red-200 text-xs font-bold transition-colors"
+      >
+        {retryLabel}
+      </button>
+    </div>
+  );
+}
+
+function SkeletonList() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          className="rounded-2xl border border-surface-800/40 bg-surface-900/30 overflow-hidden animate-pulse"
+        >
+          <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-surface-800/40">
+            <div className="w-8 h-8 rounded-full bg-surface-800" />
+            <div className="flex-1 space-y-1.5">
+              <div className="h-2.5 bg-surface-800 rounded w-2/3" />
+              <div className="h-2 bg-surface-800/60 rounded w-1/4" />
+            </div>
+          </div>
+          <div className="flex gap-3 p-3">
+            <div className="w-20 h-20 rounded-xl bg-surface-800 shrink-0" />
+            <div className="flex-1 space-y-2 pt-1">
+              <div className="h-3 bg-surface-800 rounded w-3/4" />
+              <div className="h-2 bg-surface-800/60 rounded w-full" />
+              <div className="h-2 bg-surface-800/60 rounded w-1/2" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

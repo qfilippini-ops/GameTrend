@@ -71,6 +71,9 @@
     },
     "loadMore": "Load more",
     "allCaughtUp": "You're all caught up for the past 30 days.",
+    "newPosts": "{count, plural, one {# new post} other {# new posts}} ↑",
+    "errorTitle": "Couldn't load the feed",
+    "errorRetry": "Try again",
     "actions": {
       "publishedPreset": "published a new preset",
       "sharedResult": "shared a result"
