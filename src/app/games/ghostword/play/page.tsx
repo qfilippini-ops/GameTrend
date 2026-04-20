@@ -64,7 +64,9 @@ function GhostWordPlayContent() {
               const chosen = validPresets[Math.floor(Math.random() * validPresets.length)];
               config = chosen.config as GhostWordConfig;
               setActivePreset({ id: chosen.id, name: chosen.name });
-              supabase.rpc("increment_preset_play_count", { p_preset_id: chosen.id } as never);
+              // L'incrémentation du play_count est faite à la fin de partie
+              // (cf. useEffect de tracking) pour ne compter que les parties
+              // réellement terminées.
             }
           }
         }
@@ -88,6 +90,14 @@ function GhostWordPlayContent() {
 
     async function trackGamePlayed() {
       const supabase = createClient();
+
+      if (activePreset?.id) {
+        await supabase.rpc(
+          "increment_preset_play_count",
+          { p_preset_id: activePreset.id } as never
+        );
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -97,7 +107,8 @@ function GhostWordPlayContent() {
         .eq("id", user.id)
         .single();
 
-      const current = (profile?.stats as Record<string, number>) ?? {};
+      const stats = (profile as { stats?: Record<string, number> } | null)?.stats;
+      const current: Record<string, number> = stats ?? {};
       await supabase
         .from("profiles")
         .update({
@@ -105,12 +116,12 @@ function GhostWordPlayContent() {
             ...current,
             games_played: (current.games_played ?? 0) + 1,
           },
-        })
+        } as never)
         .eq("id", user.id);
     }
 
     trackGamePlayed();
-  }, [gameState?.winner, statTracked]);
+  }, [gameState?.winner, statTracked, activePreset]);
 
   // ── Chargement ─────────────────────────────────────────────────────────────
 

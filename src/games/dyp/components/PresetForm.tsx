@@ -200,33 +200,24 @@ export default function DYPPresetForm({
 
       {/* ── Cartes ── */}
       <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 overflow-hidden">
-        <div className="px-4 py-3.5 border-b border-surface-800/60 flex items-center justify-between">
-          <div>
-            <p className="text-white font-display font-bold text-sm flex items-center gap-2">
-              🃏 Cartes
-              <span className={`text-xs font-mono px-1.5 py-0.5 rounded-md ${cards.length < 2 ? "text-red-400 bg-red-950/30" : "text-brand-400 bg-brand-950/30"}`}>
-                {cards.length}
-              </span>
+        <div className="px-4 py-3.5 border-b border-surface-800/60">
+          <p className="text-white font-display font-bold text-sm flex items-center gap-2">
+            🃏 Cartes
+            <span className={`text-xs font-mono px-1.5 py-0.5 rounded-md ${cards.length < 2 ? "text-red-400 bg-red-950/30" : "text-brand-400 bg-brand-950/30"}`}>
+              {cards.length}
+            </span>
+          </p>
+          {validSizes.length > 0 ? (
+            <p className="text-surface-500 text-xs mt-0.5">
+              Tournois : {validSizes.map((s) => `${s}`).join(", ")} cartes
             </p>
-            {validSizes.length > 0 ? (
-              <p className="text-surface-500 text-xs mt-0.5">
-                Tournois : {validSizes.map((s) => `${s}`).join(", ")} cartes
-              </p>
-            ) : (
-              <p className="text-surface-600 text-xs mt-0.5">
-                {nextValidSize
-                  ? `Encore ${nextValidSize - cards.length} carte${nextValidSize - cards.length > 1 ? "s" : ""} pour débloquer`
-                  : "Ajoute des cartes pour débloquer"}
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={addCard}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-brand-600/20 border border-brand-500/30 text-brand-300 text-xs font-semibold hover:bg-brand-600/30 transition-colors"
-          >
-            + Carte
-          </button>
+          ) : (
+            <p className="text-surface-600 text-xs mt-0.5">
+              {nextValidSize
+                ? `Encore ${nextValidSize - cards.length} carte${nextValidSize - cards.length > 1 ? "s" : ""} pour débloquer`
+                : "Ajoute des cartes pour débloquer"}
+            </p>
+          )}
         </div>
 
         <div className="divide-y divide-surface-800/30">
@@ -291,9 +282,20 @@ export default function DYPPresetForm({
           {cards.length === 0 && (
             <div className="px-4 py-10 text-center">
               <p className="text-4xl mb-2 opacity-30">🃏</p>
-              <p className="text-surface-500 text-sm">Aucune carte — clique sur &quot;+ Carte&quot; pour commencer</p>
+              <p className="text-surface-500 text-sm">Aucune carte — clique sur &quot;+ Ajouter une carte&quot; pour commencer</p>
             </div>
           )}
+        </div>
+
+        {/* Bouton +carte en bas pour ne pas avoir à remonter la page */}
+        <div className="p-3 border-t border-surface-800/60 bg-surface-900/40">
+          <button
+            type="button"
+            onClick={addCard}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl bg-brand-600/15 border border-dashed border-brand-500/40 text-brand-300 text-sm font-semibold hover:bg-brand-600/25 hover:border-brand-500/60 transition-colors"
+          >
+            <span className="text-base">+</span> Ajouter une carte
+          </button>
         </div>
       </div>
 

@@ -336,7 +336,14 @@ export default function RoomPage() {
       config: { presence: { key: myName ?? "anon" } },
     })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "game_rooms", filter: `id=eq.${roomId}` },
-        (payload) => setRoom(payload.new as OnlineRoom))
+        // On ne se fie PAS au payload Realtime qui peut être partiel
+        // (selon REPLICA IDENTITY) : on re-fetch la room complète pour
+        // garantir un état cohérent (phase, current_speaker_index, etc.).
+        async () => {
+          const { data } = await supabase
+            .from("game_rooms").select(ROOM_COLS).eq("id", roomId).maybeSingle();
+          if (data) setRoom(data as OnlineRoom);
+        })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "game_rooms", filter: `id=eq.${roomId}` },
         () => router.push("/"))
       .on("postgres_changes", { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${roomId}` },

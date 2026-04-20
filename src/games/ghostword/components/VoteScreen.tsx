@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { vibrate } from "@/lib/utils";
+import { eliminatePlayer } from "@/games/ghostword/engine";
 import type { GhostWordGameState, GhostWordPlayer } from "@/types/games";
 
 interface VoteScreenProps {
@@ -14,6 +15,7 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [votePhase, setVotePhase] = useState<"voting" | "result">("voting");
   const [eliminatedId, setEliminatedId] = useState<string | null>(null);
+  const [willEnd, setWillEnd] = useState(false);
 
   const alive = state.players.filter((p) => !p.isEliminated);
 
@@ -26,6 +28,10 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
     if (!selected) return;
     vibrate([50, 30, 80]);
     setEliminatedId(selected);
+    // Simulation de l'élimination pour savoir si la partie va se terminer
+    // (et donc masquer le message "La partie continue…").
+    const simulated = eliminatePlayer(state, selected);
+    setWillEnd(Boolean(simulated.winner));
     setVotePhase("result");
     setTimeout(() => onEliminate(selected), 2600);
   }
@@ -120,7 +126,9 @@ export default function VoteScreen({ state, onEliminate }: VoteScreenProps) {
               </h2>
             </div>
 
-            <p className="text-surface-700 text-xs font-mono relative z-10">La partie continue…</p>
+            {!willEnd && (
+              <p className="text-surface-700 text-xs font-mono relative z-10">La partie continue…</p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

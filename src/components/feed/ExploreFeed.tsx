@@ -103,7 +103,7 @@ export default function ExploreFeed() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="text-3xl animate-pulse">🔥</div>
+        <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-400 animate-spin" />
       </div>
     );
   }

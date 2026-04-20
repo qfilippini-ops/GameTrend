@@ -36,7 +36,7 @@ const PAGE_SIZE = 10;
 const SINCE_DAYS = 30;
 
 export default function FollowingFeed() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [followingCount, setFollowingCount] = useState<number | null>(null);
@@ -134,11 +134,19 @@ export default function FollowingFeed() {
 
   // Init : charge follows + profils + 1ère page
   useEffect(() => {
+    // Tant que l'auth se résout, on garde le loader (évite le flash
+    // "Pas d'activité récente" / "Connexion requise" pendant ~200ms).
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
     if (!user || user.is_anonymous) {
       setLoading(false);
       return;
     }
 
+    setLoading(true);
     let cancelled = false;
     async function init() {
       const supabase = createClient();
@@ -182,7 +190,7 @@ export default function FollowingFeed() {
     return () => {
       cancelled = true;
     };
-  }, [user, fetchPage]);
+  }, [user, authLoading, fetchPage]);
 
   // Charge la page suivante en utilisant le dernier item visible comme cursor
   const loadMore = useCallback(async () => {
@@ -217,6 +225,16 @@ export default function FollowingFeed() {
     return () => observer.disconnect();
   }, [hasMore, loading, loadMore]);
 
+  // Loader EN PREMIER : tant que l'auth ou le fetch initial sont en cours,
+  // on n'affiche aucun message d'état vide.
+  if (authLoading || loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-500/30 border-t-brand-400 animate-spin" />
+      </div>
+    );
+  }
+
   if (!user || user.is_anonymous) {
     return (
       <EmptyState
@@ -225,14 +243,6 @@ export default function FollowingFeed() {
         text="Connecte-toi pour voir le fil d'actualité de tes abonnements."
         cta={{ label: "Se connecter", href: "/auth/login" }}
       />
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-3xl animate-pulse">📰</div>
-      </div>
     );
   }
 
