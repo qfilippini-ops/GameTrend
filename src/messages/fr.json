@@ -1056,7 +1056,16 @@
       "unauthorized": "Connecte-toi d'abord.",
       "not_eligible": "Tu n'es pas éligible à cette offre.",
       "no_customer": "Aucun abonnement actif trouvé.",
-      "portal_unavailable": "Portail indisponible. Réessaie dans un instant."
+      "portal_unavailable": "Portail indisponible. Réessaie dans un instant.",
+      "missing_app_url": "Configuration serveur incomplète (URL de l'app manquante). Contacte le support.",
+      "invalid_app_url": "Configuration serveur invalide (URL non sécurisée). Contacte le support.",
+      "missing_config": "Configuration de paiement incomplète. Contacte le support.",
+      "lemon_422": "Le service de paiement a refusé la demande. Réessaie ou contacte le support.",
+      "lemon_401": "Authentification du service de paiement échouée. Contacte le support.",
+      "lemon_404": "Plan introuvable côté paiement. Contacte le support.",
+      "lemon_500": "Le service de paiement est indisponible. Réessaie dans quelques minutes.",
+      "fetch_failed": "Impossible de joindre le service de paiement. Réessaie.",
+      "no_url_returned": "Le service de paiement n'a pas renvoyé d'URL. Réessaie."
     },
     "faq": {
       "trial": {

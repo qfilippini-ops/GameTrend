@@ -1056,7 +1056,16 @@
       "unauthorized": "Please sign in first.",
       "not_eligible": "You're not eligible to this offer.",
       "no_customer": "No active subscription found.",
-      "portal_unavailable": "Portal unavailable. Try again shortly."
+      "portal_unavailable": "Portal unavailable. Try again shortly.",
+      "missing_app_url": "Server configuration incomplete (missing app URL). Contact support.",
+      "invalid_app_url": "Invalid server configuration (insecure URL). Contact support.",
+      "missing_config": "Payment configuration incomplete. Contact support.",
+      "lemon_422": "Payment service rejected the request. Retry or contact support.",
+      "lemon_401": "Payment service authentication failed. Contact support.",
+      "lemon_404": "Plan not found in payment service. Contact support.",
+      "lemon_500": "Payment service is unavailable. Retry in a few minutes.",
+      "fetch_failed": "Couldn't reach payment service. Please retry.",
+      "no_url_returned": "Payment service returned no URL. Please retry."
     },
     "faq": {
       "trial": {

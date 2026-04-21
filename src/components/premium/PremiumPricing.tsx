@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { motion } from "framer-motion";
 import { useRouter } from "@/i18n/navigation";
 import { track } from "@/lib/analytics/posthog";
@@ -33,6 +33,7 @@ export default function PremiumPricing({
   isAuthenticated,
 }: PremiumPricingProps) {
   const t = useTranslations("premium");
+  const locale = useLocale();
   const router = useRouter();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
   const [loading, setLoading] = useState<Plan | null>(null);
@@ -61,7 +62,7 @@ export default function PremiumPricing({
       const res = await fetch("/api/checkout/lemon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, locale }),
       });
 
       const json = await res.json();
