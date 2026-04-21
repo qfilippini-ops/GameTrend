@@ -117,7 +117,7 @@ export default function PremiumPricing({
           className="relative rounded-3xl p-[1px] bg-gradient-to-br from-amber-400 via-pink-500 to-violet-500 overflow-hidden"
         >
           <div className="rounded-3xl bg-surface-900 p-5 space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col items-start gap-1.5">
               <div className="inline-block px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold uppercase tracking-widest border border-amber-400/40">
                 {t("lifetimeBadge")}
               </div>
