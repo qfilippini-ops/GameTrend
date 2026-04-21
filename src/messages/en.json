@@ -203,8 +203,11 @@
       "deleteAccount": "Delete my account",
       "deleteWarn": "⚠️ This action is irreversible.",
       "deleteHint": "All your presets, data and history will be permanently deleted.",
+      "deletePremiumWarn": "You have an active Premium subscription. It will be cancelled immediately, with no automatic refund for the current period. Contact support@gametrend.fr if you want a refund.",
+      "deleteLifetimeWarn": "You have Lifetime access. It will be permanently lost and non-recoverable, even if you sign up again with the same email.",
       "deleteConfirm": "Confirm",
       "deleting": "Deleting…",
+      "deleteError": "Deletion failed. Try again or contact support.",
       "rgpdNote": "Export of your personal data per GDPR art. 20 (right to portability)."
     },
     "creatorStats": {

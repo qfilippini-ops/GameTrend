@@ -60,7 +60,10 @@ export async function checkImageSafety(
     if (erotica > 0.22) {
       return { safe: false, reason: "Cette image contient du contenu érotique ou hentai et ne peut pas être publiée." };
     }
-    if (gore > 0.55) {
+    // Seuil gore : 0.80 — laisse passer le sang léger (blessure cartoon, éclaboussure
+    // de jeu vidéo, scènes d'action sans cadavre) mais bloque le gore explicite.
+    // À ajuster en fonction des logs si trop laxiste / trop strict.
+    if (gore > 0.80) {
       return { safe: false, reason: "Cette image contient du contenu violent et ne peut pas être publiée." };
     }
 

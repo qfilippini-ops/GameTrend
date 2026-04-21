@@ -203,8 +203,11 @@
       "deleteAccount": "Supprimer mon compte",
       "deleteWarn": "⚠️ Cette action est irréversible.",
       "deleteHint": "Tous tes presets, données et historique seront supprimés définitivement.",
+      "deletePremiumWarn": "Tu as un abonnement Premium actif. Il sera annulé immédiatement, sans remboursement automatique de la période en cours. Contacte support@gametrend.fr si tu souhaites un remboursement.",
+      "deleteLifetimeWarn": "Tu as un accès Lifetime. Il sera définitivement perdu et non récupérable, même en recréant un compte avec le même email.",
       "deleteConfirm": "Confirmer",
       "deleting": "Suppression…",
+      "deleteError": "La suppression a échoué. Réessaie ou contacte le support.",
       "rgpdNote": "Export de vos données personnelles conformément au RGPD art. 20 (droit à la portabilité)."
     },
     "creatorStats": {

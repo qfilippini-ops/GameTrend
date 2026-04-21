@@ -595,25 +595,32 @@ function ExportDataButton() {
 function DeleteAccountButton({ userId, onDeleted }: { userId: string; onDeleted: () => void }) {
   const t = useTranslations("profile.rgpd");
   const tCommon = useTranslations("common");
+  const { isPremium, isLifetime } = useSubscription();
   const [confirm, setConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Suppress unused param warning : userId est conservé pour compat de l'API du composant.
+  void userId;
 
   async function handleDelete() {
     setLoading(true);
-    const supabase = createClient();
-    const { data: presets } = await supabase.from("presets").select("id, cover_url").eq("author_id", userId);
-    if (presets) {
-      const paths = presets.map((p) => p.cover_url).filter(Boolean).map((url) => {
-        const parts = url.split("/covers/");
-        return parts[1] ?? null;
-      }).filter(Boolean) as string[];
-      if (paths.length) await supabase.storage.from("covers").remove(paths);
-      await supabase.from("presets").delete().eq("author_id", userId);
+    setError(null);
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      if (!res.ok) {
+        setError(t("deleteError"));
+        setLoading(false);
+        return;
+      }
+      // La session est invalidée côté serveur (auth user supprimé), on signOut local pour nettoyer le storage.
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      onDeleted();
+    } catch {
+      setError(t("deleteError"));
+      setLoading(false);
     }
-    await supabase.storage.from("avatars").remove([`${userId}/avatar.webp`]);
-    await supabase.from("profiles").delete().eq("id", userId);
-    await supabase.auth.signOut();
-    onDeleted();
   }
 
   if (confirm) {
@@ -621,10 +628,25 @@ function DeleteAccountButton({ userId, onDeleted }: { userId: string; onDeleted:
       <div className="px-4 py-4 space-y-2">
         <p className="text-red-400 text-sm font-medium">{t("deleteWarn")}</p>
         <p className="text-surface-500 text-xs">{t("deleteHint")}</p>
+        {isLifetime ? (
+          <p className="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+            {t("deleteLifetimeWarn")}
+          </p>
+        ) : isPremium ? (
+          <p className="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/30 rounded-lg p-2">
+            {t("deletePremiumWarn")}
+          </p>
+        ) : null}
+        {error && (
+          <p className="text-red-400 text-xs bg-red-950/30 border border-red-800/30 rounded-lg p-2">
+            {error}
+          </p>
+        )}
         <div className="flex gap-2 mt-3">
           <button
-            onClick={() => setConfirm(false)}
-            className="flex-1 py-2.5 rounded-xl bg-surface-800 text-surface-300 text-sm font-medium"
+            onClick={() => { setConfirm(false); setError(null); }}
+            disabled={loading}
+            className="flex-1 py-2.5 rounded-xl bg-surface-800 text-surface-300 text-sm font-medium disabled:opacity-50"
           >
             {tCommon("cancel")}
           </button>

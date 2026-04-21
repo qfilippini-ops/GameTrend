@@ -117,6 +117,40 @@ export async function createCheckoutUrl({
 }
 
 /**
+ * Annule un abonnement Lemon Squeezy. Le client garde l'accès jusqu'à
+ * la fin de la période en cours (pas de remboursement automatique).
+ *
+ * Endpoint : DELETE /v1/subscriptions/:id
+ * Doc : https://docs.lemonsqueezy.com/api/subscriptions#cancel-a-subscription
+ */
+export async function cancelSubscription(
+  subscriptionId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const apiKey = process.env.LEMON_API_KEY;
+  if (!apiKey) return { ok: false, error: "missing_api_key" };
+
+  try {
+    const res = await fetch(`${LS_API_BASE}/subscriptions/${subscriptionId}`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+
+    // 204 No Content ou 200 OK = succès. 404 = déjà annulé / introuvable, on ignore.
+    if (res.ok || res.status === 404) return { ok: true };
+
+    const errBody = await res.text();
+    console.error("[lemon] cancelSubscription failed", res.status, errBody);
+    return { ok: false, error: `lemon_${res.status}` };
+  } catch (e) {
+    console.error("[lemon] cancelSubscription exception", e);
+    return { ok: false, error: "fetch_failed" };
+  }
+}
+
+/**
  * Récupère l'URL du customer portal pour un client donné.
  */
 export async function getCustomerPortalUrl(customerId: string): Promise<string | null> {
