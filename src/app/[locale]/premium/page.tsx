@@ -37,6 +37,20 @@ export default async function PremiumPage({
   const lifetimeTaken = extractCount(rpcRaw);
   const lifetimeRemaining = Math.max(0, 100 - lifetimeTaken);
 
+  // ⚠ TEMP DEBUG : à retirer une fois le bug compteur lifetime résolu.
+  console.log(
+    "[premium-page] DEBUG",
+    JSON.stringify({
+      rpcRaw,
+      rpcRawType: typeof rpcRaw,
+      rpcRawIsArray: Array.isArray(rpcRaw),
+      rpcErr: rpcErr ? { message: rpcErr.message, code: rpcErr.code } : null,
+      lifetimeTaken,
+      lifetimeRemaining,
+      timestamp: new Date().toISOString(),
+    })
+  );
+
   // Récupère le profil pour savoir si user éligible lifetime
   const supabase = createClient();
   const {
