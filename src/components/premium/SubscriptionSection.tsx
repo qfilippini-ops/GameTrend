@@ -161,10 +161,10 @@ export default function SubscriptionSection() {
 
       <div className="rounded-xl bg-gradient-to-br from-brand-500/10 to-pink-500/10 border border-brand-500/30 p-4 space-y-3">
         <p className="text-white font-display font-bold text-base leading-tight">
-          {lifetimeEligible ? t("upsellLifetime") : t("upsellPremium")}
+          {t("upsellPremium")}
         </p>
         <p className="text-surface-300 text-xs leading-relaxed">
-          {lifetimeEligible ? t("upsellLifetimeDesc") : t("upsellPremiumDesc")}
+          {t("upsellPremiumDesc")}
         </p>
 
         {/* Bénéfices listés directement, plus de friction */}
@@ -183,6 +183,21 @@ export default function SubscriptionSection() {
         >
           {t("upsellCta")}
         </Link>
+
+        {/* Bonus Lifetime : annoncé comme un cadeau, pas comme la base */}
+        {lifetimeEligible && (
+          <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2 flex items-start gap-2">
+            <span className="text-base leading-none mt-0.5">🎁</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-200 text-[12px] font-semibold leading-tight">
+                {t("upsellLifetime")}
+              </p>
+              <p className="text-amber-200/80 text-[11px] leading-snug mt-0.5">
+                {t("upsellLifetimeBadge")}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

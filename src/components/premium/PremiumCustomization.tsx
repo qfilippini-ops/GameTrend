@@ -3,16 +3,18 @@
 import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { compressImage } from "@/lib/compressImage";
+import { compressImage, ModerationError } from "@/lib/compressImage";
 import { useAuth } from "@/hooks/useAuth";
 
 /**
  * Customisation Premium du profil :
+ *   - Bannière (zone image cliquable type avatar — passe par compressImage()
+ *     donc compression WebP + filtre NSFW identiques aux autres uploads)
  *   - Lien web (validation côté RPC : URL valide + blocklist domaine)
- *   - Bannière upload (Supabase Storage bucket profile-banners)
- *   - Couleur d'accent (hex picker)
+ *   - Couleur d'accent (color picker compact)
  *
- * Affichée uniquement aux comptes Premium dans la section "Mon abonnement".
+ * Layout compact destiné à être embedded dans le modal Edit Profile.
+ * Affichée uniquement aux comptes Premium.
  */
 export default function PremiumCustomization() {
   const t = useTranslations("premium.customization");
@@ -24,42 +26,25 @@ export default function PremiumCustomization() {
   const [accentColor, setAccentColor] = useState(profile?.profile_accent_color ?? "#a78bfa");
   const [bannerUrl, setBannerUrl] = useState<string | null>(profile?.profile_banner_url ?? null);
 
-  const [linkSaving, setLinkSaving] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [linkSuccess, setLinkSuccess] = useState(false);
-
-  const [brandingSaving, setBrandingSaving] = useState(false);
-  const [brandingError, setBrandingError] = useState<string | null>(null);
-  const [brandingSuccess, setBrandingSuccess] = useState(false);
-
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  async function saveLink() {
-    setLinkSaving(true);
-    setLinkError(null);
-    setLinkSuccess(false);
-    const { error } = await supabase.rpc("update_profile_link", { new_url: linkUrl });
-    if (error) {
-      const msg = error.message;
-      if (msg.includes("not_premium")) setLinkError(t("errors.notPremium"));
-      else if (msg.includes("invalid_url")) setLinkError(t("errors.invalidUrl"));
-      else if (msg.includes("blocked_domain")) setLinkError(t("errors.blockedDomain"));
-      else setLinkError(t("errors.generic"));
-    } else {
-      setLinkSuccess(true);
-      await refreshProfile();
-      setTimeout(() => setLinkSuccess(false), 2500);
-    }
-    setLinkSaving(false);
-  }
+  const linkChanged = (linkUrl ?? "") !== (profile?.profile_link_url ?? "");
+  const accentChanged = (accentColor ?? "") !== (profile?.profile_accent_color ?? "#a78bfa");
+  const bannerChanged = (bannerUrl ?? "") !== (profile?.profile_banner_url ?? "");
+  const dirty = linkChanged || accentChanged || bannerChanged;
 
   async function handleBannerFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     setBannerUploading(true);
-    setBrandingError(null);
+    setError(null);
+    setSuccess(false);
 
     try {
+      // compressImage applique compression WebP + modération NSFW (cf. compressImage.ts).
       const optimized = await compressImage(file, {
         maxWidthOrHeight: 1200,
         maxSizeMB: 0.5,
@@ -72,110 +57,113 @@ export default function PremiumCustomization() {
         .upload(path, optimized, { upsert: true, contentType: "image/webp" });
 
       if (uploadErr) {
-        setBrandingError(t("errors.upload"));
-        setBannerUploading(false);
+        setError(t("errors.upload"));
         return;
       }
 
       const { data: urlData } = supabase.storage.from("profile-banners").getPublicUrl(path);
-      const finalUrl = `${urlData.publicUrl}?v=${Date.now()}`;
-      setBannerUrl(finalUrl);
-    } catch {
-      setBrandingError(t("errors.upload"));
+      setBannerUrl(`${urlData.publicUrl}?v=${Date.now()}`);
+    } catch (err) {
+      if (err instanceof ModerationError) {
+        setError(err.message);
+      } else {
+        setError(t("errors.upload"));
+      }
     } finally {
       setBannerUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
-  async function saveBranding() {
-    setBrandingSaving(true);
-    setBrandingError(null);
-    setBrandingSuccess(false);
-    const { error } = await supabase.rpc("update_profile_branding", {
-      new_banner_url: bannerUrl,
-      new_accent_color: accentColor,
-    });
-    if (error) {
-      const msg = error.message;
-      if (msg.includes("not_premium")) setBrandingError(t("errors.notPremium"));
-      else if (msg.includes("invalid_color")) setBrandingError(t("errors.invalidColor"));
-      else setBrandingError(t("errors.generic"));
-    } else {
-      setBrandingSuccess(true);
-      await refreshProfile();
-      setTimeout(() => setBrandingSuccess(false), 2500);
-    }
-    setBrandingSaving(false);
-  }
-
-  async function clearBanner() {
+  function clearBanner() {
     setBannerUrl(null);
+    setError(null);
+  }
+
+  async function saveAll() {
+    if (!dirty || saving) return;
+    setSaving(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      if (linkChanged) {
+        const { error: linkErr } = await supabase.rpc("update_profile_link", { new_url: linkUrl });
+        if (linkErr) {
+          const msg = linkErr.message;
+          if (msg.includes("not_premium")) setError(t("errors.notPremium"));
+          else if (msg.includes("invalid_url")) setError(t("errors.invalidUrl"));
+          else if (msg.includes("blocked_domain")) setError(t("errors.blockedDomain"));
+          else setError(t("errors.generic"));
+          return;
+        }
+      }
+
+      if (bannerChanged || accentChanged) {
+        const { error: brandErr } = await supabase.rpc("update_profile_branding", {
+          new_banner_url: bannerUrl,
+          new_accent_color: accentColor,
+        });
+        if (brandErr) {
+          const msg = brandErr.message;
+          if (msg.includes("not_premium")) setError(t("errors.notPremium"));
+          else if (msg.includes("invalid_color")) setError(t("errors.invalidColor"));
+          else setError(t("errors.generic"));
+          return;
+        }
+      }
+
+      await refreshProfile();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2200);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-surface-500 text-xs uppercase tracking-widest font-medium">
-        {t("title")}
-      </h3>
-
-      {/* Lien profil */}
-      <div className="rounded-xl bg-surface-800/40 border border-surface-700/40 p-3 space-y-2">
-        <label className="block text-surface-300 text-sm font-medium">{t("linkLabel")}</label>
-        <p className="text-surface-500 text-xs">{t("linkHint")}</p>
-        <div className="flex gap-2">
-          <input
-            type="url"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            placeholder="https://twitch.tv/ton-pseudo"
-            className="flex-1 bg-surface-900 border border-surface-700 focus:border-brand-500 text-white text-sm rounded-lg px-3 py-2 outline-none"
-            maxLength={200}
-          />
-          <button
-            onClick={saveLink}
-            disabled={linkSaving}
-            className="px-3 py-2 rounded-lg bg-gradient-brand text-white text-sm font-medium disabled:opacity-50"
-          >
-            {linkSaving ? "…" : t("save")}
-          </button>
-        </div>
-        {linkError && <p className="text-red-400 text-xs">{linkError}</p>}
-        {linkSuccess && <p className="text-brand-300 text-xs">{t("saved")}</p>}
-      </div>
-
-      {/* Bannière */}
-      <div className="rounded-xl bg-surface-800/40 border border-surface-700/40 p-3 space-y-3">
-        <label className="block text-surface-300 text-sm font-medium">{t("bannerLabel")}</label>
-        <p className="text-surface-500 text-xs">{t("bannerHint")}</p>
-
-        <div className="aspect-[3/1] rounded-lg overflow-hidden border border-surface-700/40 bg-surface-900 relative">
+    <div className="space-y-3">
+      {/* Bannière — zone cliquable identique au pattern avatar */}
+      <div className="space-y-1.5">
+        <label className="text-surface-400 text-[11px] font-medium block">{t("bannerLabel")}</label>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={bannerUploading}
+          className="relative w-full aspect-[3/1] rounded-xl overflow-hidden border border-surface-700/40 bg-surface-800/40 group disabled:opacity-60 disabled:cursor-wait"
+          aria-label={bannerUrl ? t("replaceBanner") : t("uploadBanner")}
+        >
           {bannerUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-surface-950/0 group-hover:bg-surface-950/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                <span className="text-white text-xs font-medium px-2 py-1 rounded-md bg-surface-900/80">
+                  ✏️ {t("replaceBanner")}
+                </span>
+              </div>
+            </>
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-surface-700 text-xs">
-              {t("bannerEmpty")}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-surface-500 group-hover:text-brand-300 transition-colors">
+              <span className="text-2xl">🖼️</span>
+              <span className="text-[11px] font-medium">{t("uploadBanner")}</span>
             </div>
           )}
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={bannerUploading}
-            className="flex-1 py-2 rounded-lg bg-surface-900 border border-surface-700 text-surface-200 text-sm hover:border-brand-500/50 transition-colors disabled:opacity-50"
-          >
-            {bannerUploading ? t("uploading") : bannerUrl ? t("replaceBanner") : t("uploadBanner")}
-          </button>
-          {bannerUrl && (
-            <button
-              onClick={clearBanner}
-              className="px-3 py-2 rounded-lg border border-surface-700 text-surface-400 hover:text-red-400 hover:border-red-500/50 text-sm transition-colors"
-            >
-              ✕
-            </button>
+          {bannerUploading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-surface-950/60 text-white text-xs">
+              {t("uploading")}…
+            </div>
           )}
-        </div>
+        </button>
+        {bannerUrl && !bannerUploading && (
+          <button
+            type="button"
+            onClick={clearBanner}
+            className="text-surface-500 hover:text-red-400 text-[11px] underline underline-offset-2 transition-colors"
+          >
+            {t("removeBanner")}
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -185,41 +173,60 @@ export default function PremiumCustomization() {
         />
       </div>
 
-      {/* Couleur d'accent */}
-      <div className="rounded-xl bg-surface-800/40 border border-surface-700/40 p-3 space-y-3">
-        <label className="block text-surface-300 text-sm font-medium">{t("accentLabel")}</label>
-        <p className="text-surface-500 text-xs">{t("accentHint")}</p>
-        <div className="flex items-center gap-3">
+      {/* Lien profil — compact */}
+      <div className="space-y-1.5">
+        <label className="text-surface-400 text-[11px] font-medium block">{t("linkLabel")}</label>
+        <input
+          type="url"
+          value={linkUrl}
+          onChange={(e) => setLinkUrl(e.target.value)}
+          placeholder="https://twitch.tv/ton-pseudo"
+          maxLength={200}
+          className="w-full bg-surface-800 border border-surface-700 focus:border-brand-500 text-white placeholder-surface-600 text-sm rounded-xl px-3 py-2.5 outline-none transition-colors"
+        />
+        <p className="text-surface-600 text-[10px] leading-snug">{t("linkHint")}</p>
+      </div>
+
+      {/* Couleur d'accent — picker + hex inline */}
+      <div className="space-y-1.5">
+        <label className="text-surface-400 text-[11px] font-medium block">{t("accentLabel")}</label>
+        <div className="flex items-center gap-2 bg-surface-800 border border-surface-700 rounded-xl px-2 py-1.5">
           <input
             type="color"
             value={accentColor}
             onChange={(e) => setAccentColor(e.target.value)}
-            className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border border-surface-700"
+            className="w-8 h-8 rounded-md cursor-pointer bg-transparent border-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-0"
           />
           <input
             type="text"
             value={accentColor}
             onChange={(e) => setAccentColor(e.target.value)}
-            className="flex-1 bg-surface-900 border border-surface-700 focus:border-brand-500 text-white font-mono text-sm rounded-lg px-3 py-2 outline-none"
             placeholder="#a78bfa"
             maxLength={9}
+            className="flex-1 bg-transparent text-surface-200 font-mono text-xs outline-none"
           />
         </div>
       </div>
 
-      <button
-        onClick={saveBranding}
-        disabled={brandingSaving}
-        className="w-full py-2.5 rounded-xl bg-gradient-brand text-white text-sm font-bold glow-brand disabled:opacity-50"
-      >
-        {brandingSaving ? "…" : t("saveBranding")}
-      </button>
-
-      {brandingError && (
-        <p className="text-red-400 text-xs text-center">{brandingError}</p>
+      {/* Save unifié — discret */}
+      {dirty && (
+        <button
+          type="button"
+          onClick={saveAll}
+          disabled={saving}
+          className="w-full py-2 rounded-xl bg-brand-600/20 hover:bg-brand-600/30 border border-brand-500/40 text-brand-200 text-xs font-semibold transition-colors disabled:opacity-50"
+        >
+          {saving ? `${t("saving")}…` : t("saveBranding")}
+        </button>
       )}
-      {brandingSuccess && (
-        <p className="text-brand-300 text-xs text-center">{t("saved")}</p>
+
+      {error && (
+        <p className="text-red-400 text-[11px] text-center bg-red-950/30 border border-red-800/30 rounded-lg px-2 py-1.5">
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className="text-brand-300 text-[11px] text-center">{t("saved")}</p>
       )}
     </div>
   );

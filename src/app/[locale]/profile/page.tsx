@@ -19,7 +19,6 @@ import type { LegalType } from "@/components/legal/LegalModal";
 import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import AffiliateDashboard from "@/components/affiliate/AffiliateDashboard";
 import SubscriptionSection from "@/components/premium/SubscriptionSection";
-import PremiumCustomization from "@/components/premium/PremiumCustomization";
 import PinnedPresetsManager from "@/components/premium/PinnedPresetsManager";
 import CreatorBadge from "@/components/premium/CreatorBadge";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -408,14 +407,9 @@ export default function ProfilePage() {
             <div className="px-4 py-4 space-y-4 border-t border-surface-800/40">
               <SubscriptionSection />
               {isPremium && (
-                <>
-                  <div className="border-t border-surface-800/40 pt-4">
-                    <PremiumCustomization />
-                  </div>
-                  <div className="border-t border-surface-800/40 pt-4">
-                    <PinnedPresetsManager />
-                  </div>
-                </>
+                <div className="border-t border-surface-800/40 pt-4">
+                  <PinnedPresetsManager />
+                </div>
               )}
             </div>
           </details>

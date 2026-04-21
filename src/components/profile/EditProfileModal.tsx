@@ -21,6 +21,31 @@ const USERNAME_MIN = 2;
 const USERNAME_MAX = 30;
 const BIO_MAX = 200;
 
+/**
+ * Détecte les liens dans la bio pour empêcher les utilisateurs Free
+ * de contourner la fonctionnalité Premium "lien externe".
+ *
+ * Couvre :
+ *   - http(s)://...
+ *   - www.xxx
+ *   - sous-domaine.tld où tld ∈ liste blanche réaliste
+ *   - emails (mailto: ou foo@bar.tld)
+ */
+const LINK_TLDS = [
+  "com","fr","net","org","io","gg","co","tv","app","dev","me","xyz","info","biz","us","uk","de","es","it","jp","ru","cn","in","br","au","ca","tech","store","online","site","cloud","digital","live","life","world","news","today","click","link","page","website","space","fun","games","shop","art","blog","ai","pro","social","media","stream","games","games","gg",
+] as const;
+
+const URL_REGEX = new RegExp(
+  `(?:https?:\\/\\/|www\\.)\\S+|(?:[a-z0-9-]+\\.)+(?:${LINK_TLDS.join("|")})\\b`,
+  "i"
+);
+const EMAIL_REGEX = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+
+function detectLink(text: string): boolean {
+  if (!text) return false;
+  return URL_REGEX.test(text) || EMAIL_REGEX.test(text);
+}
+
 export default function EditProfileModal({
   profile,
   userId,
@@ -45,11 +70,14 @@ export default function EditProfileModal({
         ? t("usernameMax", { max: USERNAME_MAX })
         : null;
 
+  const bioError = detectLink(bio) ? t("bioNoLinks") : null;
+
   const isValid =
     username.trim().length >= USERNAME_MIN &&
     username.length <= USERNAME_MAX &&
     bio.length <= BIO_MAX &&
-    !usernameError;
+    !usernameError &&
+    !bioError;
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -113,7 +141,9 @@ export default function EditProfileModal({
       .eq("id", userId);
 
     if (updateErr) {
-      if (updateErr.message.includes("username")) {
+      if (updateErr.message.includes("bio_contains_link")) {
+        setError(t("bioNoLinks"));
+      } else if (updateErr.message.includes("username")) {
         setError(t("usernameTaken"));
       } else {
         setError(t("saveError"));
@@ -223,8 +253,13 @@ export default function EditProfileModal({
                 onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
                 placeholder={t("bioPlaceholder")}
                 rows={3}
-                className="w-full bg-surface-800 border border-surface-700 focus:border-brand-500 text-white placeholder-surface-600 rounded-xl px-4 py-3 text-sm outline-none transition-colors resize-none"
+                className={`w-full bg-surface-800 border text-white placeholder-surface-600 rounded-xl px-4 py-3 text-sm outline-none transition-colors resize-none ${
+                  bioError ? "border-red-500 focus:border-red-400" : "border-surface-700 focus:border-brand-500"
+                }`}
               />
+              {bioError && (
+                <p className="text-red-400 text-xs mt-1">{bioError}</p>
+              )}
             </div>
 
             {error && (
