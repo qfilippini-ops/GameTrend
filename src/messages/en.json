@@ -1027,7 +1027,17 @@
     "retry": "Try again",
     "loading": "Loading…",
     "earnedSuffix": "{amount}",
-    "joinedAgo": "Joined {ago}"
+    "joinedAgo": "Joined {ago}",
+    "funnel": {
+      "title": "Your referrals by status",
+      "potential": "Potential: {amount} if all your trials convert",
+      "trialing": "Trial",
+      "active": "Subscribed",
+      "lifetime": "Lifetime",
+      "past_due": "Failed",
+      "cancelled": "Cancelled",
+      "none": "Signed up"
+    }
   },
   "premium": {
     "title": "GameTrend Premium",

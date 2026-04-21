@@ -9,12 +9,31 @@ import { useAuth } from "@/hooks/useAuth";
 import { AFFILIATE_CONFIG } from "@/lib/affiliate/config";
 import Avatar from "@/components/ui/Avatar";
 
+type ReferralStatus =
+  | "trialing"
+  | "active"
+  | "lifetime"
+  | "past_due"
+  | "cancelled"
+  | "none";
+
 interface RecentReferral {
   user_id: string;
   username: string | null;
   avatar_url: string | null;
   joined_at: string;
   earned_cents: number;
+  status: ReferralStatus;
+  plan: "monthly" | "yearly" | "lifetime" | null;
+}
+
+interface Funnel {
+  trialing: number;
+  active: number;
+  lifetime: number;
+  past_due: number;
+  cancelled: number;
+  none: number;
 }
 
 interface DashboardData {
@@ -24,6 +43,8 @@ interface DashboardData {
   total_earned_cents: number;
   pending_earned_cents: number;
   currency: string;
+  funnel: Funnel;
+  potential_first_payment_cents: number;
   recent_referrals: RecentReferral[];
 }
 
@@ -328,6 +349,64 @@ export default function AffiliateDashboard() {
         />
       </div>
 
+      {/* Funnel des filleuls (visible dès qu'on a au moins 1 filleul) */}
+      {data.referrals_count > 0 && (
+        <div className="p-3 rounded-xl bg-surface-800/30 border border-surface-700/40 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-surface-300 text-xs font-semibold">{t("funnel.title")}</p>
+            {data.funnel.trialing > 0 && data.potential_first_payment_cents > 0 && (
+              <p className="text-amber-300 text-[11px] font-medium">
+                {t("funnel.potential", {
+                  amount: formatAmount(
+                    data.potential_first_payment_cents,
+                    data.currency,
+                    locale
+                  ),
+                })}
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+            <FunnelChip
+              icon="🕐"
+              label={t("funnel.trialing")}
+              count={data.funnel.trialing}
+              tone="amber"
+            />
+            <FunnelChip
+              icon="✅"
+              label={t("funnel.active")}
+              count={data.funnel.active}
+              tone="emerald"
+            />
+            <FunnelChip
+              icon="💎"
+              label={t("funnel.lifetime")}
+              count={data.funnel.lifetime}
+              tone="violet"
+            />
+            <FunnelChip
+              icon="⚠️"
+              label={t("funnel.past_due")}
+              count={data.funnel.past_due}
+              tone="orange"
+            />
+            <FunnelChip
+              icon="❌"
+              label={t("funnel.cancelled")}
+              count={data.funnel.cancelled}
+              tone="rose"
+            />
+            <FunnelChip
+              icon="👤"
+              label={t("funnel.none")}
+              count={data.funnel.none}
+              tone="slate"
+            />
+          </div>
+        </div>
+      )}
+
       {/* Liste des filleuls */}
       <div className="space-y-2">
         <p className="text-surface-400 text-xs font-medium">{t("recentReferrals")}</p>
@@ -348,9 +427,14 @@ export default function AffiliateDashboard() {
                       {t("joinedAgo", { ago: relativeTime(r.joined_at, tTime, locale) })}
                     </p>
                   </div>
-                  <p className="text-brand-300 text-xs font-bold shrink-0">
-                    {formatAmount(r.earned_cents, data.currency, locale)}
-                  </p>
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <StatusBadge status={r.status} t={t} />
+                    {r.earned_cents > 0 && (
+                      <p className="text-brand-300 text-xs font-bold">
+                        +{formatAmount(r.earned_cents, data.currency, locale)}
+                      </p>
+                    )}
+                  </div>
                 </Link>
               </li>
             ))}
@@ -385,6 +469,75 @@ function KpiCard({ label, value, muted }: { label: string; value: string; muted?
       </p>
       <p className="text-surface-600 text-[10px] uppercase tracking-wide mt-0.5">{label}</p>
     </div>
+  );
+}
+
+type ChipTone = "amber" | "emerald" | "violet" | "orange" | "rose" | "slate";
+
+const CHIP_TONES: Record<ChipTone, string> = {
+  amber: "text-amber-300",
+  emerald: "text-emerald-300",
+  violet: "text-violet-300",
+  orange: "text-orange-300",
+  rose: "text-rose-300",
+  slate: "text-surface-400",
+};
+
+function FunnelChip({
+  icon,
+  label,
+  count,
+  tone,
+}: {
+  icon: string;
+  label: string;
+  count: number;
+  tone: ChipTone;
+}) {
+  const dim = count === 0;
+  return (
+    <div
+      className={`flex flex-col items-center justify-center px-1.5 py-1.5 rounded-lg bg-surface-900/40 border border-surface-700/30 transition-opacity ${
+        dim ? "opacity-40" : ""
+      }`}
+    >
+      <span className="text-base leading-none">{icon}</span>
+      <span className={`font-display font-bold text-sm leading-tight mt-0.5 ${CHIP_TONES[tone]}`}>
+        {count}
+      </span>
+      <span className="text-surface-600 text-[9px] uppercase tracking-tight text-center leading-tight">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+const STATUS_BADGES: Record<ReferralStatus, string> = {
+  trialing: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  active: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  lifetime: "bg-violet-500/15 text-violet-300 border-violet-500/30",
+  past_due: "bg-orange-500/15 text-orange-300 border-orange-500/30",
+  cancelled: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+  none: "bg-surface-800 text-surface-400 border-surface-700/50",
+};
+
+function StatusBadge({
+  status,
+  t,
+}: {
+  status: ReferralStatus;
+  t: ReturnType<typeof useTranslations<"affiliate">>;
+}) {
+  const classes = STATUS_BADGES[status] ?? STATUS_BADGES.none;
+  // Le label est tiré du même namespace funnel (réutilisé pour cohérence).
+  // Cast en any pour éviter d'avoir à étendre le typegen i18n strict.
+  const label = (t as unknown as (k: string) => string)(`funnel.${status}`);
+  return (
+    <span
+      className={`inline-flex items-center px-1.5 py-0.5 rounded-md border text-[10px] font-semibold uppercase tracking-tight ${classes}`}
+    >
+      {label}
+    </span>
   );
 }
 

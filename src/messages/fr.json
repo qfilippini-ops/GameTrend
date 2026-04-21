@@ -1027,7 +1027,17 @@
     "retry": "Réessayer",
     "loading": "Chargement…",
     "earnedSuffix": "{amount}",
-    "joinedAgo": "Inscrit {ago}"
+    "joinedAgo": "Inscrit {ago}",
+    "funnel": {
+      "title": "Tes filleuls par statut",
+      "potential": "Potentiel : {amount} si tous tes essais convertissent",
+      "trialing": "Essai",
+      "active": "Abonné",
+      "lifetime": "À vie",
+      "past_due": "Échec",
+      "cancelled": "Annulé",
+      "none": "Inscrit"
+    }
   },
   "premium": {
     "title": "GameTrend Premium",

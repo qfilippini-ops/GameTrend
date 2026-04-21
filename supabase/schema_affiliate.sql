@@ -322,9 +322,22 @@ GRANT EXECUTE ON FUNCTION public.claim_referral(text) TO authenticated;
 
 
 -- ─── 10. RPC get_referral_dashboard() ───────────────────────────────────────
--- Une seule passe pour toute la page : code, KPIs, liste des derniers
--- filleuls (top 20). recent_referrals contient l'earned_cents par filleul
--- (somme des earnings 'paid' liés à cette ligne referrals).
+-- Une seule passe pour toute la page : code, KPIs, funnel des filleuls par
+-- statut, liste des derniers filleuls (top 20) avec leur statut + revenu
+-- déjà touché.
+--
+-- Funnel :
+--   trialing  → en cours d'essai (potentiel mais non confirmé)
+--   active    → abonné payant (commission perçue)
+--   lifetime  → achat à vie (commission one-shot perçue)
+--   past_due  → paiement échoué (à risque)
+--   cancelled → s'est désabonné après avoir payé (perdu)
+--   none      → inscrit mais jamais souscrit (lead froid)
+--
+-- potential_first_payment_cents : somme estimée des commissions à la
+-- première facture si tous les filleuls 'trialing' convertissent. Calculé
+-- depuis le plan (monthly=6.99, yearly=49, lifetime=99) car
+-- subscriptions.amount_cents n'est pas encore rempli pendant le trial.
 
 DROP FUNCTION IF EXISTS public.get_affiliate_dashboard();
 
@@ -341,6 +354,8 @@ DECLARE
   count_referrals int;
   total_paid_cents bigint;
   total_pending_cents bigint;
+  funnel jsonb;
+  potential_cents bigint;
   recent jsonb;
 BEGIN
   IF uid IS NULL THEN
@@ -359,6 +374,11 @@ BEGIN
       'total_earned_cents', 0,
       'pending_earned_cents', 0,
       'currency', 'EUR',
+      'funnel', jsonb_build_object(
+        'trialing', 0, 'active', 0, 'lifetime', 0,
+        'past_due', 0, 'cancelled', 0, 'none', 0
+      ),
+      'potential_first_payment_cents', 0,
       'recent_referrals', '[]'::jsonb
     );
   END IF;
@@ -376,6 +396,66 @@ BEGIN
   JOIN public.referrals r ON r.id = e.referral_id
   WHERE r.referrer_id = uid AND e.status = 'pending';
 
+  -- ── Sub par filleul (la plus récente, prioritaire à active > trial > lifetime > cancelled) ──
+  WITH refs AS (
+    SELECT r.id AS referral_id, r.referred_id
+    FROM public.referrals r
+    WHERE r.referrer_id = uid
+  ),
+  latest_subs AS (
+    SELECT DISTINCT ON (s.user_id)
+      s.user_id, s.plan, s.status, s.amount_cents
+    FROM public.subscriptions s
+    WHERE s.user_id IN (SELECT referred_id FROM refs)
+    ORDER BY s.user_id, s.created_at DESC
+  ),
+  classified AS (
+    SELECT
+      refs.referred_id,
+      CASE
+        WHEN ls.status = 'on_trial'                        THEN 'trialing'
+        WHEN ls.plan = 'lifetime' AND ls.status = 'active' THEN 'lifetime'
+        WHEN ls.status IN ('active','paused')              THEN 'active'
+        WHEN ls.status = 'past_due'                        THEN 'past_due'
+        WHEN ls.status IN ('cancelled','expired','refunded') THEN 'cancelled'
+        ELSE 'none'
+      END AS bucket,
+      ls.plan,
+      ls.amount_cents
+    FROM refs
+    LEFT JOIN latest_subs ls ON ls.user_id = refs.referred_id
+  )
+  SELECT
+    jsonb_build_object(
+      'trialing',  COALESCE(SUM(CASE WHEN bucket='trialing'  THEN 1 ELSE 0 END), 0),
+      'active',    COALESCE(SUM(CASE WHEN bucket='active'    THEN 1 ELSE 0 END), 0),
+      'lifetime',  COALESCE(SUM(CASE WHEN bucket='lifetime'  THEN 1 ELSE 0 END), 0),
+      'past_due',  COALESCE(SUM(CASE WHEN bucket='past_due'  THEN 1 ELSE 0 END), 0),
+      'cancelled', COALESCE(SUM(CASE WHEN bucket='cancelled' THEN 1 ELSE 0 END), 0),
+      'none',      COALESCE(SUM(CASE WHEN bucket='none'      THEN 1 ELSE 0 END), 0)
+    ),
+    -- Potentiel = pour chaque trial, prix prévu * 0.95 (frais LS) * 0.40 (commission)
+    -- Prix par défaut depuis le plan, en fallback sur amount_cents si déjà connu.
+    COALESCE(SUM(
+      CASE
+        WHEN bucket = 'trialing' THEN
+          ROUND(
+            COALESCE(NULLIF(amount_cents, 0),
+              CASE plan
+                WHEN 'monthly'  THEN 699
+                WHEN 'yearly'   THEN 4900
+                WHEN 'lifetime' THEN 9900
+                ELSE 699
+              END
+            )::numeric * 0.95 * 0.40
+          )
+        ELSE 0
+      END
+    ), 0)::bigint
+  INTO funnel, potential_cents
+  FROM classified;
+
+  -- ── Liste des 20 derniers filleuls avec statut + earned ──
   SELECT COALESCE(jsonb_agg(row_to_json(x) ORDER BY x.joined_at DESC), '[]'::jsonb)
   INTO recent
   FROM (
@@ -387,24 +467,42 @@ BEGIN
       COALESCE((
         SELECT SUM(e.amount_cents)
         FROM public.referral_earnings e
-        WHERE e.referral_id = r.id AND e.status = 'paid'
-      ), 0)::bigint              AS earned_cents
+        WHERE e.referral_id = r.id AND e.status IN ('paid','pending')
+      ), 0)::bigint              AS earned_cents,
+      CASE
+        WHEN ls.status = 'on_trial'                        THEN 'trialing'
+        WHEN ls.plan = 'lifetime' AND ls.status = 'active' THEN 'lifetime'
+        WHEN ls.status IN ('active','paused')              THEN 'active'
+        WHEN ls.status = 'past_due'                        THEN 'past_due'
+        WHEN ls.status IN ('cancelled','expired','refunded') THEN 'cancelled'
+        ELSE 'none'
+      END                        AS status,
+      ls.plan                    AS plan
     FROM public.referrals r
     JOIN public.profiles p ON p.id = r.referred_id
+    LEFT JOIN LATERAL (
+      SELECT s.plan, s.status
+      FROM public.subscriptions s
+      WHERE s.user_id = r.referred_id
+      ORDER BY s.created_at DESC
+      LIMIT 1
+    ) ls ON true
     WHERE r.referrer_id = uid
     ORDER BY r.created_at DESC
     LIMIT 20
   ) x;
 
   RETURN jsonb_build_object(
-    'activated',            true,
-    'code',                 current_code,
-    'activated_at',         activated_at,
-    'referrals_count',      count_referrals,
-    'total_earned_cents',   total_paid_cents,
-    'pending_earned_cents', total_pending_cents,
-    'currency',             'EUR',
-    'recent_referrals',     recent
+    'activated',                     true,
+    'code',                          current_code,
+    'activated_at',                  activated_at,
+    'referrals_count',               count_referrals,
+    'total_earned_cents',            total_paid_cents,
+    'pending_earned_cents',          total_pending_cents,
+    'currency',                      'EUR',
+    'funnel',                        funnel,
+    'potential_first_payment_cents', potential_cents,
+    'recent_referrals',              recent
   );
 END;
 $$;
