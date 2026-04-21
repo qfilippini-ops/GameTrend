@@ -10,6 +10,10 @@ import { getPresetFormComponent } from "@/games/preset-forms";
 import { GAMES_REGISTRY } from "@/games/registry";
 import { createClient } from "@/lib/supabase/client";
 import { compressImage } from "@/lib/compressImage";
+import { useSubscription } from "@/hooks/useSubscription";
+import { usePaywall } from "@/components/premium/PaywallProvider";
+
+const FREE_PRESET_LIMIT = 5;
 
 export default function NewPresetPage() {
   return (
@@ -26,6 +30,8 @@ function NewPresetPageContent() {
   const [gameType, setGameType] = useState(searchParams.get("game") ?? "ghostword");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { isPremium } = useSubscription();
+  const { openPaywall } = usePaywall();
 
   async function safeUploadWordImage(file: File): Promise<string> {
     const supabase = createClient();
@@ -57,6 +63,16 @@ function NewPresetPageContent() {
     if (!user) {
       router.push("/auth/login?redirect=/presets/new");
       return;
+    }
+
+    if (!isPremium) {
+      const { data: countResult } = await supabase.rpc("count_active_presets", { uid: user.id });
+      const activeCount = typeof countResult === "number" ? countResult : 0;
+      if (activeCount >= FREE_PRESET_LIMIT) {
+        setLoading(false);
+        openPaywall("presetLimit");
+        return;
+      }
     }
 
     let coverUrl: string | null = null;

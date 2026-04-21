@@ -90,7 +90,8 @@
       "by": "par",
       "ctaLogin": "pour personnaliser ton fil et suivre des créateurs.",
       "loginLink": "Connecte-toi",
-      "playsLabel": "parties"
+      "playsLabel": "parties",
+      "boostedTooltip": "Mis en avant 24h (Premium)"
     }
   },
   "home": {
@@ -244,6 +245,7 @@
       "anonymous": "Joueur Anonyme",
       "mutualFriends": "{n, plural, one {# ami en commun} other {# amis en commun}}",
       "publicPresets": "Presets publics",
+      "pinnedPresets": "Presets épinglés",
       "loginPrefix": "Connecte-toi",
       "loginSuffix": " pour ajouter ce joueur en ami."
     }
@@ -1022,5 +1024,191 @@
     "loading": "Chargement…",
     "earnedSuffix": "{amount}",
     "joinedAgo": "Inscrit {ago}"
+  },
+  "premium": {
+    "title": "GameTrend Premium",
+    "subtitle": "L'abonnement pensé pour les créateurs sérieux : sans pub, sans quota, avec les outils pour grandir.",
+    "heroBadge": "★ Premium",
+    "heroTitle": "Crée. Brille. Sans limite.",
+    "heroSubtitle": "Tout l'arsenal du créateur : zéro pub, presets illimités, analytics, boost et profil personnalisé.",
+    "alreadyPremium": "Tu profites déjà de Premium — merci de ton soutien.",
+    "lifetimeBadge": "Offre de lancement",
+    "lifetimeRemaining": "{count} / 100 places restantes",
+    "lifetimeTitle": "Lifetime — Accès à vie",
+    "lifetimeDescription": "Réservé aux 100 premiers comptes inscrits. Paiement unique, jamais de renouvellement.",
+    "oneTime": "paiement unique",
+    "ctaLifetime": "Prendre le Lifetime",
+    "toggleMonthly": "Mensuel",
+    "toggleYearly": "Annuel",
+    "perMonth": "/ mois",
+    "perYear": "/ an",
+    "yearlyEquivalent": "≈ 4,08 €/mois — soit 42 % d'économie",
+    "ctaTrial": "Démarrer 7 jours gratuits",
+    "trialHint": "Annulable à tout moment depuis ton portail. Aucun prélèvement avant la fin de l'essai.",
+    "featuresTitle": "Tout ce que tu débloques",
+    "faqTitle": "Questions fréquentes",
+    "loading": "Préparation du paiement…",
+    "badgeCreator": "Créateur",
+    "badgeLifetime": "Lifetime",
+    "errors": {
+      "checkout_failed": "Impossible de démarrer le paiement.",
+      "network_error": "Erreur réseau. Réessaie.",
+      "unauthorized": "Connecte-toi d'abord.",
+      "not_eligible": "Tu n'es pas éligible à cette offre.",
+      "no_customer": "Aucun abonnement actif trouvé.",
+      "portal_unavailable": "Portail indisponible. Réessaie dans un instant."
+    },
+    "faq": {
+      "trial": {
+        "q": "Comment fonctionne le 7 jours gratuits ?",
+        "a": "Tu débloques tout immédiatement. Aucun prélèvement avant la fin des 7 jours. Tu peux annuler à tout moment depuis ton portail."
+      },
+      "cancel": {
+        "q": "Puis-je résilier ?",
+        "a": "Oui, à tout moment, sans justificatif. L'accès Premium reste actif jusqu'à la fin de la période payée."
+      },
+      "refund": {
+        "q": "Y a-t-il un remboursement ?",
+        "a": "Le 7 jours d'essai sert à tester sans risque. Au-delà, aucun remboursement n'est prévu mais tu peux résilier à tout moment."
+      },
+      "lifetime": {
+        "q": "Pourquoi Lifetime est-il limité ?",
+        "a": "Pour récompenser les 100 premiers comptes qui croient au projet. Une fois les places prises, l'offre disparaît définitivement."
+      }
+    },
+    "profile": {
+      "section": "Mon abonnement",
+      "freeQuotaReached": "Tu as atteint la limite de 5 presets actifs ({count}). Passe Premium pour en créer plus.",
+      "upgradeShort": "Passer Premium",
+      "statusLabel": "Statut",
+      "planLabel": "Formule",
+      "trialEndsLabel": "Fin de l'essai",
+      "renewsLabel": "Renouvellement",
+      "endsLabel": "Accès jusqu'au",
+      "pastDueWarning": "Ton dernier paiement a échoué. Mets à jour ta carte depuis le portail pour conserver ton accès.",
+      "managePortal": "Gérer mon abonnement",
+      "loading": "Ouverture…",
+      "noCustomerError": "Aucun abonnement actif trouvé.",
+      "portalError": "Impossible d'ouvrir le portail. Réessaie.",
+      "upsellPremium": "Passe Premium",
+      "upsellPremiumDesc": "Sans pub, presets illimités, badge Créateur, analytics et plus encore — à partir de 6,99 €/mois.",
+      "upsellLifetime": "Tu fais partie des 100 premiers !",
+      "upsellLifetimeDesc": "Profite de l'offre Lifetime à 99 € — un seul paiement, accès à vie à toutes les fonctionnalités Premium.",
+      "upsellCta": "Découvrir Premium",
+      "status": {
+        "active": "Actif",
+        "trialing": "Essai gratuit",
+        "lifetime": "Lifetime",
+        "pastDue": "Paiement échoué",
+        "cancelling": "Résiliation prévue",
+        "free": "Gratuit"
+      },
+      "plan": {
+        "monthly": "Mensuel · 6,99 €",
+        "yearly": "Annuel · 49 €",
+        "lifetime": "Lifetime · paiement unique"
+      }
+    },
+    "customization": {
+      "title": "Personnalisation Premium",
+      "linkLabel": "Lien externe sur ton profil",
+      "linkHint": "Twitch, YouTube, Discord, site perso… Une seule URL, visible publiquement.",
+      "save": "Enregistrer",
+      "saved": "Enregistré ✓",
+      "bannerLabel": "Bannière de profil",
+      "bannerHint": "Format paysage 1200×400 recommandé. JPG, PNG ou WebP.",
+      "bannerEmpty": "Aucune bannière",
+      "uploading": "Envoi…",
+      "uploadBanner": "Téléverser une image",
+      "replaceBanner": "Remplacer l'image",
+      "accentLabel": "Couleur d'accent",
+      "accentHint": "Utilisée comme reflet sur ton profil.",
+      "saveBranding": "Enregistrer la personnalisation",
+      "errors": {
+        "notPremium": "Réservé aux abonnés Premium.",
+        "invalidUrl": "URL invalide.",
+        "blockedDomain": "Ce domaine n'est pas autorisé.",
+        "generic": "Une erreur est survenue. Réessaie.",
+        "upload": "Impossible de téléverser l'image.",
+        "invalidColor": "Code couleur invalide."
+      }
+    },
+    "pinned": {
+      "title": "Presets épinglés (5 max)",
+      "empty": "Tu n'as pas encore créé de preset à épingler.",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "unpin": "Retirer",
+      "addCta": "Épingler",
+      "save": "Enregistrer mes pins",
+      "saved": "Pins enregistrés ✓",
+      "errors": {
+        "maxReached": "Maximum {max} presets épinglés.",
+        "notPremium": "Réservé aux abonnés Premium.",
+        "notOwner": "Tu ne peux épingler que tes propres presets.",
+        "generic": "Une erreur est survenue. Réessaie."
+      }
+    },
+    "analytics": {
+      "title": "Analytics du preset",
+      "subtitle": "Évolution des vues, sauvegardes et conversions sur la période sélectionnée.",
+      "viewAnalytics": "Voir les analytics",
+      "paywallTitle": "Analytics réservées au Premium",
+      "paywallDescription": "Visualise vues, sauvegardes, conversions et top pays pour chacun de tes presets.",
+      "paywallCta": "Découvrir Premium",
+      "errorTitle": "Impossible de charger les analytics.",
+      "chartViews": "Vues quotidiennes",
+      "topCountries": "Top pays",
+      "kpi": {
+        "views": "Vues",
+        "saves": "Sauvegardes",
+        "shares": "Partages",
+        "conversion": "Conversion"
+      }
+    },
+    "paywall": {
+      "badge": "Premium",
+      "includedTitle": "Inclus dans Premium",
+      "ctaPrimary": "Découvrir Premium",
+      "ctaSecondary": "Plus tard",
+      "features": {
+        "noAds": {
+          "title": "Aucune publicité",
+          "description": "Profite de GameTrend sans aucune bannière ni interstitiel."
+        },
+        "presetLimit": {
+          "title": "Presets illimités",
+          "description": "Tu as atteint la limite de 5 presets gratuits. Crée-en autant que tu veux avec Premium."
+        },
+        "profileLink": {
+          "title": "Lien externe sur ton profil",
+          "description": "Affiche ton lien Twitch, YouTube, Discord ou autre directement sur ton profil."
+        },
+        "bannerAccent": {
+          "title": "Bannière + couleur d'accent",
+          "description": "Personnalise ton profil avec une bannière en haute résolution et ta couleur signature."
+        },
+        "pinnedPresets": {
+          "title": "5 presets épinglés",
+          "description": "Mets jusqu'à 5 de tes meilleurs presets en avant en haut de ton profil."
+        },
+        "boostExplore": {
+          "title": "Boost auto 24h sur Explore",
+          "description": "Chaque preset que tu publies est mis en avant dans Explore pendant 24h."
+        },
+        "analytics": {
+          "title": "Analytics détaillées",
+          "description": "Visualise vues, sauvegardes, conversions et top pays pour chacun de tes presets."
+        },
+        "creatorBadge": {
+          "title": "Badge Créateur",
+          "description": "Un badge ★ visible partout dans l'app montre ton statut de créateur."
+        }
+      }
+    },
+    "badge": {
+      "creator": "CRÉATEUR",
+      "lifetime": "LIFETIME"
+    }
   }
 }

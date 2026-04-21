@@ -20,6 +20,15 @@ export interface Database {
           stats: Json;
           followers_count: number;
           following_count: number;
+          subscription_status: "free" | "trialing" | "active" | "past_due" | "cancelled" | "lifetime";
+          subscription_plan: "monthly" | "yearly" | "lifetime" | null;
+          subscription_current_period_end: string | null;
+          subscription_cancel_at: string | null;
+          lifetime_eligible: boolean;
+          profile_link_url: string | null;
+          profile_banner_url: string | null;
+          profile_accent_color: string | null;
+          ls_customer_id: string | null;
         };
         Insert: {
           id: string;
@@ -31,6 +40,15 @@ export interface Database {
           stats?: Json;
           followers_count?: number;
           following_count?: number;
+          subscription_status?: "free" | "trialing" | "active" | "past_due" | "cancelled" | "lifetime";
+          subscription_plan?: "monthly" | "yearly" | "lifetime" | null;
+          subscription_current_period_end?: string | null;
+          subscription_cancel_at?: string | null;
+          lifetime_eligible?: boolean;
+          profile_link_url?: string | null;
+          profile_banner_url?: string | null;
+          profile_accent_color?: string | null;
+          ls_customer_id?: string | null;
         };
         Update: {
           id?: string;
@@ -42,7 +60,89 @@ export interface Database {
           stats?: Json;
           followers_count?: number;
           following_count?: number;
+          subscription_status?: "free" | "trialing" | "active" | "past_due" | "cancelled" | "lifetime";
+          subscription_plan?: "monthly" | "yearly" | "lifetime" | null;
+          subscription_current_period_end?: string | null;
+          subscription_cancel_at?: string | null;
+          lifetime_eligible?: boolean;
+          profile_link_url?: string | null;
+          profile_banner_url?: string | null;
+          profile_accent_color?: string | null;
+          ls_customer_id?: string | null;
         };
+      };
+      subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          ls_subscription_id: string | null;
+          ls_order_id: string | null;
+          ls_customer_id: string | null;
+          variant_id: string;
+          plan: "monthly" | "yearly" | "lifetime";
+          status: string;
+          amount_cents: number;
+          currency: string;
+          trial_ends_at: string | null;
+          renews_at: string | null;
+          ends_at: string | null;
+          raw_event: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          ls_subscription_id?: string | null;
+          ls_order_id?: string | null;
+          ls_customer_id?: string | null;
+          variant_id: string;
+          plan: "monthly" | "yearly" | "lifetime";
+          status: string;
+          amount_cents: number;
+          currency?: string;
+          trial_ends_at?: string | null;
+          renews_at?: string | null;
+          ends_at?: string | null;
+          raw_event?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["subscriptions"]["Insert"]>;
+      };
+      pinned_presets: {
+        Row: {
+          user_id: string;
+          preset_id: string;
+          position: number;
+          pinned_at: string;
+        };
+        Insert: {
+          user_id: string;
+          preset_id: string;
+          position: number;
+          pinned_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["pinned_presets"]["Insert"]>;
+      };
+      preset_views: {
+        Row: {
+          id: number;
+          preset_id: string;
+          viewer_id: string | null;
+          event_type: "view" | "save" | "share" | "follow_after_view";
+          country: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          preset_id: string;
+          viewer_id?: string | null;
+          event_type: "view" | "save" | "share" | "follow_after_view";
+          country?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["preset_views"]["Insert"]>;
       };
       follows: {
         Row: {
@@ -150,6 +250,7 @@ export interface Database {
           like_count: number;
           config: Json;
           cover_url: string | null;
+          archived_at: string | null;
         };
         Insert: {
           id?: string;
@@ -164,6 +265,7 @@ export interface Database {
           like_count?: number;
           config: Json;
           cover_url?: string | null;
+          archived_at?: string | null;
         };
         Update: {
           id?: string;
@@ -178,6 +280,7 @@ export interface Database {
           like_count?: number;
           config?: Json;
           cover_url?: string | null;
+          archived_at?: string | null;
         };
       };
       preset_likes: {
@@ -451,3 +554,9 @@ export type RoomMessage = Database["public"]["Tables"]["room_messages"]["Row"];
 export type Friendship = Database["public"]["Tables"]["friendships"]["Row"];
 export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
 export type DypResult = Database["public"]["Tables"]["dyp_results"]["Row"];
+export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
+export type PinnedPreset = Database["public"]["Tables"]["pinned_presets"]["Row"];
+export type PresetView = Database["public"]["Tables"]["preset_views"]["Row"];
+
+export type SubscriptionStatus = Database["public"]["Tables"]["profiles"]["Row"]["subscription_status"];
+export type SubscriptionPlan = NonNullable<Database["public"]["Tables"]["profiles"]["Row"]["subscription_plan"]>;

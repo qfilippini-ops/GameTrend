@@ -14,8 +14,9 @@ import FollowButton from "@/components/social/FollowButton";
 import CreatorStats from "@/components/profile/CreatorStats";
 import PresetCard from "@/components/presets/PresetCard";
 import { Link } from "@/i18n/navigation";
-import type { Preset } from "@/types/database";
+import type { Preset, SubscriptionStatus } from "@/types/database";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
+import CreatorBadge from "@/components/premium/CreatorBadge";
 
 interface PublicProfile {
   id: string;
@@ -25,6 +26,10 @@ interface PublicProfile {
   stats: Record<string, number>;
   followers_count: number;
   following_count: number;
+  subscription_status: SubscriptionStatus;
+  profile_link_url: string | null;
+  profile_banner_url: string | null;
+  profile_accent_color: string | null;
 }
 
 export default function PublicProfilePage() {
@@ -37,6 +42,7 @@ export default function PublicProfilePage() {
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [mutualCount, setMutualCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -53,22 +59,41 @@ export default function PublicProfilePage() {
     async function load() {
       const { data: p } = await supabase
         .from("profiles")
-        .select("id, username, avatar_url, bio, stats, followers_count, following_count")
+        .select(
+          "id, username, avatar_url, bio, stats, followers_count, following_count, subscription_status, profile_link_url, profile_banner_url, profile_accent_color"
+        )
         .eq("id", id)
         .maybeSingle();
 
       if (!p) { setNotFound(true); setLoading(false); return; }
-      setProfile(p as PublicProfile);
+      const isPremiumAuthor = ["trialing", "active", "lifetime"].includes(
+        (p as PublicProfile).subscription_status
+      );
+      setProfile({
+        ...(p as PublicProfile),
+        // Lien profil et bannière exclusivement visibles si l'auteur est premium
+        profile_link_url: isPremiumAuthor ? (p as PublicProfile).profile_link_url : null,
+        profile_banner_url: isPremiumAuthor ? (p as PublicProfile).profile_banner_url : null,
+      });
 
-      // Presets publics
-      const { data: ps } = await supabase
-        .from("presets")
-        .select(PRESET_LIST_COLS)
-        .eq("author_id", id)
-        .eq("is_public", true)
-        .order("created_at", { ascending: false })
-        .limit(6);
+      // Presets publics + pins
+      const [{ data: ps }, { data: pins }] = await Promise.all([
+        supabase
+          .from("presets")
+          .select(PRESET_LIST_COLS)
+          .eq("author_id", id)
+          .eq("is_public", true)
+          .is("archived_at", null)
+          .order("created_at", { ascending: false })
+          .limit(12),
+        supabase
+          .from("pinned_presets")
+          .select("preset_id, position")
+          .eq("user_id", id)
+          .order("position", { ascending: true }),
+      ]);
       setPresets((ps as Preset[]) ?? []);
+      setPinnedIds((pins ?? []).map((r: any) => r.preset_id as string));
 
       // Amis en commun (uniquement si connecté non-anonyme)
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -124,19 +149,37 @@ export default function PublicProfilePage() {
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative rounded-3xl overflow-hidden border border-surface-700/30 bg-surface-900/60 p-5"
+          className="relative rounded-3xl overflow-hidden border border-surface-700/30 bg-surface-900/60"
+          style={
+            profile.profile_accent_color
+              ? ({ ["--profile-accent" as any]: profile.profile_accent_color } as React.CSSProperties)
+              : undefined
+          }
         >
-          <div className="absolute -top-8 -right-8 w-40 h-40 bg-brand-600/8 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative flex items-start gap-4">
+          {profile.profile_banner_url ? (
+            <div className="relative h-32 w-full overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={profile.profile_banner_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-900/90 to-surface-900/10" />
+            </div>
+          ) : (
+            <div className="absolute -top-8 -right-8 w-40 h-40 bg-brand-600/8 rounded-full blur-3xl pointer-events-none" />
+          )}
+          <div className={`relative flex items-start gap-4 p-5 ${profile.profile_banner_url ? "-mt-10" : ""}`}>
             <Avatar
               src={profile.avatar_url}
               name={profile.username}
               size="xl"
-              className="rounded-2xl shrink-0"
+              className="rounded-2xl shrink-0 ring-4 ring-surface-900"
             />
             <div className="flex-1 min-w-0">
-              <h1 className="text-2xl font-display font-bold text-white truncate leading-tight">
-                {profile.username ?? t("anonymous")}
+              <h1 className="text-2xl font-display font-bold text-white truncate leading-tight flex items-center gap-2">
+                <span className="truncate">{profile.username ?? t("anonymous")}</span>
+                <CreatorBadge status={profile.subscription_status} />
               </h1>
 
               {/* Compteurs followers / following */}
@@ -156,6 +199,20 @@ export default function PublicProfilePage() {
 
               {profile.bio && (
                 <p className="text-surface-400 text-sm mt-2 leading-snug">{profile.bio}</p>
+              )}
+
+              {profile.profile_link_url && (
+                <a
+                  href={profile.profile_link_url}
+                  target="_blank"
+                  rel="nofollow ugc noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs text-brand-300 hover:text-brand-200 underline underline-offset-2 break-all"
+                >
+                  <span>🔗</span>
+                  <span className="truncate max-w-[240px]">
+                    {profile.profile_link_url.replace(/^https?:\/\//, "")}
+                  </span>
+                </a>
               )}
 
               {/* Boutons sociaux */}
@@ -209,6 +266,33 @@ export default function PublicProfilePage() {
 
         {/* Stats créateur (uniquement si presets publics) */}
         <CreatorStats userId={profile.id} followersCount={profile.followers_count} />
+
+        {/* Pinned presets (premium) */}
+        {pinnedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <p className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
+              <span>📌</span>
+              {t("pinnedPresets")}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {pinnedIds
+                .map((pid) => presets.find((p) => p.id === pid))
+                .filter(Boolean)
+                .map((preset, i) => (
+                  <PresetCard
+                    key={preset!.id}
+                    preset={preset!}
+                    index={i}
+                    userId={user?.id}
+                  />
+                ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Presets publics */}
         {presets.length > 0 && (

@@ -11,6 +11,10 @@ import FavoriteButton from "@/components/presets/FavoriteButton";
 import DeletePresetButton from "@/components/presets/DeletePresetButton";
 import ReportButton from "@/components/presets/ReportButton";
 import PresetComments from "@/components/presets/PresetComments";
+import PresetViewTracker from "@/components/presets/PresetViewTracker";
+import CreatorBadge from "@/components/premium/CreatorBadge";
+import PresetAnalyticsButton from "@/components/premium/PresetAnalyticsButton";
+import type { SubscriptionStatus } from "@/types/database";
 
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
   ghostword: { icon: "👻", name: "GhostWord", color: "from-ghost-900/80 to-brand-900/60", gameHref: (id) => `/games/ghostword?presetId=${id}` },
@@ -45,7 +49,7 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
 
   const { data: preset } = await supabase
     .from("presets")
-    .select("*, profiles!author_id(username, avatar_url)")
+    .select("*, profiles!author_id(username, avatar_url, subscription_status)")
     .eq("id", params.id)
     .single();
 
@@ -91,10 +95,15 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
   }
 
   const MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
-  const author = preset.profiles as { username: string | null; avatar_url: string | null } | null;
+  const author = preset.profiles as {
+    username: string | null;
+    avatar_url: string | null;
+    subscription_status: SubscriptionStatus | null;
+  } | null;
 
   return (
     <div>
+      <PresetViewTracker presetId={preset.id} />
       <Header
         title=""
         backHref="/presets"
@@ -154,6 +163,7 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
               </div>
             )}
             <span className="text-surface-400 text-sm">{author?.username ?? tCommon("anonymous")}</span>
+            <CreatorBadge status={author?.subscription_status} />
             <span className="text-surface-700 text-xs">·</span>
             <span className="text-surface-600 text-xs">{formatRelative(preset.created_at)}</span>
           </div>
@@ -439,6 +449,7 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
             >
               {t("editThisPreset")}
             </Link>
+            <PresetAnalyticsButton presetId={preset.id} />
             <DeletePresetButton presetId={preset.id} redirectTo="/profile" />
           </div>
         )}

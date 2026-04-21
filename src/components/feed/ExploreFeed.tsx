@@ -9,6 +9,8 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { GAMES_REGISTRY } from "@/games/registry";
 import Avatar from "@/components/ui/Avatar";
+import CreatorBadge from "@/components/premium/CreatorBadge";
+import AdSlot from "@/components/ads/AdSlot";
 import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
 
 const gameMap = new Map(GAMES_REGISTRY.map((g) => [g.id, g]));
@@ -21,7 +23,12 @@ interface TrendingPreset {
   cover_url: string | null;
   play_count: number;
   author_id: string;
-  author?: { username: string | null; avatar_url: string | null };
+  is_boosted?: boolean;
+  author?: {
+    username: string | null;
+    avatar_url: string | null;
+    subscription_status?: string | null;
+  };
 }
 
 interface PublicRoom {
@@ -54,7 +61,12 @@ interface RpcShape {
     cover_url: string | null;
     play_count: number;
     author_id: string;
-    author: { username: string | null; avatar_url: string | null } | null;
+    is_boosted?: boolean;
+    author: {
+      username: string | null;
+      avatar_url: string | null;
+      subscription_status?: string | null;
+    } | null;
   }>;
   public_rooms: Array<{
     id: string;
@@ -76,6 +88,7 @@ function rpcToData(raw: RpcShape): ExploreData {
       cover_url: p.cover_url,
       play_count: p.play_count,
       author_id: p.author_id,
+      is_boosted: p.is_boosted ?? false,
       author: p.author ?? undefined,
     })),
     rooms: raw.public_rooms.map((r) => ({
@@ -286,7 +299,11 @@ export default function ExploreFeed() {
                 >
                   <Link
                     href={`/presets/${p.id}`}
-                    className="flex items-center gap-3 p-3 rounded-2xl border border-surface-800/50 bg-surface-900/40 hover:border-brand-700/40 transition-colors"
+                    className={`flex items-center gap-3 p-3 rounded-2xl border bg-surface-900/40 transition-colors ${
+                      p.is_boosted
+                        ? "border-amber-700/40 hover:border-amber-500/60 ring-1 ring-amber-500/10"
+                        : "border-surface-800/50 hover:border-brand-700/40"
+                    }`}
                   >
                     <div className="text-amber-400 font-display font-black text-lg w-6 text-center shrink-0">#{i + 1}</div>
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-800 shrink-0 relative">
@@ -295,11 +312,20 @@ export default function ExploreFeed() {
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xl">{game?.icon ?? "🎮"}</div>
                       )}
+                      {p.is_boosted && (
+                        <span
+                          className="absolute -top-1 -left-1 text-[8px] font-black px-1 py-0.5 rounded bg-amber-500 text-surface-950"
+                          title={t("boostedTooltip")}
+                        >
+                          ★
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-white font-semibold text-sm truncate">{p.name}</p>
-                      <p className="text-surface-500 text-xs truncate">
-                        {game?.name ?? p.game_type} · {t("by")} {p.author?.username ?? tCommon("anonymous")}
+                      <p className="text-surface-500 text-xs truncate flex items-center gap-1">
+                        <span>{game?.name ?? p.game_type} · {t("by")} {p.author?.username ?? tCommon("anonymous")}</span>
+                        <CreatorBadge status={p.author?.subscription_status ?? null} />
                       </p>
                     </div>
                     <div className="text-right shrink-0">
@@ -313,6 +339,8 @@ export default function ExploreFeed() {
           </div>
         )}
       </section>
+
+      <AdSlot placement="explore-grid" />
 
       {!user && (
         <p className="text-surface-600 text-xs text-center pt-2">

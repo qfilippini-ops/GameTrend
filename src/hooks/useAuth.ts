@@ -37,7 +37,7 @@ export function useAuth() {
     const { data } = await supabase
       .from("profiles")
       .select(
-        "id, username, avatar_url, bio, stats, followers_count, following_count, last_seen_at, created_at, cgu_accepted_at, cgu_version"
+        "id, username, avatar_url, bio, stats, followers_count, following_count, last_seen_at, created_at, cgu_accepted_at, cgu_version, subscription_status, subscription_plan, subscription_current_period_end, subscription_cancel_at, lifetime_eligible, profile_link_url, profile_banner_url, profile_accent_color, ls_customer_id"
       )
       .eq("id", userId)
       .single();

@@ -8,6 +8,8 @@ import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import Avatar from "@/components/ui/Avatar";
+import CreatorBadge from "@/components/premium/CreatorBadge";
+import AdSlot from "@/components/ads/AdSlot";
 import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
 
 const PAGE_SIZE = 10;
@@ -34,7 +36,12 @@ interface FeedItem {
   /** Identifiant React unique (préfixé pour éviter collision entre tables). */
   key: string;
   created_at: string;
-  author: { id: string; username: string | null; avatar_url: string | null };
+  author: {
+    id: string;
+    username: string | null;
+    avatar_url: string | null;
+    subscription_status?: string | null;
+  };
   data: PresetPayload | ResultPayload;
 }
 
@@ -46,6 +53,7 @@ interface RpcRow {
   author_id: string;
   author_username: string | null;
   author_avatar_url: string | null;
+  author_subscription_status?: string | null;
   payload: PresetPayload | ResultPayload;
 }
 
@@ -66,6 +74,7 @@ function rowToItem(r: RpcRow): FeedItem {
       id: r.author_id,
       username: r.author_username,
       avatar_url: r.author_avatar_url,
+      subscription_status: r.author_subscription_status ?? null,
     },
     data: r.payload,
   };
@@ -385,18 +394,25 @@ export default function FollowingFeed() {
       </AnimatePresence>
 
       {items.map((item, i) => (
-        <motion.div
-          key={item.key}
-          initial={i < 3 ? { opacity: 0, y: 8 } : false}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: Math.min(i * 0.03, 0.4) }}
-        >
-          {item.type === "preset" ? (
-            <PresetFeedCard item={item} data={item.data as PresetPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
-          ) : (
-            <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
+        <div key={item.key}>
+          <motion.div
+            initial={i < 3 ? { opacity: 0, y: 8 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(i * 0.03, 0.4) }}
+          >
+            {item.type === "preset" ? (
+              <PresetFeedCard item={item} data={item.data as PresetPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
+            ) : (
+              <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
+            )}
+          </motion.div>
+          {/* Ad inline tous les 5 items pour les non-premium */}
+          {(i + 1) % 5 === 0 && i < items.length - 1 && (
+            <div className="mt-3">
+              <AdSlot placement="feed-inline" index={Math.floor(i / 5)} />
+            </div>
           )}
-        </motion.div>
+        </div>
       ))}
 
       {hasMore && (
@@ -503,9 +519,10 @@ function FeedHeader({ author, action, date, icon, tTime, tCommon, locale }: { au
     <Link href={`/profile/${author.id}`} className="flex items-center gap-2.5 px-3 py-2.5 border-b border-surface-800/40 hover:bg-surface-800/20 transition-colors">
       <Avatar src={author.avatar_url} name={author.username} size="sm" className="rounded-full shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-surface-300 truncate">
-          <span className="font-semibold text-white">{author.username ?? tCommon("player")}</span>{" "}
-          <span className="text-surface-500">{action}</span>
+        <p className="text-sm text-surface-300 truncate flex items-center gap-1">
+          <span className="font-semibold text-white truncate">{author.username ?? tCommon("player")}</span>
+          <CreatorBadge status={author.subscription_status ?? null} />
+          <span className="text-surface-500 truncate">{action}</span>
         </p>
         <p className="text-surface-700 text-[10px]">{relativeTime(date, tTime, locale)}</p>
       </div>

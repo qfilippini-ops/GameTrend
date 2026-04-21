@@ -25,18 +25,24 @@ CREATE INDEX IF NOT EXISTS presets_author_public_recent_idx
 --   - JOIN profiles côté DB → pas de Map à maintenir client-side
 --   - UNION + ORDER + LIMIT en SQL → garanti correct (pas de surcharge x2)
 
+-- Drop préalable obligatoire : la signature de retour change vs version
+-- précédente (ajout de author_subscription_status). Postgres refuse un
+-- CREATE OR REPLACE qui modifie le RETURNS TABLE.
+DROP FUNCTION IF EXISTS public.get_following_feed(timestamptz, int);
+
 CREATE OR REPLACE FUNCTION public.get_following_feed(
   before_at  timestamptz DEFAULT NULL,
   page_size  int         DEFAULT 10
 )
 RETURNS TABLE (
-  item_type           text,
-  item_id             uuid,
-  created_at          timestamptz,
-  author_id           uuid,
-  author_username     text,
-  author_avatar_url   text,
-  payload             jsonb
+  item_type                   text,
+  item_id                     uuid,
+  created_at                  timestamptz,
+  author_id                   uuid,
+  author_username             text,
+  author_avatar_url           text,
+  author_subscription_status  text,
+  payload                     jsonb
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -110,8 +116,9 @@ BEGIN
     m.item_id,
     m.created_at,
     m.author_id,
-    pr.username    AS author_username,
-    pr.avatar_url  AS author_avatar_url,
+    pr.username                    AS author_username,
+    pr.avatar_url                  AS author_avatar_url,
+    COALESCE(pr.subscription_status, 'free') AS author_subscription_status,
     m.payload
   FROM merged m
   LEFT JOIN public.profiles pr ON pr.id = m.author_id

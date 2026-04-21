@@ -18,13 +18,20 @@ import LegalModal from "@/components/legal/LegalModal";
 import type { LegalType } from "@/components/legal/LegalModal";
 import LanguageSwitcher from "@/components/layout/LanguageSwitcher";
 import AffiliateDashboard from "@/components/affiliate/AffiliateDashboard";
+import SubscriptionSection from "@/components/premium/SubscriptionSection";
+import PremiumCustomization from "@/components/premium/PremiumCustomization";
+import PinnedPresetsManager from "@/components/premium/PinnedPresetsManager";
+import CreatorBadge from "@/components/premium/CreatorBadge";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type Tab = "mes-presets" | "favoris";
 
 export default function ProfilePage() {
   const t = useTranslations("profile");
+  const tPremium = useTranslations("premium.profile");
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
+  const { isPremium } = useSubscription();
   const [localProfile, setLocalProfile] = useState<Partial<Profile>>({});
   const [editOpen, setEditOpen] = useState(false);
   const [myPresets, setMyPresets] = useState<Preset[]>([]);
@@ -146,8 +153,9 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <h1 className="text-xl font-display font-bold text-white leading-tight">
+              <h1 className="text-xl font-display font-bold text-white leading-tight flex items-center gap-2">
                 {displayProfile?.username ?? t("anonymous")}
+                <CreatorBadge status={displayProfile?.subscription_status} variant="full" />
               </h1>
               <p className="text-surface-600 text-xs mt-0.5 truncate">{user.email}</p>
 
@@ -266,7 +274,23 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
-          ) : currentPresets.length === 0 ? (
+          ) : null}
+
+          {!presetsLoading && activeTab === "mes-presets" && !isPremium && myPresets.length >= 5 && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 flex items-center justify-between">
+              <p className="text-amber-300 text-xs">
+                {tPremium("freeQuotaReached", { count: myPresets.length })}
+              </p>
+              <Link
+                href="/premium"
+                className="px-3 py-1.5 rounded-lg bg-gradient-brand text-white text-xs font-bold glow-brand"
+              >
+                {tPremium("upgradeShort")}
+              </Link>
+            </div>
+          )}
+
+          {presetsLoading ? null : currentPresets.length === 0 ? (
             <div className="text-center py-12 rounded-2xl border border-dashed border-surface-700/30 bg-surface-900/20">
               <div className="text-4xl mb-3">
                 {activeTab === "mes-presets" ? "📦" : "★"}
@@ -300,6 +324,34 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
+        </motion.div>
+
+        {/* ── Mon abonnement ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.17 }}
+          className="rounded-2xl border border-surface-800/60 bg-surface-900/30 overflow-hidden"
+        >
+          <details open={!isPremium}>
+            <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none hover:bg-surface-800/20 transition-colors">
+              <p className="text-surface-500 text-xs uppercase tracking-widest font-medium">{tPremium("section")}</p>
+              <span className="text-surface-600 text-xs">▼</span>
+            </summary>
+            <div className="px-4 py-4 space-y-4 border-t border-surface-800/40">
+              <SubscriptionSection />
+              {isPremium && (
+                <>
+                  <div className="border-t border-surface-800/40 pt-4">
+                    <PremiumCustomization />
+                  </div>
+                  <div className="border-t border-surface-800/40 pt-4">
+                    <PinnedPresetsManager />
+                  </div>
+                </>
+              )}
+            </div>
+          </details>
         </motion.div>
 
         {/* ── Préférences (langue, etc.) ── */}

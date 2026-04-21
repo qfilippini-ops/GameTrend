@@ -58,3 +58,9 @@ export const AFFILIATE_CONFIG = {
 } as const;
 
 export type AffiliateConfig = typeof AFFILIATE_CONFIG;
+
+// Exports nommés pour les imports concis (webhook, RPC client, dashboard).
+export const COMMISSION_RATE = AFFILIATE_CONFIG.COMMISSION_RATE;
+export const AFFILIATE_PENDING_DAYS = AFFILIATE_CONFIG.PENDING_DAYS;
+export const AFFILIATE_COOKIE_NAME = AFFILIATE_CONFIG.COOKIE_NAME;
+export const AFFILIATE_COOKIE_MAX_AGE = AFFILIATE_CONFIG.COOKIE_MAX_AGE_SECONDS;

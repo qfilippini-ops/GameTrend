@@ -90,7 +90,8 @@
       "by": "by",
       "ctaLogin": "to personalize your feed and follow creators.",
       "loginLink": "Sign in",
-      "playsLabel": "plays"
+      "playsLabel": "plays",
+      "boostedTooltip": "Boosted for 24h (Premium)"
     }
   },
   "home": {
@@ -244,6 +245,7 @@
       "anonymous": "Anonymous player",
       "mutualFriends": "{n, plural, one {# mutual friend} other {# mutual friends}}",
       "publicPresets": "Public presets",
+      "pinnedPresets": "Pinned presets",
       "loginPrefix": "Sign in",
       "loginSuffix": " to add this player as a friend."
     }
@@ -1022,5 +1024,191 @@
     "loading": "Loading…",
     "earnedSuffix": "{amount}",
     "joinedAgo": "Joined {ago}"
+  },
+  "premium": {
+    "title": "GameTrend Premium",
+    "subtitle": "The subscription made for serious creators: no ads, no quotas, with the tools to grow.",
+    "heroBadge": "★ Premium",
+    "heroTitle": "Create. Stand out. No limits.",
+    "heroSubtitle": "The full creator toolkit: zero ads, unlimited presets, analytics, boost and a custom profile.",
+    "alreadyPremium": "You're already on Premium — thanks for the support.",
+    "lifetimeBadge": "Launch offer",
+    "lifetimeRemaining": "{count} / 100 spots left",
+    "lifetimeTitle": "Lifetime — Forever access",
+    "lifetimeDescription": "Reserved to the first 100 accounts. One-time payment, no renewal ever.",
+    "oneTime": "one-time",
+    "ctaLifetime": "Get Lifetime",
+    "toggleMonthly": "Monthly",
+    "toggleYearly": "Yearly",
+    "perMonth": "/ month",
+    "perYear": "/ year",
+    "yearlyEquivalent": "≈ €4.08/mo — 42% off",
+    "ctaTrial": "Start 7-day free trial",
+    "trialHint": "Cancel anytime from your portal. No charge before the trial ends.",
+    "featuresTitle": "Everything you unlock",
+    "faqTitle": "Frequently asked",
+    "loading": "Preparing checkout…",
+    "badgeCreator": "Creator",
+    "badgeLifetime": "Lifetime",
+    "errors": {
+      "checkout_failed": "Couldn't start checkout.",
+      "network_error": "Network error. Please retry.",
+      "unauthorized": "Please sign in first.",
+      "not_eligible": "You're not eligible to this offer.",
+      "no_customer": "No active subscription found.",
+      "portal_unavailable": "Portal unavailable. Try again shortly."
+    },
+    "faq": {
+      "trial": {
+        "q": "How does the 7-day trial work?",
+        "a": "You unlock everything immediately. No charge before day 7. You can cancel anytime from your portal."
+      },
+      "cancel": {
+        "q": "Can I cancel?",
+        "a": "Yes, anytime, no questions asked. Premium remains active until the end of the paid period."
+      },
+      "refund": {
+        "q": "Are there refunds?",
+        "a": "The 7-day trial is here to test risk-free. Beyond that, no refunds, but you can cancel anytime."
+      },
+      "lifetime": {
+        "q": "Why is Lifetime limited?",
+        "a": "To reward the first 100 accounts who believe in the project. Once the spots are taken, the offer disappears for good."
+      }
+    },
+    "profile": {
+      "section": "My subscription",
+      "freeQuotaReached": "You've hit the 5 active presets limit ({count}). Go Premium to create more.",
+      "upgradeShort": "Go Premium",
+      "statusLabel": "Status",
+      "planLabel": "Plan",
+      "trialEndsLabel": "Trial ends",
+      "renewsLabel": "Renews on",
+      "endsLabel": "Access until",
+      "pastDueWarning": "Your last payment failed. Update your card from the portal to keep your access.",
+      "managePortal": "Manage my subscription",
+      "loading": "Opening…",
+      "noCustomerError": "No active subscription found.",
+      "portalError": "Couldn't open the portal. Please retry.",
+      "upsellPremium": "Go Premium",
+      "upsellPremiumDesc": "No ads, unlimited presets, Creator badge, analytics and more — from €6.99/mo.",
+      "upsellLifetime": "You're in the first 100!",
+      "upsellLifetimeDesc": "Take the Lifetime deal at €99 — one payment, lifetime access to every Premium feature.",
+      "upsellCta": "See Premium",
+      "status": {
+        "active": "Active",
+        "trialing": "Free trial",
+        "lifetime": "Lifetime",
+        "pastDue": "Payment failed",
+        "cancelling": "Cancellation pending",
+        "free": "Free"
+      },
+      "plan": {
+        "monthly": "Monthly · €6.99",
+        "yearly": "Yearly · €49",
+        "lifetime": "Lifetime · one-time"
+      }
+    },
+    "customization": {
+      "title": "Premium customization",
+      "linkLabel": "External link on your profile",
+      "linkHint": "Twitch, YouTube, Discord, personal site… A single URL, shown publicly.",
+      "save": "Save",
+      "saved": "Saved ✓",
+      "bannerLabel": "Profile banner",
+      "bannerHint": "Recommended landscape format 1200×400. JPG, PNG or WebP.",
+      "bannerEmpty": "No banner",
+      "uploading": "Uploading…",
+      "uploadBanner": "Upload an image",
+      "replaceBanner": "Replace image",
+      "accentLabel": "Accent color",
+      "accentHint": "Used as a visual accent on your profile.",
+      "saveBranding": "Save customization",
+      "errors": {
+        "notPremium": "Reserved to Premium subscribers.",
+        "invalidUrl": "Invalid URL.",
+        "blockedDomain": "This domain is not allowed.",
+        "generic": "Something went wrong. Please retry.",
+        "upload": "Couldn't upload the image.",
+        "invalidColor": "Invalid color code."
+      }
+    },
+    "pinned": {
+      "title": "Pinned presets (5 max)",
+      "empty": "You haven't created any preset to pin yet.",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "unpin": "Unpin",
+      "addCta": "Pin",
+      "save": "Save my pins",
+      "saved": "Pins saved ✓",
+      "errors": {
+        "maxReached": "Max {max} pinned presets.",
+        "notPremium": "Reserved to Premium subscribers.",
+        "notOwner": "You can only pin your own presets.",
+        "generic": "Something went wrong. Please retry."
+      }
+    },
+    "analytics": {
+      "title": "Preset analytics",
+      "subtitle": "Views, saves and conversions over the selected period.",
+      "viewAnalytics": "View analytics",
+      "paywallTitle": "Analytics reserved to Premium",
+      "paywallDescription": "Visualize views, saves, conversions and top countries for each of your presets.",
+      "paywallCta": "See Premium",
+      "errorTitle": "Couldn't load analytics.",
+      "chartViews": "Daily views",
+      "topCountries": "Top countries",
+      "kpi": {
+        "views": "Views",
+        "saves": "Saves",
+        "shares": "Shares",
+        "conversion": "Conversion"
+      }
+    },
+    "paywall": {
+      "badge": "Premium",
+      "includedTitle": "Included in Premium",
+      "ctaPrimary": "See Premium",
+      "ctaSecondary": "Later",
+      "features": {
+        "noAds": {
+          "title": "No ads",
+          "description": "Enjoy GameTrend with zero banners or interstitials."
+        },
+        "presetLimit": {
+          "title": "Unlimited presets",
+          "description": "You've hit the 5 free presets limit. Create as many as you want with Premium."
+        },
+        "profileLink": {
+          "title": "External profile link",
+          "description": "Show your Twitch, YouTube, Discord or other link right on your profile."
+        },
+        "bannerAccent": {
+          "title": "Banner + accent color",
+          "description": "Customize your profile with a high-res banner and your signature color."
+        },
+        "pinnedPresets": {
+          "title": "5 pinned presets",
+          "description": "Showcase up to 5 of your best presets at the top of your profile."
+        },
+        "boostExplore": {
+          "title": "24h auto-boost on Explore",
+          "description": "Every preset you publish is highlighted on Explore for 24 hours."
+        },
+        "analytics": {
+          "title": "Detailed analytics",
+          "description": "See views, saves, conversions and top countries for each of your presets."
+        },
+        "creatorBadge": {
+          "title": "Creator badge",
+          "description": "A ★ badge visible everywhere in the app showcases your creator status."
+        }
+      }
+    },
+    "badge": {
+      "creator": "CREATOR",
+      "lifetime": "LIFETIME"
+    }
   }
 }
