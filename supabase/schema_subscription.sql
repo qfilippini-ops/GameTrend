@@ -234,6 +234,14 @@ GRANT EXECUTE ON FUNCTION public.get_my_subscription() TO authenticated;
 
 -- ─── 9. RPC count_lifetime_taken() ──────────────────────────────────────────
 -- Pour afficher "X / 100 places lifetime restantes" sur la page pricing.
+--
+-- ⚠ Important : SECURITY DEFINER ne suffit PAS pour bypass la RLS sur Supabase
+-- Cloud, parce que l'owner de la fonction (postgres non-superuser sur les
+-- nouveaux projets) reste soumis aux policies. Il FAUT explicitement
+-- "SET row_security = off" au niveau de la fonction pour garantir que le
+-- COUNT(*) voit toutes les rows, sinon il ne voit que celles que la RLS
+-- expose au caller anon (= 0 lifetime visible) et la fonction renvoie 0
+-- silencieusement.
 
 CREATE OR REPLACE FUNCTION public.count_lifetime_taken()
 RETURNS int
@@ -241,6 +249,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
+SET row_security = off
 AS $$
   SELECT COUNT(*)::int FROM public.profiles WHERE subscription_status = 'lifetime';
 $$;
