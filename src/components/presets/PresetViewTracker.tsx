@@ -18,9 +18,17 @@ export default function PresetViewTracker({ presetId }: { presetId: string }) {
     fired.current = true;
 
     const supabase = createClient();
-    supabase
-      .rpc("track_preset_event", { p_preset_id: presetId, p_event: "view", p_country: null })
-      .catch(() => {});
+    (async () => {
+      try {
+        await supabase.rpc("track_preset_event", {
+          p_preset_id: presetId,
+          p_event: "view",
+          p_country: null,
+        });
+      } catch {
+        /* fail silently : analytics ne doit jamais bloquer la lecture du preset */
+      }
+    })();
 
     track("feature_used_premium", { feature: "view_preset", preset_id: presetId });
   }, [presetId]);

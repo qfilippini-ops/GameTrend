@@ -137,6 +137,17 @@ export default function SubscriptionSection() {
   }
 
   // Free user
+  const benefits = [
+    { icon: "🚫", key: "noAds" },
+    { icon: "♾️", key: "unlimitedPresets" },
+    { icon: "🔗", key: "profileLink" },
+    { icon: "🎨", key: "bannerAccent" },
+    { icon: "👑", key: "creatorBadge" },
+    { icon: "📌", key: "pinnedPresets" },
+    { icon: "🚀", key: "boost" },
+    { icon: "📊", key: "analytics" },
+  ] as const;
+
   return (
     <div className="space-y-3">
       <div className="rounded-xl bg-surface-800/40 border border-surface-700/40 p-3">
@@ -155,6 +166,17 @@ export default function SubscriptionSection() {
         <p className="text-surface-300 text-xs leading-relaxed">
           {lifetimeEligible ? t("upsellLifetimeDesc") : t("upsellPremiumDesc")}
         </p>
+
+        {/* Bénéfices listés directement, plus de friction */}
+        <ul className="grid grid-cols-2 gap-x-2 gap-y-1.5 pt-1">
+          {benefits.map((b) => (
+            <li key={b.key} className="flex items-center gap-2 text-surface-200 text-[12px] leading-tight">
+              <span className="text-sm shrink-0">{b.icon}</span>
+              <span className="truncate">{t(`benefits.${b.key}`)}</span>
+            </li>
+          ))}
+        </ul>
+
         <Link
           href="/premium"
           className="inline-block w-full text-center py-2.5 rounded-xl bg-gradient-brand text-white font-semibold glow-brand text-sm"

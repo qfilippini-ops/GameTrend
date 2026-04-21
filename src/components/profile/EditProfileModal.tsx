@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { compressImage, ModerationError } from "@/lib/compressImage";
 import Avatar from "@/components/ui/Avatar";
 import type { Profile } from "@/types/database";
+import { useSubscription } from "@/hooks/useSubscription";
+import PremiumCustomization from "@/components/premium/PremiumCustomization";
 
 interface EditProfileModalProps {
   profile: Profile;
@@ -26,6 +28,8 @@ export default function EditProfileModal({
   onSaved,
 }: EditProfileModalProps) {
   const t = useTranslations("profile.editModal");
+  const tPremium = useTranslations("premium.customization");
+  const { isPremium } = useSubscription();
   const [username, setUsername] = useState(profile.username ?? "");
   const [bio, setBio] = useState(profile.bio ?? "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -142,10 +146,10 @@ export default function EditProfileModal({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 40 }}
           transition={{ type: "spring", damping: 28, stiffness: 350 }}
-          className="w-full max-w-sm rounded-3xl border border-surface-700/40 bg-surface-900 shadow-2xl overflow-hidden"
+          className="w-full max-w-sm rounded-3xl border border-surface-700/40 bg-surface-900 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-surface-800/60">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-surface-800/60 shrink-0">
             <h2 className="text-white font-display font-bold text-lg">{t("headerTitle")}</h2>
             <button
               onClick={onClose}
@@ -155,7 +159,7 @@ export default function EditProfileModal({
             </button>
           </div>
 
-          <div className="px-5 py-5 space-y-5">
+          <div className="px-5 py-5 space-y-5 overflow-y-auto">
             {/* Avatar */}
             <div className="flex flex-col items-center gap-3">
               <div className="relative">
@@ -227,6 +231,17 @@ export default function EditProfileModal({
               <p className="text-red-400 text-xs text-center bg-red-950/30 border border-red-800/30 rounded-xl px-3 py-2">
                 {error}
               </p>
+            )}
+
+            {/* ── Personnalisation Premium (lien, bannière, accent) ─────────── */}
+            {isPremium && (
+              <div className="pt-2 border-t border-surface-800/60">
+                <p className="text-surface-400 text-xs uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span>👑</span>
+                  {tPremium("title")}
+                </p>
+                <PremiumCustomization />
+              </div>
             )}
 
             {/* Boutons */}

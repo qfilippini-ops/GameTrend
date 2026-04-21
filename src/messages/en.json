@@ -1104,6 +1104,16 @@
       "upsellLifetime": "You're in the first 100!",
       "upsellLifetimeDesc": "Take the Lifetime deal at €99 — one payment, lifetime access to every Premium feature.",
       "upsellCta": "See Premium",
+      "benefits": {
+        "noAds": "Zero ads",
+        "unlimitedPresets": "Unlimited presets",
+        "profileLink": "Profile link",
+        "bannerAccent": "Banner + accent color",
+        "creatorBadge": "Creator badge",
+        "pinnedPresets": "5 pinned presets",
+        "boost": "Auto-boost on Explore",
+        "analytics": "Preset analytics"
+      },
       "status": {
         "active": "Active",
         "trialing": "Free trial",

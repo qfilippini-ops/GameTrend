@@ -29,6 +29,7 @@ type Tab = "mes-presets" | "favoris";
 export default function ProfilePage() {
   const t = useTranslations("profile");
   const tPremium = useTranslations("premium.profile");
+  const tPublic = useTranslations("profile.public");
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const { isPremium } = useSubscription();
@@ -36,6 +37,7 @@ export default function ProfilePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [myPresets, setMyPresets] = useState<Preset[]>([]);
   const [favoritePresets, setFavoritePresets] = useState<Preset[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("mes-presets");
   const [legalModal, setLegalModal] = useState<LegalType | null>(null);
@@ -62,8 +64,14 @@ export default function ProfilePage() {
         .from("preset_likes")
         .select("preset_id")
         .eq("user_id", user.id),
-    ]).then(async ([myRes, likesRes]) => {
+      supabase
+        .from("pinned_presets")
+        .select("preset_id, position")
+        .eq("user_id", user.id)
+        .order("position", { ascending: true }),
+    ]).then(async ([myRes, likesRes, pinsRes]) => {
       setMyPresets((myRes.data ?? []) as Preset[]);
+      setPinnedIds(((pinsRes.data ?? []) as Array<{ preset_id: string }>).map((r) => r.preset_id));
       const likedIds = (likesRes.data ?? []).map((l) => l.preset_id);
       if (likedIds.length > 0) {
         const { data: favData } = await supabase
@@ -123,17 +131,34 @@ export default function ProfilePage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl overflow-hidden border border-surface-700/30 bg-surface-900/60"
+          style={
+            isPremium && displayProfile?.profile_accent_color
+              ? ({ ["--profile-accent" as any]: displayProfile.profile_accent_color } as React.CSSProperties)
+              : undefined
+          }
         >
           {/* Bandeau */}
-          <div className="relative h-24 bg-gradient-to-br from-brand-900 via-surface-800 to-ghost-950 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-brand-600/25 via-transparent to-ghost-600/20" />
-            <div className="absolute -top-6 -left-6 w-32 h-32 bg-brand-500/15 rounded-full blur-2xl" />
-            <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-ghost-500/15 rounded-full blur-2xl" />
-          </div>
+          {isPremium && displayProfile?.profile_banner_url ? (
+            <div className="relative h-32 w-full overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={displayProfile.profile_banner_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-surface-900/90 to-surface-900/10" />
+            </div>
+          ) : (
+            <div className="relative h-24 bg-gradient-to-br from-brand-900 via-surface-800 to-ghost-950 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-brand-600/25 via-transparent to-ghost-600/20" />
+              <div className="absolute -top-6 -left-6 w-32 h-32 bg-brand-500/15 rounded-full blur-2xl" />
+              <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-ghost-500/15 rounded-full blur-2xl" />
+            </div>
+          )}
 
           {/* Avatar + infos */}
           <div className="px-5 pb-5">
-            <div className="flex items-end justify-between -mt-8 mb-3">
+            <div className={`flex items-end justify-between mb-3 ${isPremium && displayProfile?.profile_banner_url ? "-mt-10" : "-mt-8"}`}>
               {/* Avatar avec ring */}
               <div className="ring-4 ring-surface-900 rounded-2xl">
                 <Avatar
@@ -175,6 +200,21 @@ export default function ProfilePage() {
                 <p className="text-surface-400 text-sm mt-2.5 leading-relaxed line-clamp-3 border-t border-surface-800/60 pt-2.5">
                   {displayProfile.bio}
                 </p>
+              )}
+
+              {/* Lien externe Premium */}
+              {isPremium && displayProfile?.profile_link_url && (
+                <a
+                  href={displayProfile.profile_link_url}
+                  target="_blank"
+                  rel="nofollow ugc noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs text-brand-300 hover:text-brand-200 underline underline-offset-2 break-all"
+                >
+                  <span>🔗</span>
+                  <span className="truncate max-w-[240px]">
+                    {displayProfile.profile_link_url.replace(/^https?:\/\//, "")}
+                  </span>
+                </a>
               )}
             </div>
           </div>
@@ -220,6 +260,33 @@ export default function ProfilePage() {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* ── Pinned presets (Premium) ─────────────────────────────────────── */}
+        {isPremium && pinnedIds.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.14 }}
+          >
+            <p className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
+              <span>📌</span>
+              {tPublic("pinnedPresets")}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {pinnedIds
+                .map((pid) => myPresets.find((p) => p.id === pid))
+                .filter(Boolean)
+                .map((preset, i) => (
+                  <PresetCard
+                    key={preset!.id}
+                    preset={preset!}
+                    index={i}
+                    userId={user.id}
+                  />
+                ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Tabs + presets ───────────────────────────────────────────────── */}
         <motion.div

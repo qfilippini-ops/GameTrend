@@ -1104,6 +1104,16 @@
       "upsellLifetime": "Tu fais partie des 100 premiers !",
       "upsellLifetimeDesc": "Profite de l'offre Lifetime à 99 € — un seul paiement, accès à vie à toutes les fonctionnalités Premium.",
       "upsellCta": "Découvrir Premium",
+      "benefits": {
+        "noAds": "Zéro publicité",
+        "unlimitedPresets": "Presets illimités",
+        "profileLink": "Lien dans le profil",
+        "bannerAccent": "Bannière + couleur",
+        "creatorBadge": "Badge Créateur",
+        "pinnedPresets": "5 presets épinglés",
+        "boost": "Boost auto Explore",
+        "analytics": "Analytics presets"
+      },
       "status": {
         "active": "Actif",
         "trialing": "Essai gratuit",
