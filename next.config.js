@@ -14,8 +14,16 @@ const withPWA = require("@ducanh2912/next-pwa").default({
   reloadOnOnline: true,
   swcMinify: true,
   disable: process.env.NODE_ENV === "development",
+  // Force le nouveau SW à prendre immédiatement le contrôle des onglets ouverts,
+  // sans attendre qu'ils soient fermés. Sinon les utilisateurs déjà inscrits
+  // continuent d'utiliser l'ancien SW (avec ses caches agressifs) tant qu'ils
+  // n'ont pas tout fermé. Combo skipWaiting + clientsClaim = activation immédiate.
+  register: true,
   workboxOptions: {
     disableDevLogs: true,
+    skipWaiting: true,
+    clientsClaim: true,
+    cleanupOutdatedCaches: true,
     // Pour les requêtes de navigation (HTML pages), on force NetworkOnly :
     // jamais de version cachée servie par le SW, on laisse Next.js / Vercel
     // gérer la fraîcheur via les headers de la route.

@@ -26,10 +26,15 @@ export default async function PremiumPage({
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "premium" });
 
-  // Récupère le compteur lifetime côté serveur (cache court)
+  // Récupère le compteur lifetime côté serveur.
+  // PostgREST peut renvoyer le scalar brut (1), un objet ({count_lifetime_taken: 1}),
+  // ou wrappé dans un array selon la version du client. On normalise défensivement.
   const publicClient = createPublicClient();
-  const { data: lifetimeCount } = await publicClient.rpc("count_lifetime_taken");
-  const lifetimeTaken = typeof lifetimeCount === "number" ? lifetimeCount : 0;
+  const { data: rpcRaw, error: rpcErr } = await publicClient.rpc("count_lifetime_taken");
+  if (rpcErr) {
+    console.error("[premium-page] count_lifetime_taken error", rpcErr);
+  }
+  const lifetimeTaken = extractCount(rpcRaw);
   const lifetimeRemaining = Math.max(0, 100 - lifetimeTaken);
 
   // Récupère le profil pour savoir si user éligible lifetime
@@ -62,4 +67,37 @@ export default async function PremiumPage({
       />
     </div>
   );
+}
+
+/**
+ * Normalise la valeur retournée par count_lifetime_taken().
+ *
+ * PostgREST + supabase-js renvoient le résultat sous différentes formes selon
+ * le typage de la fonction et la version du client :
+ *   - number brut       : 1
+ *   - string            : "1"
+ *   - objet wrapping    : { count_lifetime_taken: 1 }
+ *   - array de scalars  : [1]
+ *   - array d'objets    : [{ count_lifetime_taken: 1 }]
+ *
+ * On tente toutes les formes connues et on tombe sur 0 si rien ne ressemble
+ * à un nombre exploitable.
+ */
+function extractCount(raw: unknown): number {
+  if (raw === null || raw === undefined) return 0;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (typeof raw === "string") {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (Array.isArray(raw)) {
+    return raw.length > 0 ? extractCount(raw[0]) : 0;
+  }
+  if (typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const candidate =
+      obj.count_lifetime_taken ?? obj.count ?? Object.values(obj)[0];
+    return extractCount(candidate);
+  }
+  return 0;
 }
