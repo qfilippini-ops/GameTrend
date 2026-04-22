@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import PresetCard from "@/components/presets/PresetCard";
+import AdSlot from "@/components/ads/AdSlot";
 import { GAMES_REGISTRY, getAdapter } from "@/games/registry";
 import { PRESET_LIST_SEARCH_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
@@ -160,12 +161,23 @@ export default function PresetList() {
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-2 gap-3">
           {filtered.map((preset, i) => (
-            <PresetCard
-              key={preset.id}
-              preset={preset}
-              index={i}
-              userId={user?.id ?? null}
-            />
+            <Fragment key={preset.id}>
+              <PresetCard
+                preset={preset}
+                index={i}
+                userId={user?.id ?? null}
+              />
+              {/* Ad insérée tous les 8 presets (= toutes les 4 rows en grille 2-cols).
+                  col-span-2 pour préserver l'alignement de la grille. */}
+              {(i + 1) % 8 === 0 && i < filtered.length - 1 && (
+                <div className="col-span-2 my-1">
+                  <AdSlot
+                    placement="explore-grid"
+                    index={Math.floor(i / 8)}
+                  />
+                </div>
+              )}
+            </Fragment>
           ))}
         </div>
       ) : (

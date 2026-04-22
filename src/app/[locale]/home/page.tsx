@@ -4,6 +4,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import PresetCard from "@/components/presets/PresetCard";
 import Header from "@/components/layout/Header";
 import QuickJoinBar from "@/components/QuickJoinBar";
+import AdSlot from "@/components/ads/AdSlot";
 import { GAMES_REGISTRY } from "@/games/registry";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
@@ -158,6 +159,9 @@ export default async function HomePage({
             </div>
           </div>
         )}
+
+        {/* ── Ad horizontale (non-premium uniquement) ────────────────────── */}
+        <AdSlot placement="feed-inline" />
 
         {/* ── JEUX À VENIR ──────────────────────────────────────────────────── */}
         <div>

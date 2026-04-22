@@ -477,7 +477,7 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   const tGames = useTranslations("games");
   const titleSuffix =
     game_type === "ghostword" ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
-    game_type === "dyp" ? `${tGames("dyp.champion")} : ${champion?.name ?? "?"}` :
+    game_type === "dyp" ? `${tGames("dyp.play.champion")} : ${champion?.name ?? "?"}` :
     t("actions.sharedResult");
 
   const inner = (
