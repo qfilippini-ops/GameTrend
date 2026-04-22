@@ -24,7 +24,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *   - 10 : Développement / amélioration des produits
  *
  *   → analyticsConsent = purpose 1 ET purpose 8
- *   → adsConsent       = purpose 1 ET purposes 2..4 (personnalisation)
+ *   → adsConsent       = purpose 1 (suffit pour servir des ads contextuelles
+ *                       non-personnalisées ; AdSense décide ensuite perso vs
+ *                       contextuel à partir du TC string complet, donc inutile
+ *                       de bloquer côté front quand 2..4 sont refusés).
+ *   → adsPersonalized  = purpose 1 ET purposes 2..4 (info uniquement,
+ *                       AdSense l'évalue déjà via le TC string).
  */
 
 const FALLBACK_DELAY_MS = 4000;
@@ -37,8 +42,13 @@ interface ConsentState {
   gdprApplies: boolean;
   /** True si on peut activer PostHog (purpose 1 + 8). */
   analyticsConsent: boolean;
-  /** True si on peut servir des ads personnalisées (purpose 1 + 2..4). */
+  /**
+   * True si on peut afficher des ads (purpose 1 = storage). AdSense décide
+   * ensuite du mode perso vs contextuel via le TC string complet.
+   */
   adsConsent: boolean;
+  /** Info : true si l'utilisateur a aussi consenti aux ads personnalisées. */
+  adsPersonalized: boolean;
 }
 
 const INITIAL_STATE: ConsentState = {
@@ -46,6 +56,7 @@ const INITIAL_STATE: ConsentState = {
   gdprApplies: false,
   analyticsConsent: false,
   adsConsent: false,
+  adsPersonalized: false,
 };
 
 export function useConsent() {
@@ -69,6 +80,7 @@ export function useConsent() {
           gdprApplies: false,
           analyticsConsent: true,
           adsConsent: true,
+          adsPersonalized: true,
         });
         return;
       }
@@ -91,7 +103,8 @@ export function useConsent() {
         ready: true,
         gdprApplies: true,
         analyticsConsent: p(1) && p(8),
-        adsConsent: p(1) && p(2) && p(3) && p(4),
+        adsConsent: p(1),
+        adsPersonalized: p(1) && p(2) && p(3) && p(4),
       });
     }
 
@@ -132,6 +145,7 @@ export function useConsent() {
           gdprApplies: false,
           analyticsConsent: true,
           adsConsent: true,
+          adsPersonalized: true,
         };
       });
       if (pollTimer) clearInterval(pollTimer);
