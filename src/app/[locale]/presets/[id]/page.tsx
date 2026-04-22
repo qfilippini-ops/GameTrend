@@ -113,7 +113,7 @@ export async function generateMetadata({
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
   ghostword: { icon: "👻", name: "GhostWord", color: "from-ghost-900/80 to-brand-900/60", gameHref: (id) => `/games/ghostword?presetId=${id}` },
   dyp:       { icon: "⚡", name: "DYP",       color: "from-amber-900/80 to-brand-900/60", gameHref: (id) => `/games/dyp?presetId=${id}` },
-  blindrank: { icon: "🎯", name: "Blind Rank", color: "from-cyan-900/80 to-brand-900/60", gameHref: (id) => `/games/blindrank?presetId=${id}` },
+  blindrank: { icon: "🎴", name: "Blind Rank", color: "from-cyan-900/80 to-brand-900/60", gameHref: (id) => `/games/blindrank?presetId=${id}` },
 };
 
 const ROLE_STYLE: Record<string, { bg: string; border: string; emoji: string }> = {

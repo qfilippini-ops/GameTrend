@@ -126,7 +126,7 @@ export default function BlindRankPlayPage() {
             <p className="text-cyan-500/60 text-[10px] uppercase tracking-[0.25em] font-mono">
               {t("yourRanking")}
             </p>
-            <div className="text-6xl animate-float">🎯</div>
+            <div className="text-6xl animate-float">🎴</div>
             <h1
               className="text-3xl font-display font-black text-white leading-tight"
               style={{ textShadow: "0 0 30px rgba(6,182,212,0.45)" }}

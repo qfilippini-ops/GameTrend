@@ -475,6 +475,17 @@
         "other": "Autre raison"
       }
     },
+    "families": {
+      "compatibleWith": "Jouable en :",
+      "words": {
+        "name": "Mots",
+        "description": "Familles de mots pour jeux d'identité, bluff et déduction."
+      },
+      "cards": {
+        "name": "Cartes",
+        "description": "Liste de cartes (texte ou images) pour jeux de classement et de duels."
+      }
+    },
     "form": {
       "title_new": "Nouveau preset",
       "title_edit": "Modifier le preset",
@@ -931,7 +942,7 @@
         "rackSize": "Nombre de cartes",
         "rackHint": "{count, plural, =1 {# carte à classer} other {# cartes à classer dans l'ordre}}",
         "preparing": "Préparation…",
-        "startGame": "🎯 Lancer la partie"
+        "startGame": "🎴 Lancer la partie"
       },
       "play": {
         "leave": "← Quitter",
@@ -946,7 +957,7 @@
         "replay": "🔄 Rejouer",
         "home": "🏠 Accueil",
         "viewPreset": "📋 Voir le preset",
-        "shareText": "Mon n°1 sur Blind Rank : {name} 🎯 — Viens jouer sur GameTrend !",
+        "shareText": "Mon n°1 sur Blind Rank : {name} 🎴 — Viens jouer sur GameTrend !",
         "savingStats": "Sauvegarde des stats…"
       }
     }

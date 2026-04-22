@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import PresetCard from "@/components/presets/PresetCard";
 import AdSlot from "@/components/ads/AdSlot";
 import { GAMES_REGISTRY, getAdapter } from "@/games/registry";
+import { getAcceptedPresetTypes } from "@/games/compat";
 import { PRESET_LIST_SEARCH_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
 
@@ -49,7 +50,13 @@ export default function PresetList() {
         .select(PRESET_LIST_SEARCH_COLS)
         .eq("is_public", true);
 
-      if (gameFilter) q = q.eq("game_type", gameFilter);
+      // Filtre par jeu : on inclut TOUS les game_types compatibles avec ce jeu
+      // (ex: filtrer sur Blind Rank ramène aussi les presets DYP jouables en BR).
+      // Cohérent avec le PresetPicker des lobbies.
+      if (gameFilter) {
+        const accepted = getAcceptedPresetTypes(gameFilter);
+        q = q.in("game_type", accepted);
+      }
 
       if (sort === "popular") {
         q = q.order("play_count", { ascending: false });

@@ -475,6 +475,17 @@
         "other": "Other reason"
       }
     },
+    "families": {
+      "compatibleWith": "Playable in:",
+      "words": {
+        "name": "Words",
+        "description": "Word families for identity, bluff and deduction games."
+      },
+      "cards": {
+        "name": "Cards",
+        "description": "List of cards (text or images) for ranking and duel games."
+      }
+    },
     "form": {
       "title_new": "New preset",
       "title_edit": "Edit preset",
@@ -931,7 +942,7 @@
         "rackSize": "Number of cards",
         "rackHint": "{count, plural, =1 {# card to rank} other {# cards to rank}}",
         "preparing": "Preparing…",
-        "startGame": "🎯 Start game"
+        "startGame": "🎴 Start game"
       },
       "play": {
         "leave": "← Quit",
@@ -946,7 +957,7 @@
         "replay": "🔄 Replay",
         "home": "🏠 Home",
         "viewPreset": "📋 View preset",
-        "shareText": "My #1 on Blind Rank: {name} 🎯 — Come play on GameTrend!",
+        "shareText": "My #1 on Blind Rank: {name} 🎴 — Come play on GameTrend!",
         "savingStats": "Saving stats…"
       }
     }
