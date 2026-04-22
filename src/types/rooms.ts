@@ -1,4 +1,10 @@
-export type RoomPhase = "lobby" | "reveal" | "discussion" | "vote" | "result";
+export type RoomPhase =
+  | "lobby"
+  | "reveal"
+  | "discussion"
+  | "vote"
+  | "playing"
+  | "result";
 
 export interface OnlineRoom {
   id: string;

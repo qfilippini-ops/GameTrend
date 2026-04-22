@@ -53,4 +53,11 @@ export const GhostWordAdapter: GameAdapter = {
     }
     return strings;
   },
+
+  onlineConfig: {
+    supportsOnline: true,
+    minPlayers: 3,
+    maxPlayers: 12,
+    chatMode: "turn-based",
+  },
 };

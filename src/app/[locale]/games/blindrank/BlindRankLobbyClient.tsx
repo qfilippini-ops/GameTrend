@@ -282,7 +282,7 @@ function BlindRankLobbyPageContent() {
           </div>
         </div>
 
-        {/* ── Lancer ── */}
+        {/* ── Lancer (solo) ── */}
         <button
           type="button"
           onClick={handleLaunch}
@@ -298,6 +298,14 @@ function BlindRankLobbyPageContent() {
         >
           {launching ? t("preparing") : t("startGame")}
         </button>
+
+        {/* ── Jouer en ligne ── */}
+        <Link
+          href="/games/blindrank/online"
+          className="block w-full py-4 rounded-2xl font-display font-bold text-base text-center border border-cyan-700/40 bg-cyan-950/30 text-cyan-200 hover:bg-cyan-900/40 hover:border-cyan-600/50 transition-all"
+        >
+          {t("playOnline")}
+        </Link>
 
       </div>
     </div>

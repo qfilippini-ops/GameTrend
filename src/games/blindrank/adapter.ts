@@ -38,4 +38,11 @@ export const BlindRankAdapter: GameAdapter = {
   },
 
   acceptedPresetTypes: () => ["blindrank", "dyp"],
+
+  onlineConfig: {
+    supportsOnline: true,
+    minPlayers: 2,
+    maxPlayers: 16,
+    chatMode: "realtime",
+  },
 };

@@ -942,7 +942,8 @@
         "rackSize": "Nombre de cartes",
         "rackHint": "{count, plural, =1 {# carte à classer} other {# cartes à classer dans l'ordre}}",
         "preparing": "Préparation…",
-        "startGame": "🎴 Lancer la partie"
+        "startGame": "🎴 Lancer la partie",
+        "playOnline": "🌐 Jouer en ligne"
       },
       "play": {
         "leave": "← Quitter",
@@ -959,6 +960,140 @@
         "viewPreset": "📋 Voir le preset",
         "shareText": "Mon n°1 sur Blind Rank : {name} 🎴 — Viens jouer sur GameTrend !",
         "savingStats": "Sauvegarde des stats…"
+      },
+      "online": {
+        "lobby": {
+          "title": "Blind Rank en ligne",
+          "createCta": "🎴 Créer le salon"
+        },
+        "shell": {
+          "tabCreate": "Créer",
+          "tabJoin": "Rejoindre",
+          "yourAccount": "Ton compte",
+          "yourNickname": "Ton pseudo",
+          "nicknamePlaceholder": "Ex: Ace",
+          "roomCodeLabel": "Code du salon",
+          "roomCodePlaceholder": "AB3X9K",
+          "visibility": "Visibilité",
+          "visibilityPrivate": "Visible uniquement avec le code",
+          "visibilityPublic": "Visible dans la liste des salons publics",
+          "private": "Privé",
+          "public": "Public",
+          "joinCta": "🚪 Rejoindre le salon",
+          "loadingShort": "…",
+          "errEnterNick": "Entre un pseudo",
+          "errInvalidCode": "Code invalide (6 caractères)",
+          "errServer": "Erreur serveur",
+          "errAuth": "Auth: {message}",
+          "errRoomNotFound": "Salon introuvable",
+          "errAlreadyStarted": "La partie a déjà commencé",
+          "errWrongGame": "Ce salon n'est pas un salon Blind Rank",
+          "errNickTaken": "Ce pseudo est déjà pris dans le salon",
+          "anonHint": "Tu joues en mode anonyme.",
+          "loginCta": "Connecte-toi",
+          "loginSuffix": "pour sauvegarder ton profil."
+        },
+        "shellShared": {
+          "enterNickname": "Choisis ton pseudo",
+          "nicknamePlaceholder": "Ex: Ace",
+          "joinCta": "Rejoindre",
+          "loadingShort": "…",
+          "errEnterNick": "Entre un pseudo",
+          "errAuth": "Auth: {message}",
+          "errNickTaken": "Pseudo déjà pris",
+          "errServer": "Erreur serveur",
+          "leave": "Quitter",
+          "menu": "Menu",
+          "cancel": "Annuler",
+          "options": "Options",
+          "connecting": "Connexion…",
+          "identifying": "Identification…",
+          "back": "← Retour",
+          "ok": "OK",
+          "errRoomNotFound": "Salon introuvable",
+          "errRoomNotFoundReason": "Salon introuvable ({reason})",
+          "errAlreadyStarted": "La partie a déjà commencé",
+          "evtPlayerLeft": "🚪 {name} a quitté la partie",
+          "evtHostLeft": "🚷 L'hôte {name} a quitté",
+          "evtNewHost": " — 👑 {name} est le nouvel hôte",
+          "evtNewHostYou": " — 👑 Tu es le nouvel hôte",
+          "evtKicked": "🚷 {name} a été expulsé"
+        },
+        "room": {
+          "joinTitle": "Rejoindre le salon"
+        },
+        "waiting": {
+          "launch": "🎴 Lancer la partie ({count})"
+        },
+        "waitingShared": {
+          "abandonReasonClose": "Fermer",
+          "roomCode": "Code du salon",
+          "copyLink": "📋 Copier le lien",
+          "copied": "✓ Copié",
+          "share": "📤 Partager",
+          "shareTitle": "Rejoins ma partie Blind Rank",
+          "shareText": "Viens jouer à Blind Rank avec moi !",
+          "players": "Joueurs",
+          "playersMinSuffix": "/ {min} min",
+          "host": "Hôte",
+          "you": "(toi)",
+          "offline": "(hors ligne)",
+          "kickTitle": "Expulser {name}",
+          "settings": "Paramètres",
+          "close": "Fermer",
+          "edit": "Modifier",
+          "waitingForPlayers": "{current} / {min} joueurs minimum",
+          "starting": "Démarrage…",
+          "needPlayers": "Il faut au moins {min} joueurs",
+          "closeLobby": "Fermer le salon",
+          "closeLobbyConfirm": "Fermer ce salon et expulser tous les joueurs ?",
+          "waitingHostStart": "L'hôte va lancer la partie…",
+          "leaveRoom": "Quitter le salon"
+        },
+        "settings": {
+          "preset": "Preset",
+          "compatBadge": "Compatible DYP",
+          "myPresets": "Mes presets",
+          "defaultCards": "Cartes par défaut ({count})",
+          "cardsInPreset": "{count, plural, =1 {# carte dans ce preset} other {# cartes dans ce preset}}",
+          "rackSize": "Nombre de cartes",
+          "tourTime": "Temps par carte",
+          "tourTimeHint": "Délai pour voter avant la résolution",
+          "tieBreak": "En cas d'égalité",
+          "tieBreakHint": "Choix du rang quand plusieurs rangs ont le même nombre de votes (1 = top, plus le numéro est grand, plus c'est bas)",
+          "tieBreakLow": "↓ Plus bas",
+          "tieBreakHigh": "↑ Plus haut"
+        },
+        "play": {
+          "preparing": "Préparation de la partie…",
+          "currentCard": "Carte à classer",
+          "cardCount": "Carte {current} / {total}",
+          "placed": "{placed} / {total} placées",
+          "remainingAfter": "{count, plural, =1 {# carte après celle-ci} other {# cartes après celle-ci}}",
+          "lastCard": "Dernière carte !",
+          "timeLeft": "Temps restant",
+          "emptySlot": "Tape pour voter ce rang",
+          "votesCount": "{count, plural, =1 {# vote} other {# votes}}"
+        },
+        "chat": {
+          "emptyState": "Soyez les premiers à parler",
+          "inputPlaceholder": "Message…",
+          "sendShort": "→",
+          "passShort": "Passer",
+          "passedLabel": "(message vide)"
+        },
+        "result": {
+          "gameOver": "Partie terminée",
+          "finalRanking": "Classement final",
+          "andNow": "Et maintenant ?",
+          "replay": "🔄 Rejouer",
+          "lobby": "🏠 Lobby",
+          "wantsReplay": "Tu veux rejouer ✓ ",
+          "wantsLobby": "Tu veux retourner au lobby ✓ ",
+          "waitingChoice": "(en attente des autres)",
+          "replayLabel": "Veulent rejouer",
+          "tip": "Tout le monde doit voter Rejouer pour relancer."
+        }
       }
     }
   },

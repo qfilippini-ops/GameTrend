@@ -942,7 +942,8 @@
         "rackSize": "Number of cards",
         "rackHint": "{count, plural, =1 {# card to rank} other {# cards to rank}}",
         "preparing": "Preparing…",
-        "startGame": "🎴 Start game"
+        "startGame": "🎴 Start game",
+        "playOnline": "🌐 Play online"
       },
       "play": {
         "leave": "← Quit",
@@ -959,6 +960,140 @@
         "viewPreset": "📋 View preset",
         "shareText": "My #1 on Blind Rank: {name} 🎴 — Come play on GameTrend!",
         "savingStats": "Saving stats…"
+      },
+      "online": {
+        "lobby": {
+          "title": "Blind Rank online",
+          "createCta": "🎴 Create room"
+        },
+        "shell": {
+          "tabCreate": "Create",
+          "tabJoin": "Join",
+          "yourAccount": "Your account",
+          "yourNickname": "Your nickname",
+          "nicknamePlaceholder": "e.g. Ace",
+          "roomCodeLabel": "Room code",
+          "roomCodePlaceholder": "AB3X9K",
+          "visibility": "Visibility",
+          "visibilityPrivate": "Visible only with the code",
+          "visibilityPublic": "Visible in the public rooms list",
+          "private": "Private",
+          "public": "Public",
+          "joinCta": "🚪 Join room",
+          "loadingShort": "…",
+          "errEnterNick": "Enter a nickname",
+          "errInvalidCode": "Invalid code (6 chars)",
+          "errServer": "Server error",
+          "errAuth": "Auth: {message}",
+          "errRoomNotFound": "Room not found",
+          "errAlreadyStarted": "Game already started",
+          "errWrongGame": "This room is not a Blind Rank room",
+          "errNickTaken": "This nickname is already taken in the room",
+          "anonHint": "You're playing anonymously.",
+          "loginCta": "Sign in",
+          "loginSuffix": "to save your profile."
+        },
+        "shellShared": {
+          "enterNickname": "Choose your nickname",
+          "nicknamePlaceholder": "e.g. Ace",
+          "joinCta": "Join",
+          "loadingShort": "…",
+          "errEnterNick": "Enter a nickname",
+          "errAuth": "Auth: {message}",
+          "errNickTaken": "Nickname already taken",
+          "errServer": "Server error",
+          "leave": "Leave",
+          "menu": "Menu",
+          "cancel": "Cancel",
+          "options": "Options",
+          "connecting": "Connecting…",
+          "identifying": "Identifying…",
+          "back": "← Back",
+          "ok": "OK",
+          "errRoomNotFound": "Room not found",
+          "errRoomNotFoundReason": "Room not found ({reason})",
+          "errAlreadyStarted": "Game already started",
+          "evtPlayerLeft": "🚪 {name} left the game",
+          "evtHostLeft": "🚷 Host {name} left",
+          "evtNewHost": " — 👑 {name} is the new host",
+          "evtNewHostYou": " — 👑 You are the new host",
+          "evtKicked": "🚷 {name} was kicked"
+        },
+        "room": {
+          "joinTitle": "Join room"
+        },
+        "waiting": {
+          "launch": "🎴 Start game ({count})"
+        },
+        "waitingShared": {
+          "abandonReasonClose": "Close",
+          "roomCode": "Room code",
+          "copyLink": "📋 Copy link",
+          "copied": "✓ Copied",
+          "share": "📤 Share",
+          "shareTitle": "Join my Blind Rank game",
+          "shareText": "Come play Blind Rank with me!",
+          "players": "Players",
+          "playersMinSuffix": "/ {min} min",
+          "host": "Host",
+          "you": "(you)",
+          "offline": "(offline)",
+          "kickTitle": "Kick {name}",
+          "settings": "Settings",
+          "close": "Close",
+          "edit": "Edit",
+          "waitingForPlayers": "{current} / {min} players minimum",
+          "starting": "Starting…",
+          "needPlayers": "At least {min} players required",
+          "closeLobby": "Close room",
+          "closeLobbyConfirm": "Close this room and kick all players?",
+          "waitingHostStart": "Host is about to start the game…",
+          "leaveRoom": "Leave room"
+        },
+        "settings": {
+          "preset": "Preset",
+          "compatBadge": "DYP-compatible",
+          "myPresets": "My presets",
+          "defaultCards": "Default cards ({count})",
+          "cardsInPreset": "{count, plural, =1 {# card in this preset} other {# cards in this preset}}",
+          "rackSize": "Number of cards",
+          "tourTime": "Time per card",
+          "tourTimeHint": "Voting window before resolution",
+          "tieBreak": "On tie",
+          "tieBreakHint": "Which rank wins when several ranks have the same number of votes (1 = top, larger numbers = lower)",
+          "tieBreakLow": "↓ Lower",
+          "tieBreakHigh": "↑ Higher"
+        },
+        "play": {
+          "preparing": "Preparing the game…",
+          "currentCard": "Card to rank",
+          "cardCount": "Card {current} / {total}",
+          "placed": "{placed} / {total} placed",
+          "remainingAfter": "{count, plural, =1 {# card after this one} other {# cards after this one}}",
+          "lastCard": "Last card!",
+          "timeLeft": "Time left",
+          "emptySlot": "Tap to vote this rank",
+          "votesCount": "{count, plural, =1 {# vote} other {# votes}}"
+        },
+        "chat": {
+          "emptyState": "Be the first to chat",
+          "inputPlaceholder": "Message…",
+          "sendShort": "→",
+          "passShort": "Pass",
+          "passedLabel": "(empty message)"
+        },
+        "result": {
+          "gameOver": "Game over",
+          "finalRanking": "Final ranking",
+          "andNow": "And now?",
+          "replay": "🔄 Replay",
+          "lobby": "🏠 Lobby",
+          "wantsReplay": "You want to replay ✓ ",
+          "wantsLobby": "You want to go back to lobby ✓ ",
+          "waitingChoice": "(waiting for others)",
+          "replayLabel": "Want to replay",
+          "tip": "All players must vote Replay to start a new game."
+        }
       }
     }
   },

@@ -8,6 +8,26 @@ export interface PlayerAssignment {
   word_image_url: string | null;
 }
 
+/**
+ * Capacités online d'un jeu — consommé par les briques génériques
+ * de `src/games/online/` (lobby, salle d'attente, room shell).
+ *
+ * Quand `supportsOnline` est `false`, les boutons "Jouer en ligne" sont masqués
+ * et l'adapter n'a pas besoin d'implémenter `assignPlayers` côté online.
+ */
+export interface GameOnlineConfig {
+  supportsOnline: boolean;
+  /** Nombre min/max de joueurs pour démarrer */
+  minPlayers: number;
+  maxPlayers: number;
+  /**
+   * Mode du chat partagé :
+   *   - "turn-based" : un seul joueur peut écrire à la fois (GhostWord)
+   *   - "realtime"   : tout le monde peut écrire en même temps (Blind Rank)
+   */
+  chatMode: "turn-based" | "realtime";
+}
+
 /** Résultat de l'évaluation après un vote d'élimination */
 export interface EliminationResult {
   /** null = la partie continue */
@@ -72,6 +92,12 @@ export interface GameAdapter {
    * Utilisé pour la recherche full-text côté client (PresetList, PresetPicker).
    */
   getSearchableStrings(config: unknown): string[];
+
+  /**
+   * Décrit les capacités online du jeu. Si absent, le jeu est considéré
+   * comme solo-only (`supportsOnline: false`).
+   */
+  onlineConfig?: GameOnlineConfig;
 
   /**
    * Liste les `game_type` que ce jeu sait jouer en plus du sien propre.
