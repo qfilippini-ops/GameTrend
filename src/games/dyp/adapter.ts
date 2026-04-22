@@ -30,4 +30,7 @@ export const DYPAdapter: GameAdapter = {
     }
     return strings;
   },
+
+  // DYP accepte aussi les presets Blind Rank (même structure { cards: [...] })
+  acceptedPresetTypes: () => ["dyp", "blindrank"],
 };

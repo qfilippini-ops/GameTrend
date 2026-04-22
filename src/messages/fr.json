@@ -356,10 +356,17 @@
       "breadcrumbHome": "Accueil",
       "breadcrumbPresets": "Presets"
     },
+    "compat": {
+      "multiLabel": "Multi-jeux",
+      "multiTooltip": "Compatible avec : {games}",
+      "multiAriaLabel": "Preset compatible avec plusieurs jeux : {games}"
+    },
     "detail": {
       "by": "par",
       "play": "Jouer",
       "playWith": "Jouer avec ce preset",
+      "multiGameLabel": "Compatible avec plusieurs jeux",
+      "playInGame": "Jouer en {game}",
       "edit": "Modifier",
       "editThisPreset": "✏️ Modifier ce preset",
       "delete": "Supprimer",
@@ -878,6 +885,7 @@
     "dyp": {
       "lobby": {
         "preset": "Preset",
+        "compatBadge": "Compatible Blind Rank",
         "myPresets": "Mes presets DYP",
         "defaultCards": "Cartes par défaut ({count})",
         "createPreset": "+ Créer un preset",
@@ -909,6 +917,37 @@
         "roundProgress": "Round {current}/{total}",
         "duelProgress": "Duel {current}/{total}",
         "tapHint": "Tape sur ta carte préférée"
+      }
+    },
+    "blindrank": {
+      "lobby": {
+        "preset": "Preset",
+        "compatBadge": "Compatible DYP",
+        "myPresets": "Mes presets",
+        "defaultCards": "Cartes par défaut ({count})",
+        "createPreset": "+ Créer un preset",
+        "cardsInPreset": "{count, plural, =1 {# carte dans ce preset} other {# cartes dans ce preset}}",
+        "view": "Voir →",
+        "rackSize": "Nombre de cartes",
+        "rackHint": "{count, plural, =1 {# carte à classer} other {# cartes à classer dans l'ordre}}",
+        "preparing": "Préparation…",
+        "startGame": "🎯 Lancer la partie"
+      },
+      "play": {
+        "leave": "← Quitter",
+        "progress": "{current}/{total} placées",
+        "remainingCards": "{count, plural, =1 {# carte restante} other {# cartes restantes}}",
+        "placeThisCard": "Place cette carte",
+        "tapToPlace": "Tape sur un emplacement vide pour placer",
+        "yourRanking": "Ton classement",
+        "resultTitle": "Top {count}",
+        "podium": "Podium",
+        "restRanking": "Suite du classement",
+        "replay": "🔄 Rejouer",
+        "home": "🏠 Accueil",
+        "viewPreset": "📋 Voir le preset",
+        "shareText": "Mon n°1 sur Blind Rank : {name} 🎯 — Viens jouer sur GameTrend !",
+        "savingStats": "Sauvegarde des stats…"
       }
     }
   },

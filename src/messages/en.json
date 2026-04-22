@@ -356,10 +356,17 @@
       "breadcrumbHome": "Home",
       "breadcrumbPresets": "Presets"
     },
+    "compat": {
+      "multiLabel": "Multi-game",
+      "multiTooltip": "Compatible with: {games}",
+      "multiAriaLabel": "Preset compatible with multiple games: {games}"
+    },
     "detail": {
       "by": "by",
       "play": "Play",
       "playWith": "Play with this preset",
+      "multiGameLabel": "Compatible with multiple games",
+      "playInGame": "Play in {game}",
       "edit": "Edit",
       "editThisPreset": "✏️ Edit this preset",
       "delete": "Delete",
@@ -878,6 +885,7 @@
     "dyp": {
       "lobby": {
         "preset": "Preset",
+        "compatBadge": "Blind Rank-compatible",
         "myPresets": "My DYP presets",
         "defaultCards": "Default cards ({count})",
         "createPreset": "+ Create a preset",
@@ -909,6 +917,37 @@
         "roundProgress": "Round {current}/{total}",
         "duelProgress": "Duel {current}/{total}",
         "tapHint": "Tap your favorite card"
+      }
+    },
+    "blindrank": {
+      "lobby": {
+        "preset": "Preset",
+        "compatBadge": "DYP-compatible",
+        "myPresets": "My presets",
+        "defaultCards": "Default cards ({count})",
+        "createPreset": "+ Create a preset",
+        "cardsInPreset": "{count, plural, =1 {# card in this preset} other {# cards in this preset}}",
+        "view": "View →",
+        "rackSize": "Number of cards",
+        "rackHint": "{count, plural, =1 {# card to rank} other {# cards to rank}}",
+        "preparing": "Preparing…",
+        "startGame": "🎯 Start game"
+      },
+      "play": {
+        "leave": "← Quit",
+        "progress": "{current}/{total} placed",
+        "remainingCards": "{count, plural, =1 {# card left} other {# cards left}}",
+        "placeThisCard": "Place this card",
+        "tapToPlace": "Tap an empty slot to place",
+        "yourRanking": "Your ranking",
+        "resultTitle": "Top {count}",
+        "podium": "Podium",
+        "restRanking": "Rest of ranking",
+        "replay": "🔄 Replay",
+        "home": "🏠 Home",
+        "viewPreset": "📋 View preset",
+        "shareText": "My #1 on Blind Rank: {name} 🎯 — Come play on GameTrend!",
+        "savingStats": "Saving stats…"
       }
     }
   },

@@ -67,6 +67,11 @@ const config: Config = {
         // landing pour ne pas polluer le bundle critique). Le delay est passé
         // inline via style.animationDelay côté composant.
         "preset-card-in": "presetCardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+        // Animations spécifiques à Blind Rank (gameplay solo) :
+        // - card-pop : entrée de la carte courante en haut de l'écran
+        // - slot-land : feedback visuel quand on dépose une carte dans un slot
+        "card-pop": "cardPop 0.28s ease-out",
+        "slot-land": "slotLand 0.42s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -88,6 +93,15 @@ const config: Config = {
         presetCardIn: {
           from: { transform: "translateY(12px)", opacity: "0" },
           to: { transform: "translateY(0)", opacity: "1" },
+        },
+        cardPop: {
+          from: { transform: "scale(0.92)", opacity: "0" },
+          to: { transform: "scale(1)", opacity: "1" },
+        },
+        slotLand: {
+          "0%": { transform: "scale(0.85)", boxShadow: "0 0 0 0 rgba(6,182,212,0.7)" },
+          "60%": { transform: "scale(1.04)", boxShadow: "0 0 0 8px rgba(6,182,212,0)" },
+          "100%": { transform: "scale(1)", boxShadow: "0 0 0 0 rgba(6,182,212,0)" },
         },
         glow: {
           from: { boxShadow: "0 0 15px rgba(68, 96, 255, 0.3), 0 0 40px rgba(68, 96, 255, 0.05)" },

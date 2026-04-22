@@ -4,6 +4,7 @@ import { createPublicClient } from "@/lib/supabase/server";
 import PresetCard from "@/components/presets/PresetCard";
 import type { Preset } from "@/types/database";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
+import { getAcceptedPresetTypes } from "@/games/compat";
 
 interface Props {
   gameType: string;
@@ -22,12 +23,15 @@ interface Props {
  */
 export default async function GamePopularPresets({ gameType, locale }: Props) {
   const t = await getTranslations({ locale, namespace: "games.seo" });
+  // Inclut aussi les presets d'autres jeux compatibles (ex: page Blind Rank
+  // affiche les presets DYP populaires car ils sont jouables en Blind Rank).
+  const acceptedTypes = getAcceptedPresetTypes(gameType);
   const supabase = createPublicClient();
   const { data } = await supabase
     .from("presets")
     .select(PRESET_LIST_COLS)
     .eq("is_public", true)
-    .eq("game_type", gameType)
+    .in("game_type", acceptedTypes)
     .gt("play_count", 0)
     .is("archived_at", null)
     .order("play_count", { ascending: false })

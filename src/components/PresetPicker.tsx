@@ -8,6 +8,9 @@ import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { PRESET_LIST_SEARCH_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
+import { getAcceptedPresetTypes } from "@/games/compat";
+import { GAMES_REGISTRY } from "@/games/registry";
+import GameCompatBadge from "@/components/presets/GameCompatBadge";
 
 interface PresetPickerProps {
   /** Filtrer par jeu — défaut : "ghostword" */
@@ -33,6 +36,8 @@ export default function PresetPicker({
 }: PresetPickerProps) {
   const t = useTranslations("presets.picker");
   const resolvedLabel = label ?? t("favoritesLabel");
+  // Liste des `game_type` que ce jeu accepte (ex: blindrank → ["blindrank", "dyp"])
+  const acceptedTypes = getAcceptedPresetTypes(gameType);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Preset[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,10 +61,11 @@ export default function PresetPicker({
           .from("presets")
           .select(PRESET_LIST_SEARCH_COLS)
           .in("id", ids)
-          .eq("game_type", gameType);
+          .in("game_type", acceptedTypes);
         setFavorites((presets ?? []) as Preset[]);
       });
-  }, [userId]);
+    // acceptedTypes est dérivé de gameType, on observe les deux pour rester safe
+  }, [userId, gameType]);
 
   // Recherche avec debounce
   useEffect(() => {
@@ -73,7 +79,7 @@ export default function PresetPicker({
       const { data } = await supabase
         .from("presets")
         .select(PRESET_LIST_SEARCH_COLS)
-        .eq("game_type", gameType)
+        .in("game_type", acceptedTypes)
         .ilike("name", `%${q}%`)
         .order("play_count", { ascending: false })
         .limit(24);
@@ -95,7 +101,7 @@ export default function PresetPicker({
       setSearchResults(merged);
       setSearching(false);
     }, 300);
-  }, [searchQuery]);
+  }, [searchQuery, gameType]);
 
   async function toggleFavorite(e: React.MouseEvent, presetId: string) {
     e.stopPropagation();
@@ -196,7 +202,9 @@ export default function PresetPicker({
                   href={`/presets/new?game=${gameType}`}
                   className="inline-flex items-center gap-1.5 text-brand-400 text-xs font-medium hover:text-brand-300 transition-colors"
                 >
-                  {t("createPresetFor", { name: gameType === "ghostword" ? "GhostWord" : gameType === "dyp" ? "DYP" : gameType })}
+                  {t("createPresetFor", {
+                    name: GAMES_REGISTRY.find((g) => g.id === gameType)?.name ?? gameType,
+                  })}
                 </Link>
               )}
             </div>
@@ -307,6 +315,10 @@ function PresetCardList({
                     <div className="absolute inset-0 flex items-center justify-center text-2xl opacity-20">👻</div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-surface-950/70 to-transparent" />
+                  {/* Badge des jeux compatibles (en bas à gauche, lisible sur le gradient) */}
+                  <div className="absolute bottom-1 left-1">
+                    <GameCompatBadge presetGameType={preset.game_type} size="xs" />
+                  </div>
                   {isSelected && (
                     <div className="absolute inset-0 bg-brand-500/20 flex items-center justify-center">
                       <div className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold text-xs glow-brand">✓</div>

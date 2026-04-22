@@ -16,9 +16,15 @@ import type { PresetFormProps } from "@/types/adapters";
 import GhostWordPresetForm from "@/components/presets/PresetForm";
 import DYPPresetForm from "@/games/dyp/components/PresetForm";
 
+// Note : Blind Rank réutilise le formulaire DYP — la structure des cartes
+// `{ id, name, imageUrl? }` est identique. Le `game_type` est stocké en DB
+// selon le contexte de création (`?game=blindrank` ou `?game=dyp`), mais
+// le `acceptedPresetTypes` des deux adapters garantit qu'un preset créé
+// pour l'un est accessible dans le lobby de l'autre.
 const PRESET_FORM_MAP: Record<string, ComponentType<PresetFormProps>> = {
   ghostword: GhostWordPresetForm as ComponentType<PresetFormProps>,
   dyp: DYPPresetForm as ComponentType<PresetFormProps>,
+  blindrank: DYPPresetForm as ComponentType<PresetFormProps>,
 };
 
 /**

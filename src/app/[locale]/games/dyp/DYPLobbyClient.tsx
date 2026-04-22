@@ -151,8 +151,11 @@ function DYPLobbyPageContent() {
 
         {/* ── Preset ── */}
         <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-surface-800/50">
+          <div className="px-4 py-3 border-b border-surface-800/50 flex items-center justify-between">
             <p className="text-white font-display font-bold text-sm">{t("preset")}</p>
+            <span className="text-amber-400/70 text-[10px] font-semibold tracking-wide">
+              ✦ {t("compatBadge")}
+            </span>
           </div>
           <div className="p-4 space-y-3">
             <PresetPicker

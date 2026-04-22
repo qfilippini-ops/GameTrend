@@ -72,4 +72,18 @@ export interface GameAdapter {
    * Utilisé pour la recherche full-text côté client (PresetList, PresetPicker).
    */
   getSearchableStrings(config: unknown): string[];
+
+  /**
+   * Liste les `game_type` que ce jeu sait jouer en plus du sien propre.
+   * Permet à un jeu de réutiliser les presets d'un autre jeu quand le format
+   * de cartes/données est compatible (ex : Blind Rank et DYP partagent
+   * `{ cards: [{id, name, imageUrl?}] }`).
+   *
+   * Le tableau retourné DOIT inclure `meta.id` (le type natif du jeu) en
+   * première position. Les autres entrées sont les types acceptés en plus.
+   *
+   * Si non implémentée, le helper `getAcceptedPresetTypes` retourne `[meta.id]`
+   * — comportement par défaut compatible avec les jeux existants.
+   */
+  acceptedPresetTypes?: () => string[];
 }

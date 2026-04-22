@@ -123,3 +123,38 @@ export interface DYPGameState {
   eliminated: DYPEliminatedCard[];
   champion: DYPCard | null;
 }
+
+// ============ BLIND RANK ============
+//
+// Une carte aléatoire apparaît, on la place dans un classement vide
+// (slots numérotés). On répète jusqu'à remplir tout le rack.
+// Format de carte identique à DYP → presets interchangeables entre les
+// deux jeux (cf. `src/games/compat.ts`).
+
+/** Format de carte Blind Rank (identique à DYPCard pour la compatibilité) */
+export interface BlindRankCard {
+  id: string;
+  name: string;
+  imageUrl?: string;
+}
+
+export interface BlindRankConfig {
+  cards: BlindRankCard[];
+}
+
+export type BlindRankPhase = "place" | "result";
+
+export interface BlindRankGameState {
+  phase: BlindRankPhase;
+  presetId?: string;
+  /** Nombre total de slots du rack (paramètre du lobby, 2 ≤ rackSize ≤ 128) */
+  rackSize: number;
+  /** Slots du rack indexés 0..rackSize-1. Index 0 = sommet du classement (#1). */
+  slots: (BlindRankCard | null)[];
+  /** Cartes restant à piocher après la carte courante (déjà mélangées) */
+  remainingCards: BlindRankCard[];
+  /** Carte actuellement affichée à placer */
+  currentCard: BlindRankCard | null;
+  /** Compteur dérivé pour l'UI (cartes déjà placées) */
+  cardsPlaced: number;
+}

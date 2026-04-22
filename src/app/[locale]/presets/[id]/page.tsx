@@ -19,6 +19,7 @@ import PresetAnalyticsButton from "@/components/premium/PresetAnalyticsButton";
 import AdSlot from "@/components/ads/AdSlot";
 import type { SubscriptionStatus } from "@/types/database";
 import { SITE_URL } from "@/lib/seo/sitemap";
+import { getCompatibleGames } from "@/games/compat";
 
 /**
  * Wrapper React.cache : la même requête Supabase appelée dans
@@ -104,9 +105,15 @@ export async function generateMetadata({
   };
 }
 
+/**
+ * Métadonnées d'affichage par jeu (ne sert plus qu'à styler le hero
+ * et générer le href du CTA principal). La liste réelle des jeux compatibles
+ * pour ce preset est calculée via `getCompatibleGames` (registry-driven).
+ */
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
   ghostword: { icon: "👻", name: "GhostWord", color: "from-ghost-900/80 to-brand-900/60", gameHref: (id) => `/games/ghostword?presetId=${id}` },
   dyp:       { icon: "⚡", name: "DYP",       color: "from-amber-900/80 to-brand-900/60", gameHref: (id) => `/games/dyp?presetId=${id}` },
+  blindrank: { icon: "🎯", name: "Blind Rank", color: "from-cyan-900/80 to-brand-900/60", gameHref: (id) => `/games/blindrank?presetId=${id}` },
 };
 
 const ROLE_STYLE: Record<string, { bg: string; border: string; emoji: string }> = {
@@ -143,15 +150,23 @@ export default async function PresetDetailPage({ params }: { params: { locale: s
   const shareUrl = generateShareUrl(preset.id);
   const isOwner = user?.id === preset.author_id;
   const gameMeta = GAME_META[preset.game_type] ?? { icon: "🎮", name: preset.game_type, color: "from-surface-800 to-surface-900", gameHref: () => "/" };
+  // Jeux capables de jouer ce preset (jeu natif en premier, puis compatibles)
+  const compatibleGames = getCompatibleGames(preset.game_type);
+  const hasMultipleGames = compatibleGames.length > 1;
 
   // ── GhostWord ──────────────────────────────────────────────────
   const isGhostWord = preset.game_type === "ghostword";
   const ghostConfig = isGhostWord ? (preset.config as unknown as GhostWordConfig) : null;
   const totalWords = ghostConfig?.families?.reduce((acc: number, f: WordFamily) => acc + f.words.length, 0) ?? 0;
 
-  // ── DYP ────────────────────────────────────────────────────────
+  // ── DYP / Blind Rank (format de cartes commun) ─────────────────
   const isDYP = preset.game_type === "dyp";
-  const dypConfig = isDYP ? (preset.config as unknown as DYPConfig) : null;
+  const isBlindRank = preset.game_type === "blindrank";
+  // `hasCardsConfig` : true pour tous les presets utilisant le format `{ cards: [...] }`
+  // (DYP et Blind Rank). La section "Cartes" est commune ; le palmarès reste
+  // spécifique à DYP tant qu'on n'agrège pas de résultats Blind Rank.
+  const hasCardsConfig = isDYP || isBlindRank;
+  const dypConfig = hasCardsConfig ? (preset.config as unknown as DYPConfig) : null;
 
   let topCards: CardStat[] = [];
   let totalDYPGames = 0;
@@ -335,7 +350,7 @@ export default async function PresetDetailPage({ params }: { params: { locale: s
               </div>
             </>
           )}
-          {isDYP && dypConfig?.cards && (
+          {hasCardsConfig && dypConfig?.cards && (
             <div className="px-3 py-1.5 rounded-full bg-surface-800/60 border border-surface-700/40 text-xs text-surface-400">
               🃏 {t("cardsCount", { count: dypConfig.cards.length })}
             </div>
@@ -351,13 +366,41 @@ export default async function PresetDetailPage({ params }: { params: { locale: s
           )}
         </div>
 
-        {/* ── CTA principal ── */}
-        <Link
-          href={gameMeta.gameHref(preset.id)}
-          className="flex items-center justify-center gap-2 w-full bg-gradient-brand text-white font-display font-bold text-base py-4 rounded-2xl hover:opacity-92 transition-opacity shadow-lg shadow-brand-900/30"
-        >
-          {t("playWith")} {gameMeta.icon}
-        </Link>
+        {/* ── CTA(s) — un bouton par jeu compatible ── */}
+        {hasMultipleGames ? (
+          <div className="space-y-2">
+            <p className="text-[10px] text-amber-400/80 uppercase tracking-wider font-bold flex items-center gap-1.5">
+              <span>✦</span> {t("multiGameLabel")}
+            </p>
+            <div className="grid grid-cols-1 gap-2.5">
+              {compatibleGames.map((game, idx) => {
+                const meta = GAME_META[game.id] ?? { icon: game.icon, name: game.name, color: "", gameHref: (id: string) => `/games/${game.id}?presetId=${id}` };
+                const isPrimary = idx === 0;
+                return (
+                  <Link
+                    key={game.id}
+                    href={meta.gameHref(preset.id)}
+                    className={
+                      isPrimary
+                        ? "flex items-center justify-center gap-2 w-full bg-gradient-brand text-white font-display font-bold text-base py-4 rounded-2xl hover:opacity-92 transition-opacity shadow-lg shadow-brand-900/30"
+                        : "flex items-center justify-center gap-2 w-full bg-surface-800/80 hover:bg-surface-700/80 text-white font-display font-bold text-sm py-3.5 rounded-2xl border border-surface-700/40 hover:border-brand-500/40 transition-colors"
+                    }
+                  >
+                    <span className={isPrimary ? "text-lg" : "text-base"}>{meta.icon}</span>
+                    {t("playInGame", { game: meta.name })}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <Link
+            href={gameMeta.gameHref(preset.id)}
+            className="flex items-center justify-center gap-2 w-full bg-gradient-brand text-white font-display font-bold text-base py-4 rounded-2xl hover:opacity-92 transition-opacity shadow-lg shadow-brand-900/30"
+          >
+            {t("playWith")} {gameMeta.icon}
+          </Link>
+        )}
 
         {/* ── Actions secondaires ── */}
         <div className="grid grid-cols-2 gap-2.5 -mt-3">
@@ -439,8 +482,8 @@ export default async function PresetDetailPage({ params }: { params: { locale: s
           </div>
         )}
 
-        {/* ── Cartes DYP (accordéon) ── */}
-        {isDYP && dypConfig?.cards && (
+        {/* ── Cartes (DYP + Blind Rank, même format) ── */}
+        {hasCardsConfig && dypConfig?.cards && (
           <div>
             <SectionHeader
               emoji="🃏"

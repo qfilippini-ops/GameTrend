@@ -4,6 +4,8 @@ import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import FavoriteButton from "@/components/presets/FavoriteButton";
+import GameCompatBadge from "@/components/presets/GameCompatBadge";
+import { getCompatibleGames } from "@/games/compat";
 import type { Preset } from "@/types/database";
 
 interface PresetCardProps {
@@ -24,6 +26,11 @@ const STAGGER_MS = 40;
 
 export default function PresetCard({ preset, index = 0, userId, compact = false }: PresetCardProps) {
   const t = useTranslations("presets.card");
+  // Premier jeu compatible = jeu natif du preset (ordre garanti par getCompatibleGames)
+  // Sert uniquement pour le placeholder no-cover (icône grisée d'arrière-plan).
+  const primaryGame = getCompatibleGames(preset.game_type)[0];
+  const placeholderIcon = primaryGame?.icon ?? "🎮";
+
   if (compact) {
     return (
       <div
@@ -47,12 +54,14 @@ export default function PresetCard({ preset, index = 0, userId, compact = false 
                 />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-3xl opacity-15">
-                    {preset.game_type === "ghostword" ? "👻" : "🎮"}
-                  </span>
+                  <span className="text-3xl opacity-15">{placeholderIcon}</span>
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-surface-950/80 to-transparent" />
+              {/* Badge compatibilité multi-jeux (très petit en mode compact) */}
+              <div className="absolute bottom-1 left-1">
+                <GameCompatBadge presetGameType={preset.game_type} size="xs" />
+              </div>
             </div>
             <div className="px-2.5 py-2">
               <p className="font-display font-bold text-white text-xs leading-tight truncate">
@@ -93,19 +102,15 @@ export default function PresetCard({ preset, index = 0, userId, compact = false 
               />
             ) : (
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-5xl opacity-10">
-                  {preset.game_type === "ghostword" ? "👻" : "🎮"}
-                </span>
+                <span className="text-5xl opacity-10">{placeholderIcon}</span>
               </div>
             )}
             {/* Gradient overlay bottom */}
             <div className="absolute inset-0 bg-gradient-to-t from-surface-950/90 via-transparent to-transparent" />
 
-            {/* Game type badge */}
+            {/* Badge compatibilité (1 ou plusieurs jeux compatibles) */}
             <div className="absolute top-2 left-2">
-              <span className="text-xs px-2 py-0.5 rounded-full bg-surface-950/70 backdrop-blur-sm text-surface-300 border border-surface-700/40 font-medium">
-                {preset.game_type === "ghostword" ? "👻" : "🎮"}
-              </span>
+              <GameCompatBadge presetGameType={preset.game_type} size="sm" />
             </div>
 
             {/* Favori */}
