@@ -478,11 +478,11 @@
     "families": {
       "compatibleWith": "Playable in:",
       "words": {
-        "name": "Words",
+        "name": "Family",
         "description": "Word families for identity, bluff and deduction games."
       },
       "cards": {
-        "name": "Cards",
+        "name": "List",
         "description": "List of cards (text or images) for ranking and duel games."
       }
     },

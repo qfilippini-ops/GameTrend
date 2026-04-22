@@ -67,9 +67,11 @@ function NewPresetPageContent() {
   const { isPremium } = useSubscription();
   const { openPaywall } = usePaywall();
 
-  // Métadonnées des jeux jouables avec la famille active (pour le bandeau)
+  // Métadonnées des jeux jouables avec la famille active (pour le bandeau).
+  // Le bandeau est toujours affiché — y compris quand un seul jeu est compatible
+  // — pour garder une grille visuelle cohérente entre familles et anticiper
+  // l'ajout futur de jeux dans la famille "Famille" (mots).
   const compatibleGames = useMemo(() => getFamilyGames(family), [family]);
-  const isMultiGame = compatibleGames.length > 1;
 
   async function safeUploadWordImage(file: File): Promise<string> {
     const supabase = createClient();
@@ -212,27 +214,25 @@ function NewPresetPageContent() {
               {tFamilies(`${family.i18nKey}.description`)}
             </p>
 
-            {/* Bandeau "Compatible avec : DYP · Blind Rank" — uniquement si multi-jeux */}
-            {isMultiGame && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-950/20 border border-amber-700/30">
-                <span className="text-amber-400 text-sm shrink-0">✦</span>
-                <p className="text-amber-200/90 text-xs leading-snug">
-                  <span className="font-semibold">
-                    {tFamilies("compatibleWith")}
-                  </span>{" "}
-                  {compatibleGames.map((g, idx) => (
-                    <span key={g.id}>
-                      <span className="font-medium">
-                        {g.icon} {g.name}
-                      </span>
-                      {idx < compatibleGames.length - 1 && (
-                        <span className="text-amber-500/60 mx-1">·</span>
-                      )}
+            {/* Bandeau "Jouable en : ..." — toujours affiché pour cohérence */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-950/20 border border-amber-700/30">
+              <span className="text-amber-400 text-sm shrink-0">✦</span>
+              <p className="text-amber-200/90 text-xs leading-snug">
+                <span className="font-semibold">
+                  {tFamilies("compatibleWith")}
+                </span>{" "}
+                {compatibleGames.map((g, idx) => (
+                  <span key={g.id}>
+                    <span className="font-medium">
+                      {g.icon} {g.name}
                     </span>
-                  ))}
-                </p>
-              </div>
-            )}
+                    {idx < compatibleGames.length - 1 && (
+                      <span className="text-amber-500/60 mx-1">·</span>
+                    )}
+                  </span>
+                ))}
+              </p>
+            </div>
           </motion.div>
         </AnimatePresence>
 

@@ -4,7 +4,7 @@ export const BLINDRANK_META: GameMeta = {
   id: "blindrank",
   name: "Blind Rank",
   description:
-    "Une carte mystère apparaît à chaque tour. Place-la au bon rang dans ton classement avant de découvrir la suivante.",
+    "Une carte aléatoire apparaît à chaque tour. Place-la au rang de ton choix sans connaitre la suite.",
   icon: "🎴",
   minPlayers: 1,
   maxPlayers: 1,
