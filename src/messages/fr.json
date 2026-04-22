@@ -1,7 +1,10 @@
 {
   "metadata": {
-    "title": "GameTrend — Hub de jeux sociaux viraux",
-    "description": "Centralise tes jeux de soirée : GhostWord, Quizz, Enchères. Crée et partage des presets communautaires."
+    "title": "GameTrend — Crée et partage tes jeux de soirée entre amis",
+    "description": "La plateforme communautaire pour créer, partager et jouer à des jeux de soirée originaux entre amis. Découvre des centaines de presets imaginés par la communauté ou crée les tiens en quelques clics.",
+    "siteName": "GameTrend",
+    "ogTitle": "GameTrend — Jeux de soirée à plusieurs, créés par la communauté",
+    "ogDescription": "Crée tes propres jeux de soirée et joue avec tes amis. Communauté de créateurs, presets gratuits, parties en ligne ou en local."
   },
   "common": {
     "loading": "Chargement…",
@@ -99,6 +102,10 @@
     "heroTitle1": "Joue.",
     "heroTitle2": "Crée.",
     "heroTitle3": "Partage.",
+    "heroH1Part1": "Crée et partage",
+    "heroH1Part2": "tes jeux de soirée",
+    "heroH1Part3": "entre amis",
+    "heroTagline": "La plateforme communautaire pour inventer tes propres jeux à plusieurs et jouer en ligne ou en local.",
     "heroCta": "Jouer",
     "availableGames": "Jeux disponibles",
     "playGame": "Jouer",
@@ -167,6 +174,12 @@
     "anonymous": "Joueur",
     "followers": "abonnés",
     "following": "abonnements",
+    "seo": {
+      "notFoundTitle": "Profil introuvable",
+      "anonymousTitle": "Profil anonyme",
+      "publicTitle": "@{username} — Créateur de jeux sur GameTrend",
+      "publicFallbackDescription": "@{username} a publié {count, plural, one {# preset} other {# presets}} sur GameTrend. Découvre ses créations et joue avec tes amis."
+    },
     "stats": {
       "games": "Parties",
       "wins": "Victoires",
@@ -308,6 +321,10 @@
     "list": {
       "title": "Presets",
       "subtitle": "Trouve l'inspiration ou crée le tien",
+      "seoTitle": "Presets de jeux de soirée — créés par la communauté",
+      "seoDescription": "Découvre des centaines de presets de jeux de soirée créés par la communauté GameTrend. Joue gratuitement entre amis avec des thèmes originaux ou crée le tien en quelques minutes.",
+      "h1": "Presets de jeux de soirée",
+      "intro": "Explore les presets imaginés par la communauté pour jouer entre amis : nouveaux thèmes, paquets de cartes, listes de mots… Tout est gratuit et créé par d'autres joueurs.",
       "filterAll": "Tous",
       "filterMine": "Les miens",
       "filterFavorites": "Favoris",
@@ -330,6 +347,14 @@
       "private": "Privé",
       "favorited": "Ajouté aux favoris",
       "unfavorited": "Retiré des favoris"
+    },
+    "seo": {
+      "notFoundTitle": "Preset introuvable",
+      "anonymousAuthor": "un créateur",
+      "detailTitle": "{name} — preset {game} par {author}",
+      "detailFallbackDescription": "Découvre {name}, un preset {game} créé par {author} sur GameTrend. Joue gratuitement entre amis et explore d'autres créations de la communauté.",
+      "breadcrumbHome": "Accueil",
+      "breadcrumbPresets": "Presets"
     },
     "detail": {
       "by": "par",
@@ -541,6 +566,12 @@
     }
   },
   "games": {
+    "seo": {
+      "gameTitle": "{name} — joue en ligne entre amis",
+      "gameDescription": "{name} : {short}. Pour {min} à {max} joueurs, {duration} de partie. Joue gratuitement entre amis sur GameTrend.",
+      "popularForGame": "Presets populaires",
+      "seeAll": "Voir tout"
+    },
     "ghostword": {
       "title": "GhostWord",
       "tagline": "Trouve l'imposteur parmi tes amis",

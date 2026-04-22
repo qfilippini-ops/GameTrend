@@ -19,6 +19,16 @@ export default function BottomNav() {
   const navItems = [
     {
       href: "/",
+      label: t("play"),
+      icon: (active: boolean) => (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      ),
+    },
+    {
+      href: "/feed",
       label: t("feed"),
       badge: isFullUser ? unreadCount : 0,
       icon: (active: boolean) => (
@@ -27,16 +37,6 @@ export default function BottomNav() {
           <line x1="7" y1="9" x2="17" y2="9" />
           <line x1="7" y1="13" x2="17" y2="13" />
           <line x1="7" y1="17" x2="13" y2="17" />
-        </svg>
-      ),
-    },
-    {
-      href: "/home",
-      label: t("play"),
-      icon: (active: boolean) => (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-          <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       ),
     },

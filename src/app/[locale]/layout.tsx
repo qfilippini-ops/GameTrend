@@ -35,6 +35,46 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
+/**
+ * Mots-clés SEO globaux. Strictement aucun nom de marque tierce
+ * (pas d'Undercover, Loup-Garou, Skribbl, Among Us, etc.) — uniquement nos
+ * marques propres (GameTrend, GhostWord, DYP) + des termes génériques.
+ *
+ * Priorisation imposée par la stratégie SEO :
+ *   1. jeu de soirée + création (le coeur de l'offre)
+ *   2. communauté (presets partagés, créateurs)
+ *   3. affiliation (traitée uniquement sur la landing dédiée)
+ */
+const KEYWORDS_FR = [
+  "jeu de soirée",
+  "jeux de soirée entre amis",
+  "jeu à plusieurs",
+  "jeu en ligne entre amis",
+  "soirée jeux",
+  "créer son propre jeu",
+  "création de jeux",
+  "presets communautaires",
+  "communauté de joueurs",
+  "GameTrend",
+  "GhostWord",
+  "DYP",
+];
+
+const KEYWORDS_EN = [
+  "party game",
+  "party games with friends",
+  "multiplayer party game",
+  "play online with friends",
+  "game night",
+  "create your own game",
+  "game creation",
+  "community presets",
+  "player community",
+  "GameTrend",
+  "GhostWord",
+  "DYP",
+];
+
 export async function generateMetadata({
   params,
 }: {
@@ -48,11 +88,40 @@ export async function generateMetadata({
   const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
   return {
-    title: t("title"),
+    metadataBase: new URL("https://www.gametrend.fr"),
+    title: {
+      default: t("title"),
+      // Les pages enfants peuvent fournir leur propre title court ; il sera
+      // suffixé automatiquement par "| GameTrend" pour conserver la marque.
+      template: "%s | GameTrend",
+    },
     description: t("description"),
-    keywords: ["jeux", "soirée", "undercover", "ghostword", "social", "presets", "party games"],
+    keywords: safeLocale === "fr" ? KEYWORDS_FR : KEYWORDS_EN,
     authors: [{ name: "GameTrend Community" }],
+    creator: "GameTrend",
+    publisher: "GameTrend",
     manifest: "/manifest.json",
+    // Hreflang : par défaut on pointe vers la racine de chaque locale.
+    // Les pages enfants surchargent avec leur pathname spécifique.
+    alternates: {
+      canonical: `/${safeLocale}`,
+      languages: {
+        fr: "/fr",
+        en: "/en",
+        "x-default": "/fr",
+      },
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
+    },
     ...(adsenseClientId && {
       other: {
         "google-adsense-account": adsenseClientId,
@@ -72,10 +141,27 @@ export async function generateMetadata({
     },
     icons: { apple: "/icons/apple-touch-icon.png" },
     openGraph: {
-      title: "GameTrend",
-      description: t("description"),
+      title: t("ogTitle"),
+      description: t("ogDescription"),
+      siteName: t("siteName"),
+      url: `https://www.gametrend.fr/${safeLocale}`,
       type: "website",
       locale: safeLocale === "fr" ? "fr_FR" : "en_US",
+      alternateLocale: safeLocale === "fr" ? "en_US" : "fr_FR",
+      images: [
+        {
+          url: "/api/og/default",
+          width: 1200,
+          height: 630,
+          alt: t("siteName"),
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: t("ogTitle"),
+      description: t("ogDescription"),
+      images: ["/api/og/default"],
     },
   };
 }

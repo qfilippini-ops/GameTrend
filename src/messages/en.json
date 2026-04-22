@@ -1,7 +1,10 @@
 {
   "metadata": {
-    "title": "GameTrend — Viral social games hub",
-    "description": "All your party games in one place: GhostWord, Quizz, Auctions. Create and share community presets."
+    "title": "GameTrend — Create and share party games with friends",
+    "description": "The community platform to create, share and play original party games with your friends. Discover hundreds of presets imagined by the community, or build your own in a few clicks.",
+    "siteName": "GameTrend",
+    "ogTitle": "GameTrend — Multiplayer party games, made by the community",
+    "ogDescription": "Build your own party games and play with friends. Creator community, free presets, online or local play."
   },
   "common": {
     "loading": "Loading…",
@@ -99,6 +102,10 @@
     "heroTitle1": "Play.",
     "heroTitle2": "Create.",
     "heroTitle3": "Share.",
+    "heroH1Part1": "Build and share",
+    "heroH1Part2": "your party games",
+    "heroH1Part3": "with friends",
+    "heroTagline": "The community platform to invent your own multiplayer games and play online or in person.",
     "heroCta": "Play",
     "availableGames": "Available games",
     "playGame": "Play",
@@ -167,6 +174,12 @@
     "anonymous": "Player",
     "followers": "followers",
     "following": "following",
+    "seo": {
+      "notFoundTitle": "Profile not found",
+      "anonymousTitle": "Anonymous profile",
+      "publicTitle": "@{username} — Game creator on GameTrend",
+      "publicFallbackDescription": "@{username} has published {count, plural, one {# preset} other {# presets}} on GameTrend. Check out their creations and play with friends."
+    },
     "stats": {
       "games": "Plays",
       "wins": "Wins",
@@ -308,6 +321,10 @@
     "list": {
       "title": "Presets",
       "subtitle": "Get inspired or build your own",
+      "seoTitle": "Party game presets — built by the community",
+      "seoDescription": "Browse hundreds of party game presets crafted by the GameTrend community. Play with friends for free using original themes or build your own in minutes.",
+      "h1": "Party game presets",
+      "intro": "Explore presets imagined by the community to play with friends: fresh themes, custom card decks, word packs… Everything is free and built by other players.",
       "sortPopularEmoji": "🔥 Popular",
       "sortRecentEmoji": "✨ Recent",
       "noMatch": "No results",
@@ -330,6 +347,14 @@
       "private": "Private",
       "favorited": "Added to favorites",
       "unfavorited": "Removed from favorites"
+    },
+    "seo": {
+      "notFoundTitle": "Preset not found",
+      "anonymousAuthor": "a creator",
+      "detailTitle": "{name} — {game} preset by {author}",
+      "detailFallbackDescription": "Discover {name}, a {game} preset built by {author} on GameTrend. Play for free with friends and explore more community creations.",
+      "breadcrumbHome": "Home",
+      "breadcrumbPresets": "Presets"
     },
     "detail": {
       "by": "by",
@@ -541,6 +566,12 @@
     }
   },
   "games": {
+    "seo": {
+      "gameTitle": "{name} — play online with friends",
+      "gameDescription": "{name}: {short}. For {min} to {max} players, {duration} per game. Play for free with friends on GameTrend.",
+      "popularForGame": "Popular presets",
+      "seeAll": "See all"
+    },
     "ghostword": {
       "title": "GhostWord",
       "tagline": "Find the impostor among your friends",

@@ -1,6 +1,8 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import Header from "@/components/layout/Header";
 import { formatRelative, generateShareUrl } from "@/lib/utils";
@@ -16,6 +18,85 @@ import CreatorBadge from "@/components/premium/CreatorBadge";
 import PresetAnalyticsButton from "@/components/premium/PresetAnalyticsButton";
 import AdSlot from "@/components/ads/AdSlot";
 import type { SubscriptionStatus } from "@/types/database";
+import { SITE_URL } from "@/lib/seo/sitemap";
+
+/**
+ * Wrapper React.cache : la même requête Supabase appelée dans
+ * `generateMetadata` ET dans le composant ne fait qu'UN aller-retour réseau.
+ * Cache scopé à la requête HTTP courante.
+ */
+const getPresetForPage = cache(async (id: string) => {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("presets")
+    .select("*, profiles!author_id(username, avatar_url, subscription_status)")
+    .eq("id", id)
+    .single();
+  return data;
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: { locale: string; id: string };
+}): Promise<Metadata> {
+  const preset = await getPresetForPage(params.id);
+  const t = await getTranslations({ locale: params.locale, namespace: "presets.seo" });
+
+  // Preset introuvable : renvoie une méta minimale + noindex.
+  if (!preset) {
+    return {
+      title: t("notFoundTitle"),
+      robots: { index: false, follow: false },
+    };
+  }
+
+  // Preset privé : indexable interdit (sécurité défensive en plus de RLS).
+  if (!preset.is_public) {
+    return {
+      title: preset.name,
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const author = preset.profiles as { username: string | null } | null;
+  const authorName = author?.username ?? t("anonymousAuthor");
+  const gameLabel = GAME_META[preset.game_type]?.name ?? preset.game_type;
+
+  const title = t("detailTitle", { name: preset.name, game: gameLabel, author: authorName });
+  const description =
+    preset.description?.trim() ||
+    t("detailFallbackDescription", { name: preset.name, game: gameLabel, author: authorName });
+
+  const canonicalPath = `/${params.locale}/presets/${preset.id}`;
+  const ogImageUrl = `/api/og/preset/${preset.id}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+      languages: {
+        fr: `/fr/presets/${preset.id}`,
+        en: `/en/presets/${preset.id}`,
+        "x-default": `/fr/presets/${preset.id}`,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      url: `${SITE_URL}${canonicalPath}`,
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: preset.name }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
+    },
+  };
+}
 
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
   ghostword: { icon: "👻", name: "GhostWord", color: "from-ghost-900/80 to-brand-900/60", gameHref: (id) => `/games/ghostword?presetId=${id}` },
@@ -42,17 +123,14 @@ function SectionHeader({ emoji, title, badge }: { emoji: string; title: string; 
   );
 }
 
-export default async function PresetDetailPage({ params }: { params: { id: string } }) {
+export default async function PresetDetailPage({ params }: { params: { locale: string; id: string } }) {
   const t = await getTranslations("presets.detail");
   const tCommon = await getTranslations("common");
+  const tSeo = await getTranslations({ locale: params.locale, namespace: "presets.seo" });
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: preset } = await supabase
-    .from("presets")
-    .select("*, profiles!author_id(username, avatar_url, subscription_status)")
-    .eq("id", params.id)
-    .single();
+  const preset = await getPresetForPage(params.id);
 
   if (!preset) notFound();
 
@@ -102,8 +180,66 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
     subscription_status: SubscriptionStatus | null;
   } | null;
 
+  // ── JSON-LD : CreativeWork (preset = œuvre communautaire) + Breadcrumb ──
+  const canonicalUrl = `${SITE_URL}/${params.locale}/presets/${preset.id}`;
+  const creativeWorkLd = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    "@id": canonicalUrl,
+    name: preset.name,
+    description: preset.description ?? undefined,
+    url: canonicalUrl,
+    image: preset.cover_url ?? `${SITE_URL}/api/og/preset/${preset.id}`,
+    inLanguage: params.locale,
+    datePublished: preset.created_at,
+    dateModified: preset.updated_at,
+    author: author?.username
+      ? {
+          "@type": "Person",
+          name: author.username,
+          url: `${SITE_URL}/${params.locale}/profile/${preset.author_id}`,
+        }
+      : undefined,
+    interactionStatistic: [
+      {
+        "@type": "InteractionCounter",
+        interactionType: "https://schema.org/PlayAction",
+        userInteractionCount: preset.play_count,
+      },
+      {
+        "@type": "InteractionCounter",
+        interactionType: "https://schema.org/LikeAction",
+        userInteractionCount: preset.like_count,
+      },
+    ],
+    isPartOf: {
+      "@type": "WebSite",
+      name: "GameTrend",
+      url: SITE_URL,
+    },
+  };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: tSeo("breadcrumbHome"), item: `${SITE_URL}/${params.locale}` },
+      { "@type": "ListItem", position: 2, name: tSeo("breadcrumbPresets"), item: `${SITE_URL}/${params.locale}/presets` },
+      { "@type": "ListItem", position: 3, name: preset.name, item: canonicalUrl },
+    ],
+  };
+
   return (
     <div>
+      <script
+        type="application/ld+json"
+        // dangerouslySetInnerHTML est la méthode officielle Next/React pour
+        // injecter du JSON-LD : on doit produire la string sérialisée.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(creativeWorkLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+      />
       <PresetViewTracker presetId={preset.id} />
       <Header
         title=""

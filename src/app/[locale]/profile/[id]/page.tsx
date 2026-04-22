@@ -1,160 +1,216 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import { useRouter } from "@/i18n/navigation";
-import { motion } from "framer-motion";
-import { useTranslations } from "next-intl";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
+import { cache } from "react";
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { createPublicClient } from "@/lib/supabase/server";
 import Header from "@/components/layout/Header";
 import Avatar from "@/components/ui/Avatar";
-import FriendButton from "@/components/social/FriendButton";
-import FollowButton from "@/components/social/FollowButton";
 import CreatorStats from "@/components/profile/CreatorStats";
 import PresetCard from "@/components/presets/PresetCard";
 import { Link } from "@/i18n/navigation";
 import type { Preset, SubscriptionStatus } from "@/types/database";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import CreatorBadge from "@/components/premium/CreatorBadge";
+import { SITE_URL } from "@/lib/seo/sitemap";
+import ProfileSocialActions from "./_components/ProfileSocialActions";
+import ProfileLoginCTA from "./_components/ProfileLoginCTA";
 
 interface PublicProfile {
   id: string;
   username: string | null;
   avatar_url: string | null;
   bio: string | null;
-  stats: Record<string, number>;
+  stats: Record<string, number> | null;
   followers_count: number;
   following_count: number;
   subscription_status: SubscriptionStatus;
   profile_link_url: string | null;
   profile_banner_url: string | null;
   profile_accent_color: string | null;
+  updated_at: string;
 }
 
-export default function PublicProfilePage() {
-  const t = useTranslations("profile.public");
-  const tProfile = useTranslations("profile");
-  const tStats = useTranslations("profile.stats");
-  const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const { user } = useAuth();
+interface ProfileBundle {
+  profile: PublicProfile;
+  presets: Preset[];
+  pinnedIds: string[];
+}
 
-  const [profile, setProfile] = useState<PublicProfile | null>(null);
-  const [presets, setPresets] = useState<Preset[]>([]);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  const [mutualCount, setMutualCount] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+/**
+ * Charge le profil + presets publics + pinned. React.cache évite la double
+ * exécution entre `generateMetadata` et le composant.
+ *
+ * Lecture publique (createPublicClient) : ne contient AUCUNE donnée sensible
+ * (RLS public sur profiles + filtre is_public=true sur presets). Les compteurs
+ * de followers/following sont déjà publics par design.
+ */
+const loadProfileBundle = cache(async (id: string): Promise<ProfileBundle | null> => {
+  const supabase = createPublicClient();
 
-  const supabase = createClient();
-  const isOwnProfile = user && user.id === id;
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select(
+      "id, username, avatar_url, bio, stats, followers_count, following_count, subscription_status, profile_link_url, profile_banner_url, profile_accent_color, updated_at"
+    )
+    .eq("id", id)
+    .maybeSingle();
 
-  useEffect(() => {
-    if (!id) return;
+  if (!profileRow) return null;
 
-    // Rediriger vers le profil propre si même utilisateur
-    if (isOwnProfile) { router.replace("/profile"); return; }
+  const profile = profileRow as unknown as PublicProfile;
+  const isPremiumAuthor = ["trialing", "active", "lifetime"].includes(
+    profile.subscription_status
+  );
 
-    async function load() {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select(
-          "id, username, avatar_url, bio, stats, followers_count, following_count, subscription_status, profile_link_url, profile_banner_url, profile_accent_color"
-        )
-        .eq("id", id)
-        .maybeSingle();
+  // Le banner et le lien externe sont des features Premium uniquement
+  const sanitizedProfile: PublicProfile = {
+    ...profile,
+    profile_link_url: isPremiumAuthor ? profile.profile_link_url : null,
+    profile_banner_url: isPremiumAuthor ? profile.profile_banner_url : null,
+  };
 
-      if (!p) { setNotFound(true); setLoading(false); return; }
-      const isPremiumAuthor = ["trialing", "active", "lifetime"].includes(
-        (p as PublicProfile).subscription_status
-      );
-      setProfile({
-        ...(p as PublicProfile),
-        // Lien profil et bannière exclusivement visibles si l'auteur est premium
-        profile_link_url: isPremiumAuthor ? (p as PublicProfile).profile_link_url : null,
-        profile_banner_url: isPremiumAuthor ? (p as PublicProfile).profile_banner_url : null,
-      });
+  const [{ data: presetsRow }, { data: pinsRow }] = await Promise.all([
+    supabase
+      .from("presets")
+      .select(PRESET_LIST_COLS)
+      .eq("author_id", id)
+      .eq("is_public", true)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
+      .limit(12),
+    supabase
+      .from("pinned_presets")
+      .select("preset_id, position")
+      .eq("user_id", id)
+      .order("position", { ascending: true }),
+  ]);
 
-      // Presets publics + pins
-      const [{ data: ps }, { data: pins }] = await Promise.all([
-        supabase
-          .from("presets")
-          .select(PRESET_LIST_COLS)
-          .eq("author_id", id)
-          .eq("is_public", true)
-          .is("archived_at", null)
-          .order("created_at", { ascending: false })
-          .limit(12),
-        supabase
-          .from("pinned_presets")
-          .select("preset_id, position")
-          .eq("user_id", id)
-          .order("position", { ascending: true }),
-      ]);
-      setPresets((ps as Preset[]) ?? []);
-      setPinnedIds((pins ?? []).map((r: any) => r.preset_id as string));
+  return {
+    profile: sanitizedProfile,
+    presets: (presetsRow as Preset[]) ?? [],
+    pinnedIds: (pinsRow ?? []).map((r) => r.preset_id),
+  };
+});
 
-      // Amis en commun (uniquement si connecté non-anonyme)
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser && !currentUser.is_anonymous) {
-        const { data: mc } = await supabase.rpc("get_mutual_friends_count", { target_id: id });
-        setMutualCount(mc ?? 0);
-      }
+export async function generateMetadata({
+  params,
+}: {
+  params: { locale: string; id: string };
+}): Promise<Metadata> {
+  const bundle = await loadProfileBundle(params.id);
+  const t = await getTranslations({ locale: params.locale, namespace: "profile.seo" });
 
-      setLoading(false);
-    }
-
-    load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-surface-950 flex items-center justify-center">
-        <div className="text-4xl animate-pulse">👤</div>
-      </div>
-    );
+  if (!bundle) {
+    return {
+      title: t("notFoundTitle"),
+      robots: { index: false, follow: false },
+    };
   }
 
-  if (notFound || !profile) {
-    return (
-      <div className="min-h-screen bg-surface-950 flex flex-col items-center justify-center gap-4 px-5">
-        <div className="text-6xl">🫥</div>
-        <p className="text-white font-display font-bold text-xl">{t("notFoundTitle")}</p>
-        <p className="text-surface-500 text-sm text-center">{t("notFoundDesc")}</p>
-        <button onClick={() => router.back()} className="px-5 py-2.5 rounded-xl bg-surface-800 text-white text-sm hover:bg-surface-700 transition-colors">
-          {t("back")}
-        </button>
-      </div>
-    );
+  const { profile, presets } = bundle;
+
+  // noindex pour les profils "fantômes" : pas de username OU 0 preset public.
+  // Évite d'inonder Google de pages de faible valeur (Soft 404 risk).
+  const isIndexable = Boolean(profile.username) && presets.length > 0;
+
+  if (!isIndexable) {
+    return {
+      title: profile.username ?? t("anonymousTitle"),
+      robots: { index: false, follow: false },
+    };
   }
+
+  const title = t("publicTitle", { username: profile.username ?? "" });
+  const description =
+    profile.bio?.trim() ||
+    t("publicFallbackDescription", {
+      username: profile.username ?? "",
+      count: presets.length,
+    });
+  const canonicalPath = `/${params.locale}/profile/${profile.id}`;
+  const ogImageUrl = `/api/og/profile/${profile.id}`;
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalPath,
+      languages: {
+        fr: `/fr/profile/${profile.id}`,
+        en: `/en/profile/${profile.id}`,
+        "x-default": `/fr/profile/${profile.id}`,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      type: "profile",
+      url: `${SITE_URL}${canonicalPath}`,
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: profile.username ?? "" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
+    },
+  };
+}
+
+export default async function PublicProfilePage({
+  params,
+}: {
+  params: { locale: string; id: string };
+}) {
+  const bundle = await loadProfileBundle(params.id);
+  if (!bundle) notFound();
+
+  const { profile, presets, pinnedIds } = bundle;
+
+  const t = await getTranslations({ locale: params.locale, namespace: "profile.public" });
+  const tProfile = await getTranslations({ locale: params.locale, namespace: "profile" });
+  const tStats = await getTranslations({ locale: params.locale, namespace: "profile.stats" });
 
   const stats = profile.stats ?? {};
   const statItems = [
-    { label: tStats("games"), value: stats.games_played ?? 0, color: "brand" },
-    { label: tStats("wins"), value: stats.wins ?? 0, color: "ghost" },
-    { label: tStats("presets"), value: presets.length, color: "brand" },
+    { label: tStats("games"), value: stats.games_played ?? 0, color: "brand" as const },
+    { label: tStats("wins"), value: stats.wins ?? 0, color: "ghost" as const },
+    { label: tStats("presets"), value: presets.length, color: "brand" as const },
   ];
 
-  const isLoggedIn = user && !user.is_anonymous;
+  // ── JSON-LD Person : signal majeur pour les "knowledge graph" Google ──
+  const canonicalUrl = `${SITE_URL}/${params.locale}/profile/${profile.id}`;
+  const personLd = {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": canonicalUrl,
+    name: profile.username ?? undefined,
+    description: profile.bio ?? undefined,
+    url: canonicalUrl,
+    image: profile.avatar_url ?? `${SITE_URL}/api/og/profile/${profile.id}`,
+    // sameAs : lien externe public (uniquement pour les profils Premium qui
+    // ont leur lien validé). On ne pollue pas le graphe avec des liens vides.
+    sameAs: profile.profile_link_url ? [profile.profile_link_url] : undefined,
+  };
+
+  const accentStyle = profile.profile_accent_color
+    ? ({ ["--profile-accent" as string]: profile.profile_accent_color } as React.CSSProperties)
+    : undefined;
 
   return (
     <div className="min-h-screen bg-surface-950 bg-grid">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personLd) }}
+      />
       <Header backHref="/" title="" />
 
-      <div className="px-4 pt-3 pb-8 space-y-4 max-w-lg mx-auto">
+      <article className="px-4 pt-3 pb-8 space-y-4 max-w-lg mx-auto">
 
         {/* Hero */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
+        <section
           className="relative rounded-3xl overflow-hidden border border-surface-700/30 bg-surface-900/60"
-          style={
-            profile.profile_accent_color
-              ? ({ ["--profile-accent" as any]: profile.profile_accent_color } as React.CSSProperties)
-              : undefined
-          }
+          style={accentStyle}
         >
           {profile.profile_banner_url ? (
             <div className="relative h-32 w-full overflow-hidden">
@@ -182,7 +238,7 @@ export default function PublicProfilePage() {
                 <CreatorBadge status={profile.subscription_status} />
               </h1>
 
-              {/* Compteurs followers / following */}
+              {/* Compteurs followers / following — SSR pour le SEO et la perf */}
               <div className="flex items-center gap-4 mt-2 text-xs">
                 <Link href={`/profile/${profile.id}/followers`} className="flex items-baseline gap-1.5 hover:text-white transition-colors">
                   <span className="text-white font-bold text-sm">{profile.followers_count}</span>
@@ -192,9 +248,6 @@ export default function PublicProfilePage() {
                   <span className="text-white font-bold text-sm">{profile.following_count}</span>
                   <span className="text-surface-400">{tProfile("following")}</span>
                 </Link>
-                {mutualCount !== null && mutualCount > 0 && (
-                  <span className="text-surface-500">· {t("mutualFriends", { n: mutualCount })}</span>
-                )}
               </div>
 
               {profile.bio && (
@@ -215,33 +268,16 @@ export default function PublicProfilePage() {
                 </a>
               )}
 
-              {/* Boutons sociaux */}
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <FollowButton
-                  targetUserId={profile.id}
-                  onChange={(isFollowing) => {
-                    setProfile((p) => p ? { ...p, followers_count: p.followers_count + (isFollowing ? 1 : -1) } : p);
-                  }}
-                />
-                {isLoggedIn && <FriendButton targetUserId={profile.id} />}
-              </div>
+              <ProfileSocialActions targetUserId={profile.id} />
             </div>
           </div>
-        </motion.div>
+        </section>
 
         {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.06 }}
-          className="grid grid-cols-3 gap-2"
-        >
-          {statItems.map((s, i) => (
-            <motion.div
+        <section className="grid grid-cols-3 gap-2">
+          {statItems.map((s) => (
+            <div
               key={s.label}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.08 + i * 0.04 }}
               className={`relative rounded-2xl border p-4 flex flex-col items-center gap-1 overflow-hidden ${
                 s.color === "brand"
                   ? "border-brand-700/25 bg-brand-950/30"
@@ -260,70 +296,47 @@ export default function PublicProfilePage() {
                 {s.value}
               </span>
               <span className="text-xs text-surface-400 font-medium">{s.label}</span>
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </section>
 
         {/* Stats créateur (uniquement si presets publics) */}
         <CreatorStats userId={profile.id} followersCount={profile.followers_count} />
 
         {/* Pinned presets (premium) */}
         {pinnedIds.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <p className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
+          <section>
+            <h2 className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
               <span>📌</span>
               {t("pinnedPresets")}
-            </p>
+            </h2>
             <div className="grid grid-cols-2 gap-3">
               {pinnedIds
                 .map((pid) => presets.find((p) => p.id === pid))
-                .filter(Boolean)
+                .filter((p): p is Preset => Boolean(p))
                 .map((preset, i) => (
-                  <PresetCard
-                    key={preset!.id}
-                    preset={preset!}
-                    index={i}
-                    userId={user?.id}
-                  />
+                  <PresetCard key={preset.id} preset={preset} index={i} />
                 ))}
             </div>
-          </motion.div>
+          </section>
         )}
 
         {/* Presets publics */}
         {presets.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-          >
-            <p className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1">
+          <section>
+            <h2 className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1">
               {t("publicPresets")}
-            </p>
+            </h2>
             <div className="grid grid-cols-2 gap-3">
               {presets.map((preset, i) => (
-                <PresetCard
-                  key={preset.id}
-                  preset={preset}
-                  index={i}
-                  userId={user?.id}
-                />
+                <PresetCard key={preset.id} preset={preset} index={i} />
               ))}
             </div>
-          </motion.div>
+          </section>
         )}
 
-        {!isLoggedIn && (
-          <p className="text-surface-600 text-xs text-center pt-2">
-            <a href="/auth/login" className="text-brand-400 underline">{t("loginPrefix")}</a>
-            {t("loginSuffix")}
-          </p>
-        )}
-      </div>
+        <ProfileLoginCTA />
+      </article>
     </div>
   );
 }
