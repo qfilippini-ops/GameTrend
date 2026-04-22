@@ -72,6 +72,6 @@ export const config = {
   // On exclut explicitement les routes qui ne doivent JAMAIS être préfixées
   // par une locale (API, OAuth callback, statiques, service worker).
   matcher: [
-    "/((?!api|auth/callback|r/|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|icons|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|auth/callback|r/|_next/static|_next/image|favicon.ico|sw.js|workbox-.*|icons|manifest.json|ads.txt|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)",
   ],
 };
