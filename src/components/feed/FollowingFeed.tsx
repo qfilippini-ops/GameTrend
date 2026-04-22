@@ -406,10 +406,10 @@ export default function FollowingFeed() {
               <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
             )}
           </motion.div>
-          {/* Ad inline tous les 5 items pour les non-premium */}
-          {(i + 1) % 5 === 0 && i < items.length - 1 && (
+          {/* Ad inline tous les 8 items pour les non-premium */}
+          {(i + 1) % 8 === 0 && i < items.length - 1 && (
             <div className="mt-3">
-              <AdSlot placement="feed-inline" index={Math.floor(i / 5)} />
+              <AdSlot placement="feed-inline" index={Math.floor(i / 8)} />
             </div>
           )}
         </div>

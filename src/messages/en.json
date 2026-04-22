@@ -954,6 +954,9 @@
     "accept": "OK",
     "learnMore": "Learn more"
   },
+  "ads": {
+    "label": "Sponsored"
+  },
   "pwa": {
     "installTitle": "Install GameTrend",
     "installText": "Add the app to your home screen for quick access.",

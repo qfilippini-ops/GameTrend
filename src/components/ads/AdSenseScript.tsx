@@ -15,7 +15,9 @@
  *     pas (adsbygoogle = window.adsbygoogle || []).push({}).
  *
  * Conformité RGPD :
- *   - Le .push() est gaté dans AdSlot par cookieConsent === "all" && !isPremium.
+ *   - Le .push() est gaté dans AdSlot par useConsent().adsConsent && !isPremium.
+ *   - Le consentement est géré par la CMP Google (TCF v2.2) injectée par ce
+ *     même script en EEE/UK/CH.
  *
  * Variable d'env :
  *   NEXT_PUBLIC_ADSENSE_CLIENT_ID = ca-pub-XXXXXXXXXXXXXXXX

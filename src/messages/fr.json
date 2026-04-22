@@ -954,6 +954,9 @@
     "accept": "OK",
     "learnMore": "En savoir plus"
   },
+  "ads": {
+    "label": "Annonce"
+  },
   "pwa": {
     "installTitle": "Installer GameTrend",
     "installText": "Ajoute l'app à ton écran d'accueil pour un accès rapide.",

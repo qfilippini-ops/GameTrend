@@ -14,6 +14,7 @@ import PresetComments from "@/components/presets/PresetComments";
 import PresetViewTracker from "@/components/presets/PresetViewTracker";
 import CreatorBadge from "@/components/premium/CreatorBadge";
 import PresetAnalyticsButton from "@/components/premium/PresetAnalyticsButton";
+import AdSlot from "@/components/ads/AdSlot";
 import type { SubscriptionStatus } from "@/types/database";
 
 const GAME_META: Record<string, { icon: string; name: string; color: string; gameHref: (id: string) => string }> = {
@@ -438,6 +439,9 @@ export default async function PresetDetailPage({ params }: { params: { id: strin
         <div className="pt-2 border-t border-surface-800/60">
           <PresetComments presetId={preset.id} />
         </div>
+
+        {/* ── Ad bas de page (non-premium uniquement, après le contenu) ── */}
+        <AdSlot placement="preset-detail" />
 
         {/* ── Actions owner ── */}
         {isOwner && (
