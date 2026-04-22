@@ -18,6 +18,14 @@ import { PaywallProvider } from "@/components/premium/PaywallProvider";
 import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
 import AdSenseScript from "@/components/ads/AdSenseScript";
 
+// Inter et Space Grotesk sont des fonts VARIABLES sur Google Fonts. En
+// omettant le `weight`, next/font charge un unique fichier variable axis qui
+// couvre tous les weights demandés via Tailwind (font-medium/bold/etc.).
+//
+// Avant : Space Grotesk chargeait 4 fichiers statiques (400/500/600/700) →
+// ~80 KiB transférés sur la landing. Après : 1 fichier variable ~30 KiB qui
+// permet en plus d'utiliser font-extrabold (800) et font-black (900) sans
+// fallback synthétique du navigateur.
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -28,7 +36,6 @@ const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-display",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
 });
 
 export function generateStaticParams() {
@@ -183,7 +190,6 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="min-h-screen">
-        <AdSenseScript />
         <NextIntlClientProvider>
           <PaywallProvider>
             <FeedCacheProvider>
@@ -198,6 +204,13 @@ export default async function LocaleLayout({
             </FeedCacheProvider>
           </PaywallProvider>
         </NextIntlClientProvider>
+        {/*
+          AdSense en BAS de body pour que le navigateur reçoive d'abord tout
+          le HTML critique (header, hero, contenu) avant de commencer le
+          download de adsbygoogle.js. Combiné au `defer` du script, le LCP
+          n'est plus bloqué par AdSense.
+        */}
+        <AdSenseScript />
       </body>
     </html>
   );

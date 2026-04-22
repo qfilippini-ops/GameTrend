@@ -14,6 +14,17 @@
  *   - Le script seul ne pose AUCUN cookie publicitaire tant qu'on n'appelle
  *     pas (adsbygoogle = window.adsbygoogle || []).push({}).
  *
+ * Optimisation perf (LCP) :
+ *   - `defer` au lieu de `async` : le navigateur télécharge en parallèle MAIS
+ *     n'exécute le JS qu'après avoir parsé tout le HTML. Sur 4G lente, ça
+ *     évite que le main thread soit bloqué par le parsing du script AdSense
+ *     (~230 KiB) avant que le LCP element soit peint.
+ *   - Le composant est désormais monté en BAS du body (cf. layout.tsx) pour
+ *     que le navigateur ne commence pas le download AdSense avant d'avoir
+ *     reçu le contenu critique.
+ *   - Le crawler AdSense voit toujours la balise script dans le HTML SSR :
+ *     la position dans le body ne change rien à la validation.
+ *
  * Conformité RGPD :
  *   - Le .push() est gaté dans AdSlot par useConsent().adsConsent && !isPremium.
  *   - Le consentement est géré par la CMP Google (TCF v2.2) injectée par ce
@@ -30,7 +41,7 @@ export default function AdSenseScript() {
 
   return (
     <script
-      async
+      defer
       crossOrigin="anonymous"
       src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${clientId}`}
     />

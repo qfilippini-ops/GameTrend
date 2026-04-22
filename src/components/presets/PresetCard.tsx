@@ -2,7 +2,6 @@
 
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import FavoriteButton from "@/components/presets/FavoriteButton";
 import type { Preset } from "@/types/database";
@@ -17,14 +16,22 @@ interface PresetCardProps {
   compact?: boolean;
 }
 
+// Animation d'apparition gérée en CSS pure (vs framer-motion auparavant) :
+// PresetCard est rendu en boucle (5-30 instances visibles), framer-motion
+// ajoutait ~30 KiB au bundle critique de la landing pour un effet décoratif.
+// On utilise inline style + animation CSS Tailwind pour le même rendu visuel.
+const STAGGER_MS = 40;
+
 export default function PresetCard({ preset, index = 0, userId, compact = false }: PresetCardProps) {
   const t = useTranslations("presets.card");
   if (compact) {
     return (
-      <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: index * 0.04 }}
+      <div
+        className="motion-safe:animate-preset-card-in opacity-0"
+        style={{
+          animationDelay: `${index * STAGGER_MS}ms`,
+          animationFillMode: "forwards",
+        }}
       >
         <Link href={`/presets/${preset.id}`}>
           <div className="group rounded-2xl border border-surface-700/40 bg-surface-900/60 hover:border-brand-500/40 transition-all overflow-hidden cursor-pointer">
@@ -57,16 +64,17 @@ export default function PresetCard({ preset, index = 0, userId, compact = false 
             </div>
           </div>
         </Link>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="relative"
+    <div
+      className="relative motion-safe:animate-preset-card-in opacity-0"
+      style={{
+        animationDelay: `${index * STAGGER_MS}ms`,
+        animationFillMode: "forwards",
+      }}
     >
       <Link href={`/presets/${preset.id}`}>
         <div className="group rounded-2xl border border-surface-700/40 bg-surface-900/60 hover:border-brand-500/40 hover:shadow-neon-sm-brand transition-all overflow-hidden cursor-pointer">
@@ -129,6 +137,6 @@ export default function PresetCard({ preset, index = 0, userId, compact = false 
           </div>
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 }

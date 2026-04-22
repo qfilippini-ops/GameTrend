@@ -31,6 +31,10 @@ export function initPostHog() {
     capture_pageleave: true,
     autocapture: false,
     disable_session_recording: true,
+    // Désactive le module surveys (chargé en lazy par le SDK PostHog mais
+    // tout de même téléchargé dès l'init = ~29 KiB inutile sur la landing).
+    // À réactiver explicitement si on veut pousser des surveys un jour.
+    disable_surveys: true,
     persistence: "localStorage+cookie",
     loaded: () => {
       initialized = true;

@@ -63,6 +63,10 @@ const config: Config = {
         "neon-pulse": "neonPulse 3s ease-in-out infinite alternate",
         float: "float 5s ease-in-out infinite",
         "slide-in-right": "slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
+        // Animation d'apparition des PresetCard (remplace framer-motion sur la
+        // landing pour ne pas polluer le bundle critique). Le delay est passé
+        // inline via style.animationDelay côté composant.
+        "preset-card-in": "presetCardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
       },
       keyframes: {
         fadeIn: {
@@ -80,6 +84,10 @@ const config: Config = {
         slideInRight: {
           from: { transform: "translateX(20px)", opacity: "0" },
           to: { transform: "translateX(0)", opacity: "1" },
+        },
+        presetCardIn: {
+          from: { transform: "translateY(12px)", opacity: "0" },
+          to: { transform: "translateY(0)", opacity: "1" },
         },
         glow: {
           from: { boxShadow: "0 0 15px rgba(68, 96, 255, 0.3), 0 0 40px rgba(68, 96, 255, 0.05)" },
