@@ -22,6 +22,7 @@ import SubscriptionSection from "@/components/premium/SubscriptionSection";
 import PinnedPresetsManager from "@/components/premium/PinnedPresetsManager";
 import CreatorBadge from "@/components/premium/CreatorBadge";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useConsent } from "@/hooks/useConsent";
 
 type Tab = "mes-presets" | "favoris";
 
@@ -522,13 +523,11 @@ export default function ProfilePage() {
 
 function CookieSettingsButton() {
   const t = useTranslations("profile.rgpd");
-  function handleOpen() {
-    window.dispatchEvent(new CustomEvent("open-cookie-settings"));
-  }
+  const { openSettings } = useConsent();
 
   return (
     <button
-      onClick={handleOpen}
+      onClick={openSettings}
       className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-surface-800/20 transition-colors text-left"
     >
       <span className="text-lg">🍪</span>

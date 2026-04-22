@@ -2,13 +2,13 @@
 
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useConsent } from "@/hooks/useConsent";
 import { initPostHog, identifyUser, resetUser } from "@/lib/analytics/posthog";
 
-const COOKIE_CONSENT_KEY = "cookie-consent";
-
 /**
- * Initialise PostHog côté client uniquement si l'utilisateur a accepté
- * "tous les cookies" via le CookieBanner.
+ * Initialise PostHog côté client uniquement si :
+ *   - On est hors EEE (consentement implicite, géré par useConsent), OU
+ *   - L'utilisateur a accepté les purposes 1 + 8 dans la CMP Google (TCF v2.2).
  *
  * Identifie l'utilisateur connecté et reset à la déconnexion.
  *
@@ -16,27 +16,16 @@ const COOKIE_CONSENT_KEY = "cookie-consent";
  */
 export default function AnalyticsProvider() {
   const { user, profile } = useAuth();
+  const { ready, analyticsConsent } = useConsent();
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    function checkConsent() {
-      const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-      if (consent === "all") {
-        initPostHog();
-      }
-    }
-
-    checkConsent();
-
-    function onStorage(e: StorageEvent) {
-      if (e.key === COOKIE_CONSENT_KEY) checkConsent();
-    }
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+    if (!ready) return;
+    if (!analyticsConsent) return;
+    initPostHog();
+  }, [ready, analyticsConsent]);
 
   useEffect(() => {
+    if (!ready || !analyticsConsent) return;
     if (!user) {
       resetUser();
       return;
@@ -48,7 +37,14 @@ export default function AnalyticsProvider() {
       subscription_status: profile?.subscription_status ?? "free",
       subscription_plan: profile?.subscription_plan ?? null,
     });
-  }, [user, profile?.subscription_status, profile?.subscription_plan, profile?.username]);
+  }, [
+    ready,
+    analyticsConsent,
+    user,
+    profile?.subscription_status,
+    profile?.subscription_plan,
+    profile?.username,
+  ]);
 
   return null;
 }

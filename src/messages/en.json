@@ -950,24 +950,9 @@
   },
   "cookies": {
     "title": "Cookies",
-    "text": "We only use essential cookies (auth, language). No advertising trackers.",
+    "text": "Consent for analytics and advertising cookies is managed via Google's CMP (only shown in the EEA/UK/Switzerland). You can update your choices from your profile.",
     "accept": "OK",
-    "learnMore": "Learn more",
-    "banner": {
-      "title": "Cookies & privacy",
-      "intro": "GameTrend uses essential cookies to function and, with your consent, analytics cookies (Google Analytics) to improve the service. Advertising cookies may be enabled later with your consent. ",
-      "essentialsLabel": "Essentials",
-      "essentialsDesc": "Session, preferences. Always active.",
-      "analyticsLabel": "Analytics (Google Analytics)",
-      "analyticsDesc": "Anonymized usage statistics.",
-      "adsLabel": "Advertising (future)",
-      "adsDesc": "Personalized ads. Disabled for now.",
-      "required": "(required)",
-      "hideDetails": "Hide details",
-      "showDetails": "Show details",
-      "essentialsOnly": "Essentials only",
-      "acceptAll": "Accept all"
-    }
+    "learnMore": "Learn more"
   },
   "pwa": {
     "installTitle": "Install GameTrend",
