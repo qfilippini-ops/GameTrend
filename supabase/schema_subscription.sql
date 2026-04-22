@@ -232,29 +232,17 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_my_subscription() TO authenticated;
 
 
--- ─── 9. RPC count_lifetime_taken() ──────────────────────────────────────────
--- Pour afficher "X / 100 places lifetime restantes" sur la page pricing.
+-- ─── 9. [SUPPRIMÉ] RPC count_lifetime_taken() ──────────────────────────────
+-- Cette fonction a été supprimée le 2026-04-21. Voir
+-- supabase/migrations/drop_count_lifetime_taken.sql pour la migration.
 --
--- ⚠ Important : SECURITY DEFINER ne suffit PAS pour bypass la RLS sur Supabase
--- Cloud, parce que l'owner de la fonction (postgres non-superuser sur les
--- nouveaux projets) reste soumis aux policies. Il FAUT explicitement
--- "SET row_security = off" au niveau de la fonction pour garantir que le
--- COUNT(*) voit toutes les rows, sinon il ne voit que celles que la RLS
--- expose au caller anon (= 0 lifetime visible) et la fonction renvoie 0
--- silencieusement.
-
-CREATE OR REPLACE FUNCTION public.count_lifetime_taken()
-RETURNS int
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-SET row_security = off
-AS $$
-  SELECT COUNT(*)::int FROM public.profiles WHERE subscription_status = 'lifetime';
-$$;
-
-GRANT EXECUTE ON FUNCTION public.count_lifetime_taken() TO authenticated, anon;
+-- Raison : SECURITY DEFINER ne bypass pas la RLS sur Supabase Cloud (l'owner
+-- des fonctions n'est pas superuser), ce qui faisait silencieusement renvoyer
+-- 0 au rôle anon. Le compteur lifetime de la page /premium est désormais
+-- calculé directement avec createAdminClient (service_role) côté server
+-- component dans src/app/[locale]/premium/page.tsx, ce qui est plus simple,
+-- garanti de bypass la RLS, et ne leak aucune donnée sensible (juste un
+-- count agrégé).
 
 
 -- ─── 10. RPC count_active_presets(uid) ──────────────────────────────────────

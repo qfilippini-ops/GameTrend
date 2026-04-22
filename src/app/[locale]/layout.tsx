@@ -17,6 +17,7 @@ import { FeedCacheProvider } from "@/components/feed/FeedCacheContext";
 import ReferralClaimer from "@/components/affiliate/ReferralClaimer";
 import { PaywallProvider } from "@/components/premium/PaywallProvider";
 import AnalyticsProvider from "@/components/analytics/AnalyticsProvider";
+import AdSenseScript from "@/components/ads/AdSenseScript";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -45,6 +46,7 @@ export async function generateMetadata({
     ? locale
     : routing.defaultLocale;
   const t = await getTranslations({ locale: safeLocale, namespace: "metadata" });
+  const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID;
 
   return {
     title: t("title"),
@@ -52,6 +54,11 @@ export async function generateMetadata({
     keywords: ["jeux", "soirée", "undercover", "ghostword", "social", "presets", "party games"],
     authors: [{ name: "GameTrend Community" }],
     manifest: "/manifest.json",
+    ...(adsenseClientId && {
+      other: {
+        "google-adsense-account": adsenseClientId,
+      },
+    }),
     appleWebApp: {
       capable: true,
       statusBarStyle: "black-translucent",
@@ -91,6 +98,7 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="min-h-screen">
+        <AdSenseScript />
         <NextIntlClientProvider>
           <PaywallProvider>
             <FeedCacheProvider>
