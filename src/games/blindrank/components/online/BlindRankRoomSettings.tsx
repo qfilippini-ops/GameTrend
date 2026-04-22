@@ -36,7 +36,7 @@ import {
   BLINDRANK_TOUR_MIN_SECONDS,
   BLINDRANK_TOUR_MAX_SECONDS,
   type BlindRankTieBreak,
-} from "@/app/actions/blindrank-rooms";
+} from "@/games/blindrank/online-config";
 
 export interface BlindRankRoomSettingsValue {
   presetId: string;

@@ -7,10 +7,8 @@ import OnlineLobbyShell from "@/games/online/components/OnlineLobbyShell";
 import BlindRankRoomSettings, {
   type BlindRankRoomSettingsValue,
 } from "@/games/blindrank/components/online/BlindRankRoomSettings";
-import {
-  createBlindRankRoom,
-  BLINDRANK_TOUR_DEFAULT_SECONDS,
-} from "@/app/actions/blindrank-rooms";
+import { createBlindRankRoom } from "@/app/actions/blindrank-rooms";
+import { BLINDRANK_TOUR_DEFAULT_SECONDS } from "@/games/blindrank/online-config";
 import { leaveAllOtherRooms } from "@/app/actions/rooms";
 
 function BlindRankOnlineLobbyContent() {

@@ -23,11 +23,13 @@ import BlindRankRoomSettings, {
 import {
   startBlindRankGame,
   updateBlindRankSettings,
+} from "@/app/actions/blindrank-rooms";
+import {
   BLINDRANK_TOUR_DEFAULT_SECONDS,
   BLINDRANK_MIN_PLAYERS,
   BLINDRANK_MAX_PLAYERS,
   type BlindRankTieBreak,
-} from "@/app/actions/blindrank-rooms";
+} from "@/games/blindrank/online-config";
 import { createClient } from "@/lib/supabase/client";
 import type { OnlineRoom, RoomPlayer } from "@/types/rooms";
 

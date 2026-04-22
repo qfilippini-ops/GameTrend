@@ -16,6 +16,14 @@ import {
   DEFAULT_CONFIG,
   clampRackSize,
 } from "@/games/blindrank/engine";
+import {
+  BLINDRANK_MIN_PLAYERS,
+  BLINDRANK_TOUR_MIN_SECONDS,
+  BLINDRANK_TOUR_MAX_SECONDS,
+  BLINDRANK_TOUR_DEFAULT_SECONDS,
+  BLINDRANK_TIE_BREAKS,
+  type BlindRankTieBreak,
+} from "@/games/blindrank/online-config";
 import type { BlindRankConfig } from "@/types/games";
 
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -34,15 +42,6 @@ function shuffle<T>(arr: T[]): T[] {
   }
   return a;
 }
-
-// ── Bornes paramètres online ────────────────────────────────────
-export const BLINDRANK_MIN_PLAYERS = 2;
-export const BLINDRANK_MAX_PLAYERS = 16;
-export const BLINDRANK_TOUR_MIN_SECONDS = 30;
-export const BLINDRANK_TOUR_MAX_SECONDS = 300;
-export const BLINDRANK_TOUR_DEFAULT_SECONDS = 60;
-export const BLINDRANK_TIE_BREAKS = ["low", "high"] as const;
-export type BlindRankTieBreak = (typeof BLINDRANK_TIE_BREAKS)[number];
 
 // ── Création d'un salon ─────────────────────────────────────────
 export interface CreateBlindRankRoomOptions {
