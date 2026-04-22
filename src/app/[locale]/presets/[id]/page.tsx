@@ -69,7 +69,13 @@ export async function generateMetadata({
     t("detailFallbackDescription", { name: preset.name, game: gameLabel, author: authorName });
 
   const canonicalPath = `/${params.locale}/presets/${preset.id}`;
-  const ogImageUrl = `/api/og/preset/${preset.id}`;
+  // Cache-buster basé sur updated_at : chaque modif du preset (nom, cover,
+  // description) génère une nouvelle URL OG, donc le CDN Vercel ressort une
+  // image fraîche immédiatement au lieu d'attendre l'expiration du s-maxage.
+  const ogVersion = preset.updated_at
+    ? new Date(preset.updated_at).getTime()
+    : Date.now();
+  const ogImageUrl = `/api/og/preset/${preset.id}?v=${ogVersion}`;
 
   return {
     title,

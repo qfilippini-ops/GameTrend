@@ -128,7 +128,11 @@ export async function generateMetadata({
       count: presets.length,
     });
   const canonicalPath = `/${params.locale}/profile/${profile.id}`;
-  const ogImageUrl = `/api/og/profile/${profile.id}`;
+  // Cache-buster basé sur updated_at (cf. presets/[id]/page.tsx).
+  const ogVersion = profile.updated_at
+    ? new Date(profile.updated_at).getTime()
+    : Date.now();
+  const ogImageUrl = `/api/og/profile/${profile.id}?v=${ogVersion}`;
 
   return {
     title,

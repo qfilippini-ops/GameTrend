@@ -212,8 +212,12 @@ export async function GET(
       height: HEIGHT,
       fonts,
       headers: {
+        // Cache court côté CDN (1h) + long stale-while-revalidate (24h) :
+        // bon compromis pour qu'un changement de design (commit) soit visible
+        // rapidement sans regénérer à chaque hit. Le cache-buster `?v=updated_at`
+        // côté generateMetadata gère les changements de DONNÉES du preset.
         "Cache-Control":
-          "public, immutable, no-transform, s-maxage=86400, stale-while-revalidate=604800",
+          "public, no-transform, s-maxage=3600, stale-while-revalidate=86400",
       },
     },
   );

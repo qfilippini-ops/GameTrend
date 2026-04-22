@@ -282,8 +282,9 @@ export async function GET(
       height: HEIGHT,
       fonts,
       headers: {
+        // Voir og/preset/[id]/route.tsx pour le rationale du cache.
         "Cache-Control":
-          "public, immutable, no-transform, s-maxage=86400, stale-while-revalidate=604800",
+          "public, no-transform, s-maxage=3600, stale-while-revalidate=86400",
       },
     },
   );
