@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { loadInterFonts } from "@/app/api/og/_lib/fonts";
 
 /**
  * OG image par défaut. Servie quand aucune image spécifique n'est définie
@@ -11,7 +12,8 @@ export const runtime = "nodejs";
 const WIDTH = 1200;
 const HEIGHT = 630;
 
-export function GET() {
+export async function GET() {
+  const fonts = await loadInterFonts();
   return new ImageResponse(
     (
       <div
@@ -26,7 +28,7 @@ export function GET() {
           color: "white",
           padding: 80,
           position: "relative",
-          fontFamily: "sans-serif",
+          fontFamily: "Inter",
         }}
       >
         {/* Halo brand */}
@@ -90,10 +92,11 @@ export function GET() {
     {
       width: WIDTH,
       height: HEIGHT,
+      fonts,
       headers: {
-        // Cache long : asset statique
-        "Cache-Control": "public, immutable, no-transform, s-maxage=2592000, stale-while-revalidate=2592000",
+        "Cache-Control":
+          "public, immutable, no-transform, s-maxage=2592000, stale-while-revalidate=2592000",
       },
-    }
+    },
   );
 }
