@@ -248,7 +248,8 @@ BEGIN
   ELSIF v_is_last_match THEN
     -- Fin du round → on entre en transition (3 s) avant le round suivant.
     v_dyp := jsonb_set(v_dyp, '{pendingTransition}', 'true'::jsonb);
-    v_dyp := jsonb_set(v_dyp, '{transitionStartedAt}', to_jsonb(now()));
+    v_dyp := jsonb_set(v_dyp, '{transitionStartedAt}',
+              to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
     v_config := jsonb_set(v_config, '{dyp}', v_dyp);
     UPDATE game_rooms
        SET config = v_config,
@@ -258,7 +259,8 @@ BEGIN
     -- Match suivant dans le même round (la pause "winner annoncé" est gérée
     -- côté client via un overlay local de 1 s, pour ne dépendre d'aucun RPC).
     v_dyp := jsonb_set(v_dyp, '{currentMatchIndex}', to_jsonb(v_current_match + 1));
-    v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()));
+    v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}',
+              to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
     v_config := jsonb_set(v_config, '{dyp}', v_dyp);
     UPDATE game_rooms
        SET config = v_config,
@@ -328,7 +330,8 @@ BEGIN
   END IF;
 
   v_dyp := jsonb_set(v_dyp, '{currentMatchIndex}', to_jsonb(v_current_match + 1));
-  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()));
+  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}',
+            to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
   v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'false'::jsonb);
   v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', 'null'::jsonb);
   v_config := jsonb_set(v_config, '{dyp}', v_dyp);
@@ -431,7 +434,8 @@ BEGIN
   v_dyp := jsonb_set(v_dyp, '{transitionStartedAt}', 'null'::jsonb);
   v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'false'::jsonb);
   v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', 'null'::jsonb);
-  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()));
+  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}',
+            to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')));
   v_config := jsonb_set(v_config, '{dyp}', v_dyp);
 
   UPDATE game_rooms

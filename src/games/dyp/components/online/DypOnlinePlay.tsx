@@ -240,10 +240,11 @@ export default function DypOnlinePlay({
   }
 
   // Timer duel = 0 → leader force la résolution.
+  // Note : on n'exige PAS un timestamp valide. Si parsing foire, le RPC est
+  // quand même appelé et le SQL gère lui-même le timing. Évite tout blocage.
   useEffect(() => {
     if (!state || inRoundTransition || overlayActive) return;
-    if (remainingMs > 0) return;
-    if (startedAtMs <= 0) return;
+    if (startedAtMs > 0 && remainingMs > 0) return;
     const key = `${room.id}:${voteRound}`;
     if (!shouldFire(forcedTimeoutRef, key)) return;
     if (!amILeader()) return;
@@ -265,10 +266,12 @@ export default function DypOnlinePlay({
   }, [remainingMs, voteRound, room.id, inRoundTransition, overlayActive]);
 
   // Timer inter-rounds = 0 → leader force le nouveau round.
+  // Idem : si parsing du timestamp foire, on essaie quand même. Le SQL refusera
+  // si trop tôt, le retry du shouldFire (1.5 s) finira par déclencher. Aucun
+  // blocage possible si la migration SQL est appliquée.
   useEffect(() => {
     if (!state || !inRoundTransition) return;
-    if (transitionRemainingMs > 0) return;
-    if (transitionStartedMs <= 0) return;
+    if (transitionStartedMs > 0 && transitionRemainingMs > 0) return;
     const key = `${room.id}:${voteRound}`;
     if (!shouldFire(forcedAdvanceRef, key)) return;
     if (!amILeader()) return;
