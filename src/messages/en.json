@@ -1399,6 +1399,7 @@
           "timeLeft": "Time left",
           "yourTurn": "Your turn to bid!",
           "waitingForOther": "Waiting for {name}…",
+          "autoFillBanner": "✨ {name} sweeps the rest!",
           "bidPlaceholder": "Min {min}",
           "bidAction": "Outbid",
           "clear": "Clear bid",

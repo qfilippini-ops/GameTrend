@@ -184,48 +184,24 @@ BEGIN
   END IF;
 
   IF v_receiver IS NOT NULL THEN
-    -- Distribue tout le reste gratuitement au receiver, jusqu'à plein.
-    DECLARE
-      v_loop_card_id TEXT;
-      v_receiver_team JSONB;
-      v_receiver_team_size INT;
-    BEGIN
-      IF v_receiver = v_a_name THEN
-        v_receiver_team := v_player_a -> 'team';
-      ELSE
-        v_receiver_team := v_player_b -> 'team';
-      END IF;
-      v_receiver_team_size := jsonb_array_length(v_receiver_team);
-
-      WHILE v_idx < v_total AND v_receiver_team_size < v_team_size LOOP
-        v_loop_card_id := trim(both '"' from (v_card_order -> v_idx)::TEXT);
-        v_receiver_team := v_receiver_team || jsonb_build_array(
-          jsonb_build_object('cardId', v_loop_card_id, 'price', 0)
-        );
-        v_receiver_team_size := v_receiver_team_size + 1;
-        v_idx := v_idx + 1;
-      END LOOP;
-
-      IF v_receiver = v_a_name THEN
-        v_player_a := jsonb_set(v_player_a, '{team}', v_receiver_team);
-        v_outbid := jsonb_set(v_outbid, '{playerA}', v_player_a);
-      ELSE
-        v_player_b := jsonb_set(v_player_b, '{team}', v_receiver_team);
-        v_outbid := jsonb_set(v_outbid, '{playerB}', v_player_b);
-      END IF;
-      v_outbid := jsonb_set(v_outbid, '{currentCardIndex}', to_jsonb(v_idx));
-    END;
-
-    -- Fin de partie après auto-fill
-    v_outbid := jsonb_set(v_outbid, '{finished}', 'true'::jsonb);
+    -- ── Mode auto-fill : on NE distribue PAS encore les cartes ──
+    -- On marque juste l'état pour que le client anime le déroulement.
+    -- Une fois l'animation terminée, le client appelle `outbid_finalize_autofill`
+    -- qui distribue effectivement les cartes et passe en phase 'result'.
+    v_outbid := jsonb_set(v_outbid, '{autoFill}', 'true'::jsonb);
+    v_outbid := jsonb_set(
+      v_outbid, '{autoFillReceiver}', to_jsonb(v_receiver)
+    );
+    v_outbid := jsonb_set(
+      v_outbid, '{autoFillStartedAt}',
+      to_jsonb(to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))
+    );
     v_outbid := jsonb_set(v_outbid, '{currentBid}', 'null'::jsonb);
     v_outbid := jsonb_set(v_outbid, '{awaitingResponse}', 'null'::jsonb);
     v_outbid := jsonb_set(v_outbid, '{decisionStartedAt}', 'null'::jsonb);
-    v_outbid := jsonb_set(v_outbid, '{autoFill}', 'true'::jsonb);
     v_config := jsonb_set(v_config, '{outbid}', v_outbid);
     UPDATE game_rooms
        SET config = v_config,
-           phase = 'result',
            vote_round = vote_round + 1
      WHERE id = p_room_id AND phase = 'playing' AND vote_round = v_round;
     RETURN;
@@ -486,7 +462,100 @@ $$;
 GRANT EXECUTE ON FUNCTION public.outbid_force_timeout(TEXT, INT) TO authenticated, anon;
 
 
--- ── 5. Patch : seuil min_players adaptatif (ajoute Outbid) ────────────────
+-- ── 5. RPC : finaliser l'auto-fill (n'importe quel client peut appeler) ──
+-- Distribue toutes les cartes restantes au receiver de l'auto-fill et passe
+-- en phase 'result'. Idempotent (no-op si autoFill n'est pas marqué).
+CREATE OR REPLACE FUNCTION public.outbid_finalize_autofill(
+  p_room_id    TEXT,
+  p_vote_round INT
+)
+RETURNS VOID LANGUAGE PLPGSQL SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_lock_key           BIGINT;
+  v_phase              TEXT;
+  v_round              INT;
+  v_game_type          TEXT;
+  v_config             JSONB;
+  v_outbid             JSONB;
+  v_team_size          INT;
+  v_card_order         JSONB;
+  v_idx                INT;
+  v_total              INT;
+  v_player_a           JSONB;
+  v_player_b           JSONB;
+  v_a_name             TEXT;
+  v_receiver           TEXT;
+  v_receiver_team      JSONB;
+  v_receiver_team_size INT;
+  v_loop_card_id       TEXT;
+BEGIN
+  v_lock_key := abs(hashtext(p_room_id))::BIGINT;
+  PERFORM pg_advisory_xact_lock(v_lock_key);
+
+  SELECT phase, vote_round, game_type, config
+    INTO v_phase, v_round, v_game_type, v_config
+    FROM game_rooms WHERE id = p_room_id;
+
+  IF v_game_type IS DISTINCT FROM 'outbid' THEN RETURN; END IF;
+  IF v_phase IS DISTINCT FROM 'playing' THEN RETURN; END IF;
+  IF v_round <> p_vote_round THEN RETURN; END IF;
+
+  v_outbid := v_config -> 'outbid';
+  IF v_outbid IS NULL THEN RETURN; END IF;
+  IF NOT COALESCE((v_outbid ->> 'autoFill')::BOOLEAN, false) THEN RETURN; END IF;
+
+  v_receiver   := v_outbid ->> 'autoFillReceiver';
+  v_team_size  := COALESCE((v_outbid ->> 'teamSize')::INT, 8);
+  v_card_order := v_outbid -> 'cardOrder';
+  v_idx        := COALESCE((v_outbid ->> 'currentCardIndex')::INT, 0);
+  v_total      := jsonb_array_length(v_card_order);
+  v_player_a   := v_outbid -> 'playerA';
+  v_player_b   := v_outbid -> 'playerB';
+  v_a_name     := v_player_a ->> 'name';
+
+  IF v_receiver IS NULL THEN RETURN; END IF;
+
+  IF v_receiver = v_a_name THEN
+    v_receiver_team := v_player_a -> 'team';
+  ELSE
+    v_receiver_team := v_player_b -> 'team';
+  END IF;
+  v_receiver_team_size := jsonb_array_length(v_receiver_team);
+
+  WHILE v_idx < v_total AND v_receiver_team_size < v_team_size LOOP
+    v_loop_card_id := trim(both '"' from (v_card_order -> v_idx)::TEXT);
+    v_receiver_team := v_receiver_team || jsonb_build_array(
+      jsonb_build_object('cardId', v_loop_card_id, 'price', 0)
+    );
+    v_receiver_team_size := v_receiver_team_size + 1;
+    v_idx := v_idx + 1;
+  END LOOP;
+
+  IF v_receiver = v_a_name THEN
+    v_player_a := jsonb_set(v_player_a, '{team}', v_receiver_team);
+    v_outbid := jsonb_set(v_outbid, '{playerA}', v_player_a);
+  ELSE
+    v_player_b := jsonb_set(v_player_b, '{team}', v_receiver_team);
+    v_outbid := jsonb_set(v_outbid, '{playerB}', v_player_b);
+  END IF;
+
+  v_outbid := jsonb_set(v_outbid, '{currentCardIndex}', to_jsonb(v_idx));
+  v_outbid := jsonb_set(v_outbid, '{finished}', 'true'::jsonb);
+
+  v_config := jsonb_set(v_config, '{outbid}', v_outbid);
+
+  UPDATE game_rooms
+     SET config     = v_config,
+         phase      = 'result',
+         vote_round = vote_round + 1
+   WHERE id = p_room_id AND phase = 'playing' AND vote_round = v_round;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.outbid_finalize_autofill(TEXT, INT) TO authenticated, anon;
+
+
+-- ── 6. Patch : seuil min_players adaptatif (ajoute Outbid) ────────────────
 CREATE OR REPLACE FUNCTION public.check_end_game_on_leave(p_room_id TEXT)
 RETURNS VOID LANGUAGE PLPGSQL SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -525,7 +594,8 @@ END;
 $$;
 
 
--- ── 6. Vérifications ──────────────────────────────────────────────────────
+-- ── 7. Vérifications ──────────────────────────────────────────────────────
 -- Pour vérifier que les RPCs sont bien créés :
 --   SELECT proname FROM pg_proc WHERE proname LIKE 'outbid_%';
--- Doit lister : outbid_place_bid, outbid_pass, outbid_force_timeout
+-- Doit lister : outbid_place_bid, outbid_pass, outbid_force_timeout,
+--               outbid_finalize_autofill

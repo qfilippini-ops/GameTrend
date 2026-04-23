@@ -1399,6 +1399,7 @@
           "timeLeft": "Temps restant",
           "yourTurn": "À toi de miser !",
           "waitingForOther": "En attente de {name}…",
+          "autoFillBanner": "✨ {name} récupère le reste !",
           "bidPlaceholder": "Min {min}",
           "bidAction": "Surenchérir",
           "clear": "Vider la mise",
