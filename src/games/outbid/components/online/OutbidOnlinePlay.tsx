@@ -40,6 +40,39 @@ import type { DYPCard } from "@/types/games";
 // Durée d'apparition d'une carte d'auto-fill côté client (ms)
 const AUTOFILL_REVEAL_MS = 900;
 
+// Thème par joueur (position A ou B). Classes statiques pour Tailwind.
+const PLAYER_THEMES = {
+  A: {
+    bg: "bg-amber-950/20",
+    bgActive: "bg-amber-900/40",
+    borderActive: "border-amber-500/80",
+    ring: "ring-amber-700/40",
+    ringActive: "ring-amber-300",
+    text: "text-amber-300",
+    textBright: "text-amber-200",
+    badgeBg: "bg-amber-500",
+    badgeText: "text-amber-950",
+    glow: "0 0 28px rgba(245,158,11,0.45)",
+    glowSoft: "0 0 12px rgba(245,158,11,0.18)",
+    glowInset: "inset 0 0 32px rgba(245,158,11,0.22)",
+  },
+  B: {
+    bg: "bg-sky-950/20",
+    bgActive: "bg-sky-900/40",
+    borderActive: "border-sky-500/80",
+    ring: "ring-sky-700/40",
+    ringActive: "ring-sky-300",
+    text: "text-sky-300",
+    textBright: "text-sky-200",
+    badgeBg: "bg-sky-500",
+    badgeText: "text-sky-950",
+    glow: "0 0 28px rgba(56,189,248,0.45)",
+    glowSoft: "0 0 12px rgba(56,189,248,0.18)",
+    glowInset: "inset 0 0 32px rgba(56,189,248,0.22)",
+  },
+} as const;
+type PlayerSlot = "A" | "B";
+
 interface OutbidPlayer {
   name: string;
   points: number;
@@ -146,12 +179,24 @@ export default function OutbidOnlinePlay({
     : null;
   const isSpectator = !myPlayer;
 
+  // Affichage : moi à gauche / adverse à droite.
+  // Le SLOT (A ou B) reste intrinsèque au joueur (pour fixer la couleur).
   const leftPlayer: OutbidPlayer | null = isSpectator
     ? state?.playerA ?? null
     : myPlayer;
   const rightPlayer: OutbidPlayer | null = isSpectator
     ? state?.playerB ?? null
     : otherPlayer;
+  const leftSlot: PlayerSlot | null = state && leftPlayer
+    ? leftPlayer.name === state.playerA.name
+      ? "A"
+      : "B"
+    : null;
+  const rightSlot: PlayerSlot | null = state && rightPlayer
+    ? rightPlayer.name === state.playerA.name
+      ? "A"
+      : "B"
+    : null;
 
   // ── Auto-fill : calcul des cartes "révélées" côté client ──────────
   const isAutoFill = !!state?.autoFill;
@@ -409,13 +454,30 @@ export default function OutbidOnlinePlay({
   );
   const teamSize = state.teamSize;
 
+  // Slot du bidder courant (pour colorer la mise centrale)
+  const bidderSlot: PlayerSlot | null = currentBid
+    ? currentBid.bidder === state.playerA.name
+      ? "A"
+      : currentBid.bidder === state.playerB.name
+        ? "B"
+        : null
+    : null;
+  const autoFillReceiverSlot: PlayerSlot | null = autoFillReceiver
+    ? autoFillReceiver === state.playerA.name
+      ? "A"
+      : autoFillReceiver === state.playerB.name
+        ? "B"
+        : null
+    : null;
+
   return (
     <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
       {/* ───── Scène : 2/3 ───── */}
       <div className="flex-[2] min-h-0 grid grid-cols-[10%_80%_10%]">
         {/* Colonne gauche : joueur */}
-        {displayedLeft && (
+        {displayedLeft && leftSlot && (
           <PlayerColumn
+            slot={leftSlot}
             player={displayedLeft}
             cardById={cardById}
             isYou={!isSpectator && displayedLeft.name === myName}
@@ -435,21 +497,29 @@ export default function OutbidOnlinePlay({
             <p className="text-surface-600 text-[10px] font-mono">
               {t("cardCounter", { current: cardNumber, total: totalCards })}
             </p>
-            {currentBid && !isAutoFill && (
-              <div className="px-3 py-1 rounded-lg bg-amber-950/40 border border-amber-700/40">
-                <p className="text-center text-amber-300 font-mono text-xs">
-                  <span className="font-bold text-base">
-                    {formatPoints(currentBid.amount)}
-                  </span>{" "}
-                  <span className="opacity-70">
-                    {t("byBidder", { name: currentBid.bidder })}
-                  </span>
+            {currentBid && !isAutoFill && bidderSlot && (
+              <motion.div
+                key={`bid-${currentBid.amount}-${currentBid.bidder}`}
+                initial={{ scale: 0.85, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                className={`px-5 py-2 rounded-xl border-2 ${PLAYER_THEMES[bidderSlot].borderActive} ${PLAYER_THEMES[bidderSlot].bgActive}`}
+                style={{ boxShadow: PLAYER_THEMES[bidderSlot].glowSoft }}
+              >
+                <p
+                  className={`text-center font-mono font-black text-3xl leading-none ${PLAYER_THEMES[bidderSlot].textBright}`}
+                >
+                  {formatPoints(currentBid.amount)}
                 </p>
-              </div>
+              </motion.div>
             )}
-            {isAutoFill && autoFillReceiver && (
-              <div className="px-3 py-1 rounded-lg bg-emerald-950/40 border border-emerald-700/40">
-                <p className="text-center text-emerald-300 font-mono text-xs font-bold">
+            {isAutoFill && autoFillReceiver && autoFillReceiverSlot && (
+              <div
+                className={`px-3 py-1.5 rounded-xl border-2 ${PLAYER_THEMES[autoFillReceiverSlot].borderActive} ${PLAYER_THEMES[autoFillReceiverSlot].bgActive}`}
+              >
+                <p
+                  className={`text-center font-mono text-xs font-bold ${PLAYER_THEMES[autoFillReceiverSlot].textBright}`}
+                >
                   {t("autoFillBanner", { name: autoFillReceiver })}
                 </p>
               </div>
@@ -511,8 +581,9 @@ export default function OutbidOnlinePlay({
         </div>
 
         {/* Colonne droite : joueur */}
-        {displayedRight && (
+        {displayedRight && rightSlot && (
           <PlayerColumn
+            slot={rightSlot}
             player={displayedRight}
             cardById={cardById}
             isYou={!isSpectator && displayedRight.name === myName}
@@ -552,9 +623,11 @@ export default function OutbidOnlinePlay({
 }
 
 // ── Sous-composant : colonne joueur ──────────────────────────────────────
-// Colonne très étroite (10% large). On utilise un ResizeObserver pour calculer
-// la taille exacte des slots carrés afin que tout rentre dans la hauteur dispo.
+// Colonne très étroite (10% large). ResizeObserver pour calculer la taille
+// exacte des slots carrés afin que tout rentre dans la hauteur dispo.
+// Couleur déterminée par `slot` (A = ambre, B = bleu).
 function PlayerColumn({
+  slot,
   player,
   cardById,
   isYou,
@@ -564,6 +637,7 @@ function PlayerColumn({
   teamSize,
   t,
 }: {
+  slot: PlayerSlot;
   player: OutbidPlayer;
   cardById: Map<string, DYPCard>;
   isYou: boolean;
@@ -573,8 +647,9 @@ function PlayerColumn({
   teamSize: number;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const theme = PLAYER_THEMES[slot];
   const slots = Array.from({ length: teamSize }, (_, i) => player.team[i] ?? null);
-  const SLOT_GAP = 2; // px
+  const SLOT_GAP = 6; // px — mini gap visible entre les cartes
 
   const stackRef = useRef<HTMLDivElement>(null);
   const [slotSize, setSlotSize] = useState(0);
@@ -599,44 +674,53 @@ function PlayerColumn({
   }, [teamSize]);
 
   const highlight = isAutoFillReceiver || isHisTurn;
+  const bgClass = highlight ? theme.bgActive : theme.bg;
+  const borderActive = highlight ? `border-2 ${theme.borderActive}` : "border border-surface-800/60";
+  const ringClass = highlight ? theme.ringActive : theme.ring;
+  // Avatar +20% si c'est son tour
+  const avatarSize = highlight ? 44 : 36;
 
   return (
-    <div
-      className={`h-full min-h-0 flex flex-col ${
-        highlight ? "bg-amber-950/15" : "bg-surface-900/30"
-      } border-x border-surface-800/60`}
+    <motion.div
+      animate={{ opacity: highlight ? 1 : 0.85 }}
+      transition={{ duration: 0.25 }}
+      className={`h-full min-h-0 flex flex-col ${bgClass} ${borderActive} relative`}
+      style={highlight ? { boxShadow: theme.glowInset } : undefined}
     >
       {/* Header : avatar + nom + points */}
       <div
-        className={`shrink-0 flex flex-col items-center gap-0.5 px-0.5 py-1.5 border-b ${
-          highlight
-            ? "border-amber-600/60 bg-amber-950/30"
-            : "border-surface-800/60"
+        className={`shrink-0 flex flex-col items-center gap-0.5 px-0.5 py-2 ${
+          highlight ? `border-b-2 ${theme.borderActive}` : "border-b border-surface-800/60"
         }`}
       >
-        <div
-          className={`relative w-9 h-9 rounded-full overflow-hidden ring-2 ${
-            highlight ? "ring-amber-400" : "ring-surface-700"
-          }`}
+        <motion.div
+          animate={{ width: avatarSize, height: avatarSize }}
+          transition={{ type: "spring", stiffness: 280, damping: 22 }}
+          className={`relative rounded-full overflow-hidden ring-2 ${ringClass}`}
+          style={highlight ? { boxShadow: theme.glow } : undefined}
         >
           {avatar ? (
             <Image
               src={avatar}
               alt={player.name}
               fill
-              sizes="36px"
+              sizes="48px"
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-sm font-bold">
+            <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-base font-bold">
               {player.name.charAt(0).toUpperCase()}
             </div>
           )}
-        </div>
-        <p className="text-white text-[10px] font-bold truncate max-w-full text-center leading-tight">
+        </motion.div>
+        <p
+          className={`text-[10px] font-bold truncate max-w-full text-center leading-tight pt-0.5 ${
+            highlight ? theme.textBright : "text-white/85"
+          }`}
+        >
           {isYou ? t("you") : player.name}
         </p>
-        <p className="text-amber-400 text-[10px] font-mono font-bold leading-none">
+        <p className={`text-[10px] font-mono font-bold leading-none ${theme.text}`}>
           {formatPoints(player.points)}
         </p>
       </div>
@@ -644,7 +728,7 @@ function PlayerColumn({
       {/* Stack de cartes carrées, centré verticalement */}
       <div
         ref={stackRef}
-        className="flex-1 min-h-0 flex flex-col items-center justify-center px-0.5 py-0.5"
+        className="flex-1 min-h-0 flex flex-col items-center justify-center px-0.5 py-1"
         style={{ gap: `${SLOT_GAP}px` }}
       >
         {slotSize > 0 && (
@@ -655,7 +739,9 @@ function PlayerColumn({
                 return (
                   <div
                     key={`empty-${i}`}
-                    className="rounded border border-dashed border-surface-800/50"
+                    className={`rounded border border-dashed ${
+                      highlight ? "border-white/15" : "border-surface-800/50"
+                    }`}
                     style={sizeStyle}
                   />
                 );
@@ -667,7 +753,7 @@ function PlayerColumn({
                   initial={{ scale: 0.5, opacity: 0, y: -16 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                  className="relative rounded overflow-hidden ring-1 ring-amber-700/40 bg-surface-900"
+                  className={`relative rounded overflow-hidden ring-1 ${theme.ring} bg-surface-900`}
                   style={sizeStyle}
                   title={card ? `${card.name} — ${formatPoints(entry.price)} pts` : ""}
                 >
@@ -681,11 +767,12 @@ function PlayerColumn({
                       unoptimized
                     />
                   ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
+                    <div className="w-full h-full bg-gradient-to-br from-surface-800 to-surface-900" />
                   )}
-                  {/* Badge prix */}
                   {slotSize >= 28 && (
-                    <div className="absolute top-0 right-0 px-0.5 rounded-bl bg-black/85 text-amber-300 text-[8px] font-mono font-bold leading-tight">
+                    <div
+                      className={`absolute top-0 right-0 px-0.5 rounded-bl bg-black/85 ${theme.text} text-[8px] font-mono font-bold leading-tight`}
+                    >
                       {entry.price === 0 ? "★" : formatPoints(entry.price)}
                     </div>
                   )}
@@ -695,7 +782,7 @@ function PlayerColumn({
           </AnimatePresence>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 

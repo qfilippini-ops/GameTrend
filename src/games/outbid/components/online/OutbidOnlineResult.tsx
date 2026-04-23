@@ -3,13 +3,10 @@
 /**
  * Phase "result" de Outbid online (1v1).
  *
- * Affiche les 2 équipes côte à côte (Joueur A | Joueur B) avec :
- *   - Avatar + nom + points restants + total dépensé
- *   - Toutes les cartes acquises avec leur prix
+ * Affiche les 2 équipes côte à côte avec couleurs distinctives :
+ *   - Joueur A : ambre/jaune
+ *   - Joueur B : bleu (sky)
  * Pas de gagnant déclaré : les joueurs jugent eux-mêmes.
- *
- * Inclut le mécanisme de replay vote (réutilisé tel quel) et un bouton
- * de partage public.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +19,49 @@ import ShareResultButton from "@/components/social/ShareResultButton";
 import { OUTBID_STARTING_POINTS } from "@/games/outbid/online-config";
 import type { OnlineRoom, ReplayVote, RoomPlayer } from "@/types/rooms";
 import type { DYPCard } from "@/types/games";
+
+// Thème par joueur (positions A/B). Cohérent avec la phase "playing".
+type PlayerSlot = "A" | "B";
+const RESULT_THEMES: Record<
+  PlayerSlot,
+  {
+    bg: string;
+    border: string;
+    ring: string;
+    text: string;
+    textBright: string;
+    accent: string;
+    accentSoft: string;
+    cardBorder: string;
+    glow: string;
+    chip: string;
+  }
+> = {
+  A: {
+    bg: "bg-gradient-to-b from-amber-950/40 via-surface-900/70 to-surface-950",
+    border: "border-amber-600/50",
+    ring: "ring-amber-500/60",
+    text: "text-amber-300",
+    textBright: "text-amber-200",
+    accent: "text-amber-400",
+    accentSoft: "text-amber-500/80",
+    cardBorder: "ring-amber-700/40",
+    glow: "0 0 32px rgba(245,158,11,0.25)",
+    chip: "bg-amber-950/60 text-amber-300 border border-amber-700/40",
+  },
+  B: {
+    bg: "bg-gradient-to-b from-sky-950/40 via-surface-900/70 to-surface-950",
+    border: "border-sky-600/50",
+    ring: "ring-sky-500/60",
+    text: "text-sky-300",
+    textBright: "text-sky-200",
+    accent: "text-sky-400",
+    accentSoft: "text-sky-500/80",
+    cardBorder: "ring-sky-700/40",
+    glow: "0 0 32px rgba(56,189,248,0.25)",
+    chip: "bg-sky-950/60 text-sky-300 border border-sky-700/40",
+  },
+};
 
 interface OutbidPlayerFinal {
   name: string;
@@ -53,6 +93,10 @@ function readState(room: OnlineRoom): OutbidFinalState | null {
   const s = cfg.outbid as OutbidFinalState | undefined;
   if (!s || !s.playerA || !s.playerB) return null;
   return s;
+}
+
+function fmt(n: number): string {
+  return n.toLocaleString("fr-FR");
 }
 
 export default function OutbidOnlineResult({
@@ -104,7 +148,6 @@ export default function OutbidOnlineResult({
     );
   }
 
-  // Données pour partage
   const shareData = {
     teamSize: state.teamSize,
     playerA: {
@@ -140,8 +183,8 @@ export default function OutbidOnlineResult({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-950 via-surface-900 to-surface-950 flex flex-col items-center pt-safe px-4 pb-8">
-      <div className="w-full max-w-2xl py-6 space-y-5">
+    <div className="min-h-screen bg-gradient-to-b from-surface-950 via-surface-900 to-surface-950 flex flex-col items-center pt-safe px-3 pb-8">
+      <div className="w-full max-w-3xl py-6 space-y-5">
         {/* Header */}
         <motion.div
           initial={{ scale: 0.85, opacity: 0 }}
@@ -149,33 +192,49 @@ export default function OutbidOnlineResult({
           transition={{ type: "spring", stiffness: 200, damping: 20 }}
           className="text-center"
         >
-          <div className="text-5xl mb-3 animate-float">🪙</div>
+          <div className="text-5xl mb-3">🪙</div>
           <p className="text-surface-600 text-[10px] uppercase tracking-[0.25em] mb-1.5">
             {t("gameOver")}
           </p>
-          <h1
-            className="text-2xl sm:text-3xl font-display font-black text-white mb-1"
-            style={{ textShadow: "0 0 40px rgba(245,158,11,0.4)" }}
-          >
+          <h1 className="text-2xl sm:text-3xl font-display font-black text-white mb-1">
             {t("title")}
           </h1>
           <p className="text-surface-500 text-xs">{t("subtitle")}</p>
         </motion.div>
 
-        {/* Deux équipes côte à côte */}
-        <div className="grid grid-cols-2 gap-3">
-          <TeamColumn
+        {/* VS bandeau */}
+        <div className="flex items-center justify-center gap-3 text-center">
+          <PlayerHero
+            slot="A"
             player={state.playerA}
-            cardById={cardById}
             avatar={playerAvatars?.[state.playerA.name] ?? null}
             isYou={state.playerA.name === myName}
             t={t}
           />
-          <TeamColumn
+          <div className="text-surface-600 font-display font-black text-2xl shrink-0">
+            VS
+          </div>
+          <PlayerHero
+            slot="B"
             player={state.playerB}
-            cardById={cardById}
             avatar={playerAvatars?.[state.playerB.name] ?? null}
             isYou={state.playerB.name === myName}
+            t={t}
+          />
+        </div>
+
+        {/* Deux équipes côte à côte */}
+        <div className="grid grid-cols-2 gap-3">
+          <TeamColumn
+            slot="A"
+            player={state.playerA}
+            cardById={cardById}
+            t={t}
+          />
+          <TeamColumn
+            slot="B"
+            player={state.playerB}
+            cardById={cardById}
             t={t}
           />
         </div>
@@ -267,58 +326,98 @@ export default function OutbidOnlineResult({
   );
 }
 
-// ── Sous-composant : colonne équipe ──────────────────────────────────────
-function TeamColumn({
+// ── Sous-composant : avatar + nom + points (en-tête VS) ────────────────────
+function PlayerHero({
+  slot,
   player,
-  cardById,
   avatar,
   isYou,
   t,
 }: {
+  slot: PlayerSlot;
   player: OutbidPlayerFinal;
-  cardById: Map<string, DYPCard>;
   avatar: string | null;
   isYou: boolean;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const totalSpent = player.team.reduce((sum, c) => sum + c.price, 0);
+  const theme = RESULT_THEMES[slot];
+  const spent = OUTBID_STARTING_POINTS - player.points;
   return (
-    <div className="rounded-2xl border border-amber-700/30 bg-gradient-to-b from-amber-950/30 via-surface-900/60 to-surface-950 overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-amber-800/30 flex items-center gap-2">
-        <div className="relative w-8 h-8 rounded-full overflow-hidden ring-2 ring-amber-600/50 shrink-0">
-          {avatar ? (
-            <Image
-              src={avatar}
-              alt={player.name}
-              fill
-              sizes="32px"
-              className="object-cover"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-xs font-bold">
-              {player.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-white text-xs font-bold truncate">
-            {isYou ? `${player.name} (${t("you")})` : player.name}
-          </p>
-          <div className="flex items-center gap-2 text-[10px] font-mono">
-            <span className="text-amber-400 font-bold">
-              {player.points.toLocaleString("fr-FR")} pts
-            </span>
-            <span className="text-surface-700">·</span>
-            <span className="text-surface-500">
-              −{(OUTBID_STARTING_POINTS - player.points).toLocaleString("fr-FR")}
-            </span>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: slot === "A" ? 0.1 : 0.2 }}
+      className="flex-1 min-w-0 flex flex-col items-center"
+    >
+      <div
+        className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden ring-4 ${theme.ring}`}
+        style={{ boxShadow: theme.glow }}
+      >
+        {avatar ? (
+          <Image
+            src={avatar}
+            alt={player.name}
+            fill
+            sizes="80px"
+            className="object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-2xl font-bold">
+            {player.name.charAt(0).toUpperCase()}
           </div>
-        </div>
+        )}
+      </div>
+      <p className={`mt-2 text-sm font-display font-bold truncate max-w-full ${theme.textBright}`}>
+        {player.name}
+        {isYou && <span className="ml-1 text-[10px] text-surface-500">({t("you")})</span>}
+      </p>
+      <div className="mt-0.5 flex flex-col items-center gap-0.5 leading-tight">
+        <span className={`text-[10px] font-mono font-bold ${theme.accent}`}>
+          {fmt(player.points)} pts
+        </span>
+        <span className="text-[9px] font-mono text-surface-600">
+          −{fmt(spent)}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Sous-composant : colonne équipe ──────────────────────────────────────
+function TeamColumn({
+  slot,
+  player,
+  cardById,
+  t,
+}: {
+  slot: PlayerSlot;
+  player: OutbidPlayerFinal;
+  cardById: Map<string, DYPCard>;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const theme = RESULT_THEMES[slot];
+  const totalSpent = player.team.reduce((sum, c) => sum + c.price, 0);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: slot === "A" ? 0.2 : 0.3 }}
+      className={`rounded-2xl border-2 ${theme.border} ${theme.bg} overflow-hidden flex flex-col`}
+      style={{ boxShadow: theme.glow }}
+    >
+      {/* Header compact */}
+      <div className={`px-3 py-1.5 border-b ${theme.border} flex items-center justify-between gap-2`}>
+        <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${theme.text}`}>
+          {t(slot === "A" ? "playerASide" : "playerBSide")}
+        </span>
+        <span className={`text-[10px] font-mono font-bold ${theme.accent}`}>
+          {t("cardsCount", { n: player.team.length })}
+        </span>
       </div>
 
-      {/* Liste des cartes */}
-      <div className="p-2 grid grid-cols-2 gap-1.5 max-h-96 overflow-y-auto">
+      {/* Cartes en grille carrée 2 colonnes */}
+      <div className="p-2 grid grid-cols-2 gap-1.5">
         {player.team.length === 0 ? (
           <p className="col-span-2 text-surface-700 text-xs text-center py-4 italic">
             {t("emptyTeam")}
@@ -328,10 +427,13 @@ function TeamColumn({
             const card = cardById.get(entry.cardId);
             if (!card) return null;
             return (
-              <div
+              <motion.div
                 key={`${entry.cardId}-${i}`}
-                className="relative rounded-md overflow-hidden ring-1 ring-amber-700/40 aspect-[3/4]"
-                title={`${card.name} — ${entry.price.toLocaleString("fr-FR")} pts`}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3 + i * 0.04 }}
+                className={`relative rounded-lg overflow-hidden ring-1 ${theme.cardBorder} aspect-square`}
+                title={`${card.name} — ${fmt(entry.price)} pts`}
               >
                 {card.imageUrl ? (
                   <Image
@@ -343,33 +445,33 @@ function TeamColumn({
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
+                  <div className="w-full h-full bg-gradient-to-br from-surface-800 to-surface-900" />
                 )}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-1 pt-3 pb-1">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/65 to-transparent px-1 pt-3 pb-1">
                   <p className="text-white text-[9px] font-bold leading-tight line-clamp-1">
                     {card.name}
                   </p>
-                  <p className="text-amber-300 text-[10px] font-mono font-bold">
-                    {entry.price === 0
-                      ? t("freePrice")
-                      : entry.price.toLocaleString("fr-FR")}
+                  <p className={`${theme.text} text-[10px] font-mono font-bold leading-tight`}>
+                    {entry.price === 0 ? t("freePrice") : fmt(entry.price)}
                   </p>
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
       </div>
 
-      {/* Footer total */}
-      <div className="px-3 py-1.5 border-t border-surface-800/40 bg-surface-950/60 text-[10px] font-mono flex justify-between">
-        <span className="text-surface-500">
-          {t("cardsCount", { n: player.team.length })}
+      {/* Footer total dépensé */}
+      <div
+        className={`px-3 py-1.5 border-t ${theme.border} bg-black/30 text-[10px] font-mono flex justify-between items-center`}
+      >
+        <span className="text-surface-500 uppercase tracking-wider">
+          {t("totalLabel")}
         </span>
-        <span className="text-amber-400 font-bold">
-          {t("totalSpent", { amount: totalSpent.toLocaleString("fr-FR") })}
+        <span className={`font-bold ${theme.textBright}`}>
+          {t("totalSpent", { amount: fmt(totalSpent) })}
         </span>
       </div>
-    </div>
+    </motion.div>
   );
 }
