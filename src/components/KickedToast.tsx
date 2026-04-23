@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import { useRouter, usePathname } from "@/i18n/navigation";
+// On utilise volontairement le router de `next/navigation` (et NON celui de
+// next-intl) : on veut écrire le pathname brut tel quel pour nettoyer la
+// query string sans que next-intl re-préfixe la locale (ce qui produirait
+// `/fr/fr/...`).
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 
