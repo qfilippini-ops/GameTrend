@@ -12,13 +12,14 @@
  * `auto_start` pour relancer la partie automatiquement.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
-import type { OnlineRoom, ReplayVote } from "@/types/rooms";
+import ShareResultButton from "@/components/social/ShareResultButton";
+import type { OnlineRoom, ReplayVote, RoomPlayer } from "@/types/rooms";
 import type { BlindRankCard } from "@/types/games";
 
 interface Props {
@@ -26,11 +27,14 @@ interface Props {
   myName: string;
   totalPlayers: number;
   replayVotes: ReplayVote[];
+  players: RoomPlayer[];
+  playerAvatars?: Record<string, string | null>;
 }
 
 interface BlindRankFinalState {
   slots: (BlindRankCard | null)[];
   rackSize: number;
+  presetId?: string | null;
 }
 
 function readState(room: OnlineRoom): BlindRankFinalState | null {
@@ -45,10 +49,36 @@ export default function BlindRankOnlineResult({
   myName,
   totalPlayers,
   replayVotes,
+  players,
+  playerAvatars,
 }: Props) {
   const t = useTranslations("games.blindrank.online.result");
   const state = readState(room);
   const [voting, setVoting] = useState(false);
+
+  // Résultat à partager : top du classement + participants (cliquables dans le feed)
+  const shareData = useMemo(() => {
+    if (!state) return null;
+    const ranking = state.slots
+      .map((card, idx) => ({ card, position: idx + 1 }))
+      .filter((r): r is { card: BlindRankCard; position: number } => r.card !== null);
+    const top3 = ranking.slice(0, 3).map((r) => ({
+      name: r.card.name,
+      position: r.position,
+      imageUrl: r.card.imageUrl ?? null,
+    }));
+    const participants = players.map((p) => ({
+      name: p.display_name,
+      user_id: p.user_id ?? null,
+      avatar_url: playerAvatars?.[p.display_name] ?? null,
+    }));
+    return {
+      rackSize: state.rackSize,
+      top3,
+      participants,
+      online: true,
+    };
+  }, [state, players, playerAvatars]);
 
   useEffect(() => {
     vibrate([80, 60, 200]);
@@ -213,6 +243,24 @@ export default function BlindRankOnlineResult({
           </div>
           <p className="text-surface-700 text-[10px] text-center">{t("tip")}</p>
         </div>
+
+        {/* Partage du résultat (feed + Web Share API) */}
+        {shareData && shareData.top3[0] && (
+          <ShareResultButton
+            result={{
+              gameType: "blindrank",
+              presetId: state?.presetId ?? null,
+              presetName: null,
+              resultData: shareData,
+            }}
+            shareText={t("shareText", { name: shareData.top3[0].name })}
+            shareUrl={
+              state?.presetId
+                ? `${typeof window !== "undefined" ? window.location.origin : ""}/presets/${state.presetId}`
+                : undefined
+            }
+          />
+        )}
       </div>
     </div>
   );

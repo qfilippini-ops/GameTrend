@@ -349,24 +349,27 @@ export default function BlindRankOnlinePlay({
         </div>
       </div>
 
-      {/* Chat */}
-      <div className="border-t border-surface-800/40 bg-surface-950/95 max-w-md w-full mx-auto h-[36vh] min-h-[200px]">
-        <RoomChat
-          roomId={room.id}
-          myName={myName}
-          messages={messages}
-          playerAvatars={playerAvatars}
-          mode="realtime"
-          messageMeta={{ discussion_turn: 0, vote_round: voteRound }}
-          labels={{
-            emptyState: tChat("emptyState"),
-            inputPlaceholder: tChat("inputPlaceholder"),
-            sendShort: tChat("sendShort"),
-            passShort: tChat("passShort"),
-            passedLabel: tChat("passedLabel"),
-            waitingForOther: () => "",
-          }}
-        />
+      {/* Chat — hauteur fixe avec scroll interne */}
+      <div className="border-t border-surface-800/40 bg-surface-950/95 w-full shrink-0">
+        <div className="max-w-md w-full mx-auto h-[36vh] min-h-[200px] max-h-[50vh] flex flex-col">
+          <RoomChat
+            roomId={room.id}
+            myName={myName}
+            messages={messages}
+            playerAvatars={playerAvatars}
+            mode="realtime"
+            messageMeta={{ discussion_turn: 0, vote_round: voteRound }}
+            className="h-full"
+            labels={{
+              emptyState: tChat("emptyState"),
+              inputPlaceholder: tChat("inputPlaceholder"),
+              sendShort: tChat("sendShort"),
+              passShort: tChat("passShort"),
+              passedLabel: tChat("passedLabel"),
+              waitingForOther: () => "",
+            }}
+          />
+        </div>
       </div>
     </div>
   );

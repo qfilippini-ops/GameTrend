@@ -81,6 +81,7 @@
       "publishedPreset": "published a new preset",
       "sharedResult": "shared a result"
     },
+    "participantsLabel": "{count, plural, one {# participant} other {# participants}}",
     "playCount": "{count, plural, one {# play} other {# plays}}",
     "explore": {
       "publicLobbies": "Public lobbies",
@@ -931,6 +932,10 @@
       }
     },
     "blindrank": {
+      "feed": {
+        "topShare": "🥇 My #1: {name}",
+        "moreRanks": "+{count, plural, =1 {# more rank} other {# more ranks}}"
+      },
       "lobby": {
         "preset": "Preset",
         "compatBadge": "DYP-compatible",
@@ -1092,7 +1097,8 @@
           "wantsLobby": "You want to go back to lobby ✓ ",
           "waitingChoice": "(waiting for others)",
           "replayLabel": "Want to replay",
-          "tip": "All players must vote Replay to start a new game."
+          "tip": "All players must vote Replay to start a new game.",
+          "shareText": "Our #1 on Blind Rank online: {name} 🎴 — Come play on GameTrend!"
         }
       }
     }
@@ -1111,6 +1117,8 @@
     "leave": "Leave",
     "kickedTitle": "You were kicked",
     "kickedSubtitle": "The host removed you from the game",
+    "lobbyClosedTitle": "Room closed",
+    "lobbyClosedSubtitle": "The host closed the room.",
     "kickedClose": "Close",
     "phaseLobby": "In lobby",
     "phasePlaying": "Playing",

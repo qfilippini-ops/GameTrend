@@ -85,6 +85,8 @@ export default function BlindRankOnlineRoomPage() {
                 myName={ctx.myName}
                 totalPlayers={ctx.players.length}
                 replayVotes={ctx.replayVotes}
+                players={ctx.players}
+                playerAvatars={ctx.playerAvatars}
               />
             );
           default:

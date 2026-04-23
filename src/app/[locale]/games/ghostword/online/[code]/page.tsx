@@ -627,7 +627,7 @@ export default function RoomPage() {
           {eventToastEl}
           <OnlineResult roomId={roomId!} winner={room.winner ?? "initie"}
             myName={myName} totalPlayers={players.length} replayVotes={replayVotes}
-            playerAvatars={playerAvatars} />
+            playerAvatars={playerAvatars} players={players} />
         </>
       );
 

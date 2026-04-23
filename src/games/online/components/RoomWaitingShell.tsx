@@ -158,6 +158,17 @@ export default function RoomWaitingShell({
     if (!confirm(labels.closeLobbyConfirm)) return;
     vibrate([80, 60, 200]);
     const supabase = createClient();
+    // 1) Marquer la room comme fermée pour notifier les autres clients via un
+    //    UPDATE realtime fiable (le DELETE event peut être tronqué selon la
+    //    config REPLICA IDENTITY de la table). useRoomChannel détecte ce flag
+    //    et redirige proprement les joueurs.
+    const cfg = (room.config ?? {}) as Record<string, unknown>;
+    await supabase
+      .from("game_rooms")
+      .update({ config: { ...cfg, lobby_closed: true, lobby_closed_at: new Date().toISOString() } })
+      .eq("id", room.id);
+    // 2) Petit délai pour laisser propager l'UPDATE puis suppression effective.
+    await new Promise((r) => setTimeout(r, 600));
     await supabase.from("game_rooms").delete().eq("id", room.id);
     router.push("/");
   }

@@ -231,7 +231,11 @@ export default function BlindRankPlayPage() {
               presetName: null,
               resultData: {
                 rackSize: state.rackSize,
-                top3: top3.map((r) => ({ name: r.card.name, position: r.position })),
+                top3: top3.map((r) => ({
+                  name: r.card.name,
+                  position: r.position,
+                  imageUrl: r.card.imageUrl ?? null,
+                })),
               },
             }}
             shareText={t("shareText", { name: top3[0]?.card.name ?? "?" })}

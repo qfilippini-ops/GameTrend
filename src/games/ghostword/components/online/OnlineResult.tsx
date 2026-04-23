@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { getRoomResults, type RoomResultData } from "@/app/actions/rooms";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/ui/Avatar";
-import type { ReplayVote } from "@/types/rooms";
+import ShareResultButton from "@/components/social/ShareResultButton";
+import type { ReplayVote, RoomPlayer } from "@/types/rooms";
 
 interface OnlineResultProps {
   roomId: string;
@@ -16,6 +17,7 @@ interface OnlineResultProps {
   totalPlayers: number;
   replayVotes: ReplayVote[];
   playerAvatars?: Record<string, string | null>;
+  players?: RoomPlayer[];
 }
 
 const ROLE_STYLES: Record<string, { border: string; bg: string; badge: string; dot: string }> = {
@@ -39,8 +41,9 @@ const ROLE_STYLES: Record<string, { border: string; bg: string; badge: string; d
   },
 };
 
-export default function OnlineResult({ roomId, winner, myName, totalPlayers, replayVotes, playerAvatars }: OnlineResultProps) {
+export default function OnlineResult({ roomId, winner, myName, totalPlayers, replayVotes, playerAvatars, players }: OnlineResultProps) {
   const t = useTranslations("games.ghostword.online.result");
+  const tShare = useTranslations("games.ghostword.result");
   const ROLE_LABELS: Record<string, string> = { initie: t("roleInitie"), ombre: t("roleOmbre"), vide: t("roleVide") };
   const [data, setData] = useState<RoomResultData | null>(null);
   const [voting, setVoting] = useState(false);
@@ -57,6 +60,33 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
   const replayCount = replayVotes.filter((v) => v.choice === "replay").length;
 
   const winnerLabel = winner === "ombre" ? t("winnerOmbre") : winner === "vide" ? t("winnerVide") : t("winnerInities");
+
+  // Données pour le partage : participants cliquables (besoin user_id) + récap
+  const shareData = useMemo(() => {
+    if (!data) return null;
+    const participants = (players ?? []).map((p) => ({
+      name: p.display_name,
+      user_id: p.user_id ?? null,
+      avatar_url: playerAvatars?.[p.display_name] ?? null,
+    }));
+    const winningPlayers = data.players.filter((p) =>
+      winner === "initie" ? p.role === "initie" : p.role !== "initie"
+    );
+    return {
+      winner,
+      winnerLabel,
+      winningPlayers: winningPlayers.map((p) => p.displayName),
+      players: data.players.map((p) => ({
+        name: p.displayName,
+        role: p.role,
+        eliminated: p.isEliminated,
+      })),
+      participants,
+      online: true,
+    };
+  }, [data, players, playerAvatars, winner, winnerLabel]);
+
+  const winnerEmojiForShare = winner === "ombre" ? "👻" : winner === "vide" ? "💨" : "🧠";
   const myRole = data?.players.find((p) => p.displayName === myName)?.role ?? "initie";
   const iWon = winner === "initie" ? myRole === "initie" : myRole !== "initie";
 
@@ -287,6 +317,19 @@ export default function OnlineResult({ roomId, winner, myName, totalPlayers, rep
             {t("tip")}
           </p>
         </div>
+
+        {/* Partage du résultat (feed + Web Share API) */}
+        {shareData && (
+          <ShareResultButton
+            result={{
+              gameType: "ghostword",
+              presetId: null,
+              presetName: null,
+              resultData: shareData,
+            }}
+            shareText={tShare("shareText", { winner: winnerLabel, emoji: winnerEmojiForShare })}
+          />
+        )}
 
       </div>
     </div>

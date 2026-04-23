@@ -258,7 +258,17 @@ export function useRoomChannel({
             .select(ROOM_COLS)
             .eq("id", roomId)
             .maybeSingle();
-          if (data) setRoom(data as OnlineRoom);
+          if (!data) return;
+          setRoom(data as OnlineRoom);
+          // Si l'hôte a fermé le salon : redirection immédiate (avant que
+          // le DELETE en cascade ne supprime room_players et nous laisse
+          // sur un écran cassé).
+          const cfg = (data as OnlineRoom).config as { lobby_closed?: boolean } | null;
+          if (cfg?.lobby_closed && !voluntarilyLeavingRef.current) {
+            voluntarilyLeavingRef.current = true;
+            if (onRoomDeleted) onRoomDeleted();
+            else router.push("/?lobby_closed=1");
+          }
         }
       )
       .on(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations, useLocale } from "next-intl";
@@ -470,19 +470,48 @@ function PresetFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   );
 }
 
+interface ParticipantRef {
+  name: string;
+  user_id?: string | null;
+  avatar_url?: string | null;
+}
+
+interface BlindRankRankItem {
+  name: string;
+  position: number;
+  imageUrl?: string | null;
+}
+
 function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   const { game_type, preset_id, preset_name, result_data } = data;
-  const champion = (result_data as { champion?: { name: string; imageUrl?: string | null } })?.champion;
-  const winnerLabel = (result_data as { winnerLabel?: string })?.winnerLabel;
+  const rd = (result_data ?? {}) as Record<string, unknown>;
+  const champion = rd.champion as { name: string; imageUrl?: string | null } | undefined;
+  const winnerLabel = rd.winnerLabel as string | undefined;
+  const blindrankTop3 = (rd.top3 as BlindRankRankItem[] | undefined) ?? null;
+  const blindrankRackSize = typeof rd.rackSize === "number" ? rd.rackSize : null;
+  const participants = (rd.participants as ParticipantRef[] | undefined) ?? null;
   const tGames = useTranslations("games");
+
+  const isBlindRank = game_type === "blindrank";
+  const isGhost = game_type === "ghostword";
+  const isDyp = game_type === "dyp";
+
   const titleSuffix =
-    game_type === "ghostword" ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
-    game_type === "dyp" ? `${tGames("dyp.play.champion")} : ${champion?.name ?? "?"}` :
+    isGhost ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
+    isDyp ? `${tGames("dyp.play.champion")} : ${champion?.name ?? "?"}` :
+    isBlindRank && blindrankTop3 && blindrankTop3[0] ?
+      tGames("blindrank.feed.topShare", { name: blindrankTop3[0].name }) :
     t("actions.sharedResult");
 
   const inner = (
     <>
       <FeedHeader author={item.author} action={t("actions.sharedResult")} date={item.created_at} icon="🏆" tTime={tTime} tCommon={tCommon} locale={locale} />
+
+      {/* Bandeau participants (parties online) */}
+      {participants && participants.length > 0 && (
+        <ParticipantsBanner participants={participants} t={t} />
+      )}
+
       <div className="px-3 py-3">
         <p className="text-white font-display font-bold text-sm leading-tight">{titleSuffix}</p>
         {preset_name && (
@@ -491,6 +520,37 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
         {champion?.imageUrl && (
           <div className="relative w-full h-32 mt-3 rounded-xl overflow-hidden bg-surface-800">
             <Image src={champion.imageUrl} alt={champion.name} fill className="object-cover" />
+          </div>
+        )}
+
+        {/* Aperçu classement Blind Rank */}
+        {isBlindRank && blindrankTop3 && blindrankTop3.length > 0 && (
+          <div className="mt-3 rounded-xl border border-cyan-700/25 bg-cyan-950/20 overflow-hidden">
+            <div className="divide-y divide-surface-800/30">
+              {blindrankTop3.slice(0, 3).map((c) => {
+                const medal = c.position === 1 ? "🥇" : c.position === 2 ? "🥈" : c.position === 3 ? "🥉" : `#${c.position}`;
+                return (
+                  <div key={`${c.position}-${c.name}`} className="flex items-center gap-2.5 px-3 py-2">
+                    <span className="text-base shrink-0 w-6 text-center">{medal}</span>
+                    {c.imageUrl ? (
+                      <div className="relative w-7 h-7 rounded-md overflow-hidden border border-surface-700/40 shrink-0">
+                        <Image src={c.imageUrl} alt={c.name} fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-7 h-7 rounded-md bg-surface-800/60 shrink-0" />
+                    )}
+                    <span className={`flex-1 text-xs truncate ${c.position === 1 ? "text-cyan-200 font-bold" : "text-surface-200"}`}>
+                      {c.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {blindrankRackSize && blindrankRackSize > 3 && (
+              <p className="px-3 py-1.5 text-[10px] text-cyan-500/70 text-center bg-cyan-950/30 border-t border-cyan-700/20">
+                {tGames("blindrank.feed.moreRanks", { count: blindrankRackSize - 3 })}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -510,6 +570,44 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   return (
     <div className="rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden">
       {inner}
+    </div>
+  );
+}
+
+function ParticipantsBanner({ participants, t }: { participants: ParticipantRef[]; t: FeedT }) {
+  // Évite les <a> imbriqués (la card parente est déjà un Link). On navigue
+  // manuellement via useRouter avec preventDefault/stopPropagation.
+  const router = useRouter();
+  return (
+    <div className="px-3 py-2 border-b border-surface-800/40 bg-surface-900/40">
+      <p className="text-[9px] uppercase tracking-widest text-surface-600 font-mono mb-1.5">
+        {t("participantsLabel", { count: participants.length })}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {participants.map((p) => {
+          const chip = (
+            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-surface-700/40 bg-surface-800/60 text-[11px] font-medium text-surface-200 hover:border-brand-700/40 hover:text-white transition-colors">
+              <Avatar src={p.avatar_url ?? null} name={p.name} size="xs" className="rounded-full !w-4 !h-4 text-[8px]" />
+              {p.name}
+            </span>
+          );
+          if (!p.user_id) return <span key={p.name}>{chip}</span>;
+          return (
+            <button
+              key={`${p.user_id}-${p.name}`}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/profile/${p.user_id}`);
+              }}
+              className="appearance-none"
+            >
+              {chip}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
