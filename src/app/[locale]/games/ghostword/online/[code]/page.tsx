@@ -364,7 +364,23 @@ export default function RoomPage() {
             setMyUserId((uid) => {
               if (uid && !data.some((p: RoomPlayer) => p.user_id === uid)) {
                 if (!voluntarilyLeavingRef.current) {
-                  router.push("/?kicked=1");
+                  voluntarilyLeavingRef.current = true;
+                  // Redirection robuste : on utilise l'objet pathname/query
+                  // (next-intl conserve mal la query sur une string brute)
+                  // + filet de sécurité window.location si la transition
+                  // Next.js ne se déclenche pas.
+                  try {
+                    // @ts-expect-error router.replace accepte (string | object)
+                    router.replace({ pathname: "/", query: { kicked: "1" } });
+                  } catch {
+                    /* fallback ci-dessous */
+                  }
+                  setTimeout(() => {
+                    if (typeof window !== "undefined" && window.location.pathname.includes("/online/")) {
+                      const m = window.location.pathname.match(/^\/([a-z]{2})\//);
+                      window.location.assign((m ? `/${m[1]}` : "") + "/?kicked=1");
+                    }
+                  }, 350);
                 }
                 // Si départ volontaire : onLeave() s'en charge, pas de redirect ici
               }

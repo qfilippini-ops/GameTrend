@@ -11,6 +11,7 @@ import Avatar from "@/components/ui/Avatar";
 import CreatorBadge from "@/components/premium/CreatorBadge";
 import AdSlot from "@/components/ads/AdSlot";
 import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
+import { GAMES_REGISTRY } from "@/games/registry";
 
 const PAGE_SIZE = 10;
 
@@ -490,11 +491,16 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   const blindrankTop3 = (rd.top3 as BlindRankRankItem[] | undefined) ?? null;
   const blindrankRackSize = typeof rd.rackSize === "number" ? rd.rackSize : null;
   const participants = (rd.participants as ParticipantRef[] | undefined) ?? null;
+  const isOnline = rd.online === true;
   const tGames = useTranslations("games");
 
   const isBlindRank = game_type === "blindrank";
   const isGhost = game_type === "ghostword";
   const isDyp = game_type === "dyp";
+
+  const gameMeta = GAMES_REGISTRY.find((g) => g.id === game_type);
+  const gameName = gameMeta?.name ?? game_type;
+  const gameIcon = gameMeta?.icon ?? "🎮";
 
   const titleSuffix =
     isGhost ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
@@ -506,6 +512,20 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   const inner = (
     <>
       <FeedHeader author={item.author} action={t("actions.sharedResult")} date={item.created_at} icon="🏆" tTime={tTime} tCommon={tCommon} locale={locale} />
+
+      {/* Badge jeu : identifie clairement le jeu joué (online ou solo) */}
+      <div className="px-3 pt-2.5 -mb-1 flex items-center gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-brand-950/60 text-brand-300 border border-brand-700/30">
+          <span className="text-xs">{gameIcon}</span>
+          {gameName}
+        </span>
+        {isOnline && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-950/50 text-emerald-400 border border-emerald-700/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            {t("onlineBadge")}
+          </span>
+        )}
+      </div>
 
       {/* Bandeau participants (parties online) */}
       {participants && participants.length > 0 && (

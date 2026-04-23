@@ -82,6 +82,7 @@
       "sharedResult": "a partagé un résultat"
     },
     "participantsLabel": "{count, plural, one {# participant} other {# participants}}",
+    "onlineBadge": "Online",
     "playCount": "{count, plural, one {# partie} other {# parties}}",
     "explore": {
       "publicLobbies": "Lobbies publics",

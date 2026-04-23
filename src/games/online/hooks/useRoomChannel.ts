@@ -120,7 +120,50 @@ export function useRoomChannel({
   const playersRef = useRef<RoomPlayer[]>([]);
   const myNameRef = useRef<string | null>(null);
   const voluntarilyLeavingRef = useRef(false);
+  const redirectingRef = useRef(false);
   const hostGoneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Force une redirection robuste vers la home avec une query optionnelle.
+   * Utilise router.replace (objet pathname/query : indispensable pour que
+   * next-intl conserve la query string), avec un fallback window.location au
+   * cas où le router ne déclencherait pas (race conditions de transition).
+   */
+  const forceHome = useCallback(
+    (query?: Record<string, string>) => {
+      if (redirectingRef.current) return;
+      redirectingRef.current = true;
+      voluntarilyLeavingRef.current = true;
+      try {
+        // next-intl : on doit passer un objet { pathname, query } pour que la
+        // query string soit conservée correctement.
+        // @ts-expect-error — router.replace accepte (string | { pathname, query })
+        router.replace({ pathname: "/", query });
+      } catch {
+        /* fallback ci-dessous */
+      }
+      // Filet de sécurité : si la transition Next.js ne se fait pas (cas rare
+      // de désync state quand la room disparaît brutalement), on force un
+      // reload après 350ms en restant sur la même locale.
+      const qs = query
+        ? "?" +
+          Object.entries(query)
+            .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+            .join("&")
+        : "";
+      setTimeout(() => {
+        if (typeof window === "undefined") return;
+        // Si on est encore dans une room (pathname contient /games/.../online/),
+        // on force un reload vers la home en préservant le préfixe de locale.
+        if (window.location.pathname.includes("/online/")) {
+          const localeMatch = window.location.pathname.match(/^\/([a-z]{2})\//);
+          const localePrefix = localeMatch ? `/${localeMatch[1]}` : "";
+          window.location.assign(localePrefix + "/" + qs);
+        }
+      }, 350);
+    },
+    [router]
+  );
 
   useEffect(() => {
     playersRef.current = players;
@@ -258,16 +301,32 @@ export function useRoomChannel({
             .select(ROOM_COLS)
             .eq("id", roomId)
             .maybeSingle();
-          if (!data) return;
+          if (!data) {
+            // La room n'existe plus côté serveur (deleted entre l'event et
+            // notre re-fetch). On considère ça comme une fermeture et on
+            // redirige tout de suite.
+            if (onRoomDeleted) {
+              voluntarilyLeavingRef.current = true;
+              redirectingRef.current = true;
+              onRoomDeleted();
+            } else {
+              forceHome({ lobby_closed: "1" });
+            }
+            return;
+          }
           setRoom(data as OnlineRoom);
           // Si l'hôte a fermé le salon : redirection immédiate (avant que
           // le DELETE en cascade ne supprime room_players et nous laisse
           // sur un écran cassé).
           const cfg = (data as OnlineRoom).config as { lobby_closed?: boolean } | null;
-          if (cfg?.lobby_closed && !voluntarilyLeavingRef.current) {
-            voluntarilyLeavingRef.current = true;
-            if (onRoomDeleted) onRoomDeleted();
-            else router.push("/?lobby_closed=1");
+          if (cfg?.lobby_closed) {
+            if (onRoomDeleted) {
+              voluntarilyLeavingRef.current = true;
+              redirectingRef.current = true;
+              onRoomDeleted();
+            } else {
+              forceHome({ lobby_closed: "1" });
+            }
           }
         }
       )
@@ -275,8 +334,15 @@ export function useRoomChannel({
         "postgres_changes",
         { event: "DELETE", schema: "public", table: "game_rooms", filter: `id=eq.${roomId}` },
         () => {
-          if (onRoomDeleted) onRoomDeleted();
-          else router.push("/");
+          if (onRoomDeleted) {
+            voluntarilyLeavingRef.current = true;
+            redirectingRef.current = true;
+            onRoomDeleted();
+          } else {
+            // Si l'UPDATE lobby_closed n'est pas encore passé, on n'a pas
+            // encore redirigé. On le fait maintenant.
+            forceHome({ lobby_closed: "1" });
+          }
         }
       )
       .on(
@@ -295,8 +361,13 @@ export function useRoomChannel({
           setMyUserId((uid) => {
             if (uid && !data.some((p: RoomPlayer) => p.user_id === uid)) {
               if (!voluntarilyLeavingRef.current) {
-                if (onKicked) onKicked();
-                else router.push("/?kicked=1");
+                if (onKicked) {
+                  voluntarilyLeavingRef.current = true;
+                  redirectingRef.current = true;
+                  onKicked();
+                } else {
+                  forceHome({ kicked: "1" });
+                }
               }
             }
             return uid;
