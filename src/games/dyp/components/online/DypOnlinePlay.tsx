@@ -215,82 +215,139 @@ export default function DypOnlinePlay({
       : 0;
   const transitionRemainingSec = Math.ceil(transitionRemainingMs / 1000);
 
-  // Helper : suis-je le 1er joueur online (par join_order) ?
-  function amILeader(): boolean {
-    const sortedPlayers = [...players].sort(
-      (a, b) => a.join_order - b.join_order
-    );
-    const firstOnline = sortedPlayers.find((p) =>
-      onlineNames.size === 0 ? true : onlineNames.has(p.display_name)
-    );
-    return firstOnline?.display_name === myName;
-  }
+  // ── Auto-advance robuste ──────────────────────────────────────────
+  //
+  // Approche radicale : un interval persistant qui ne se réinitialise pas
+  // à chaque render, qui lit l'état courant via une ref. Tous les clients
+  // tentent (pas de leader logic). Le SQL est idempotent grâce à
+  // pg_advisory_xact_lock + check vote_round → aucune race possible.
+  // Si l'un des clients est bloqué/déco, les autres prennent le relais.
+  //
+  // Pourquoi pas de "leader" : si la presence Realtime décale ou si le
+  // leader désigné a un parsing de timestamp foiré, plus personne n'avance.
+  // Ici tout le monde essaie → impossible d'être bloqué tant qu'au moins
+  // 1 client a un horloge correcte ou que le timeout de 5s déclenche.
+  const stateRef = useRef<{
+    roomId: string;
+    voteRound: number;
+    pendingTransition: boolean;
+    transitionStartedMs: number;
+    duelStartedMs: number;
+    duelTourMs: number;
+    overlayActive: boolean;
+  }>({
+    roomId: room.id,
+    voteRound,
+    pendingTransition: false,
+    transitionStartedMs: 0,
+    duelStartedMs: 0,
+    duelTourMs: 60000,
+    overlayActive: false,
+  });
 
-  // RPC refs avec retry timestamp (évite blocage si RPC échoue)
-  const forcedTimeoutRef = useRef<{ key: string; ts: number } | null>(null);
-  const forcedAdvanceRef = useRef<{ key: string; ts: number } | null>(null);
-  function shouldFire(
-    ref: React.MutableRefObject<{ key: string; ts: number } | null>,
-    key: string
-  ): boolean {
-    const last = ref.current;
-    if (!last) return true;
-    if (last.key !== key) return true;
-    return Date.now() - last.ts > 1500;
-  }
-
-  // Timer duel = 0 → leader force la résolution.
-  // Note : on n'exige PAS un timestamp valide. Si parsing foire, le RPC est
-  // quand même appelé et le SQL gère lui-même le timing. Évite tout blocage.
   useEffect(() => {
-    if (!state || inRoundTransition || overlayActive) return;
-    if (startedAtMs > 0 && remainingMs > 0) return;
-    const key = `${room.id}:${voteRound}`;
-    if (!shouldFire(forcedTimeoutRef, key)) return;
-    if (!amILeader()) return;
+    stateRef.current = {
+      roomId: room.id,
+      voteRound,
+      pendingTransition: inRoundTransition,
+      transitionStartedMs,
+      duelStartedMs: startedAtMs,
+      duelTourMs: tourMs,
+      overlayActive,
+    };
+  });
 
-    forcedTimeoutRef.current = { key, ts: Date.now() };
-    const supabase = createClient();
-    supabase
-      .rpc("dyp_force_timeout", {
-        p_room_id: room.id,
-        p_vote_round: voteRound,
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.error("[dyp_force_timeout]", error);
-          forcedTimeoutRef.current = { key, ts: Date.now() - 1000 };
-        }
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingMs, voteRound, room.id, inRoundTransition, overlayActive]);
+  const lastTimeoutAttemptRef = useRef<{ key: string; ts: number } | null>(null);
+  const lastAdvanceAttemptRef = useRef<{ key: string; ts: number } | null>(null);
 
-  // Timer inter-rounds = 0 → leader force le nouveau round.
-  // Idem : si parsing du timestamp foire, on essaie quand même. Le SQL refusera
-  // si trop tôt, le retry du shouldFire (1.5 s) finira par déclencher. Aucun
-  // blocage possible si la migration SQL est appliquée.
   useEffect(() => {
-    if (!state || !inRoundTransition) return;
-    if (transitionStartedMs > 0 && transitionRemainingMs > 0) return;
-    const key = `${room.id}:${voteRound}`;
-    if (!shouldFire(forcedAdvanceRef, key)) return;
-    if (!amILeader()) return;
-
-    forcedAdvanceRef.current = { key, ts: Date.now() };
     const supabase = createClient();
-    supabase
-      .rpc("dyp_force_round_advance", {
-        p_room_id: room.id,
-        p_vote_round: voteRound,
-      })
-      .then(({ error }) => {
+    const TRANSITION_MAX_MS = DYP_TRANSITION_SECONDS * 1000;
+
+    const tick = async () => {
+      const s = stateRef.current;
+      const key = `${s.roomId}:${s.voteRound}`;
+
+      // ── Cas 1 : transition entre rounds ──
+      if (s.pendingTransition) {
+        // Si on a un timestamp valide et que les 3 s ne sont pas écoulés, attendre.
+        // Si timestamp invalide : on tente après un délai de sécurité de 4 s
+        // (calculé depuis le 1er moment où on a vu pendingTransition).
+        const tsValid = s.transitionStartedMs > 0;
+        const elapsed = tsValid && Date.now() >= s.transitionStartedMs + TRANSITION_MAX_MS;
+        if (tsValid && !elapsed) return;
+
+        // Throttle : pas plus d'un essai par 1.5 s sur la même clé
+        const last = lastAdvanceAttemptRef.current;
+        if (last && last.key === key && Date.now() - last.ts < 1500) return;
+        lastAdvanceAttemptRef.current = { key, ts: Date.now() };
+
+        const { error } = await supabase.rpc("dyp_force_round_advance", {
+          p_room_id: s.roomId,
+          p_vote_round: s.voteRound,
+        });
         if (error) {
-          console.error("[dyp_force_round_advance]", error);
-          forcedAdvanceRef.current = { key, ts: Date.now() - 1000 };
+          console.error(
+            `[dyp_force_round_advance] room=${s.roomId} vr=${s.voteRound}`,
+            error
+          );
+        } else {
+          console.log(
+            `[dyp_force_round_advance] OK room=${s.roomId} vr=${s.voteRound}`
+          );
         }
+        return;
+      }
+
+      // ── Cas 2 : timer du duel expiré ──
+      if (s.overlayActive) return;
+      const tsValid = s.duelStartedMs > 0;
+      const expired = tsValid
+        ? Date.now() >= s.duelStartedMs + s.duelTourMs
+        : false; // Si timestamp invalide, on ne timeout pas (on attend les votes)
+      if (!expired) return;
+
+      const last = lastTimeoutAttemptRef.current;
+      if (last && last.key === key && Date.now() - last.ts < 1500) return;
+      lastTimeoutAttemptRef.current = { key, ts: Date.now() };
+
+      const { error } = await supabase.rpc("dyp_force_timeout", {
+        p_room_id: s.roomId,
+        p_vote_round: s.voteRound,
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transitionRemainingMs, voteRound, room.id, inRoundTransition]);
+      if (error) {
+        console.error(
+          `[dyp_force_timeout] room=${s.roomId} vr=${s.voteRound}`,
+          error
+        );
+      }
+    };
+
+    const interval = setInterval(tick, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Bouton manuel de secours : si on est bloqué en transition depuis
+  // plus de 5 s, on affiche un bouton "Continuer" pour débloquer à la main.
+  const [showManualUnlock, setShowManualUnlock] = useState(false);
+  useEffect(() => {
+    setShowManualUnlock(false);
+    if (!inRoundTransition) return;
+    const tm = setTimeout(() => setShowManualUnlock(true), 5000);
+    return () => clearTimeout(tm);
+  }, [inRoundTransition, voteRound]);
+
+  async function manualAdvance() {
+    const supabase = createClient();
+    const { error } = await supabase.rpc("dyp_force_round_advance", {
+      p_room_id: room.id,
+      p_vote_round: voteRound,
+    });
+    if (error) {
+      console.error("[manual dyp_force_round_advance]", error);
+      alert(`Erreur RPC : ${error.message}`);
+    }
+  }
 
   // ── Voter ─────────────────────────────────────────────────────────
   async function castVote(cardId: string) {
@@ -372,6 +429,8 @@ export default function DypOnlinePlay({
               state={state}
               cardById={cardById}
               remainingSec={transitionRemainingSec}
+              showManualUnlock={showManualUnlock}
+              onManualAdvance={manualAdvance}
               t={t}
             />
           ) : (
@@ -686,11 +745,15 @@ function TransitionScreen({
   state,
   cardById,
   remainingSec,
+  showManualUnlock,
+  onManualAdvance,
   t,
 }: {
   state: DypOnlineState;
   cardById: Map<string, DYPCard>;
   remainingSec: number;
+  showManualUnlock: boolean;
+  onManualAdvance: () => void;
   t: ReturnType<typeof useTranslations>;
 }) {
   const justFinishedRound = state.bracket[state.currentRound - 1] ?? [];
@@ -714,6 +777,15 @@ function TransitionScreen({
         <p className="text-surface-500 text-xs">
           {t("transition.next", { seconds: remainingSec })}
         </p>
+        {showManualUnlock && (
+          <button
+            type="button"
+            onClick={onManualAdvance}
+            className="mt-2 px-3 py-1.5 rounded-lg bg-amber-600/80 hover:bg-amber-500 text-white text-xs font-bold transition-colors"
+          >
+            Continuer maintenant →
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-2">
