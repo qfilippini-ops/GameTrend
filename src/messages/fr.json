@@ -1397,6 +1397,7 @@
           "cardCounter": "Carte {current} / {total}",
           "byBidder": "par {name}",
           "timeLeft": "Temps restant",
+          "yourTurn": "À toi de miser !",
           "waitingForOther": "En attente de {name}…",
           "bidPlaceholder": "Min {min}",
           "bidAction": "Surenchérir",

@@ -1397,6 +1397,7 @@
           "cardCounter": "Card {current} / {total}",
           "byBidder": "by {name}",
           "timeLeft": "Time left",
+          "yourTurn": "Your turn to bid!",
           "waitingForOther": "Waiting for {name}…",
           "bidPlaceholder": "Min {min}",
           "bidAction": "Outbid",

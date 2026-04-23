@@ -3,21 +3,19 @@
 /**
  * Phase "playing" de Outbid online (1v1 enchères).
  *
- * Flux :
- *   - Mon tour (`awaitingResponse === myName`) :
- *       - Surenchérir : RPC `outbid_place_bid(room_id, vote_round, amount)`
- *       - Passer       : RPC `outbid_pass(room_id, vote_round)`
- *   - Tour adverse : message d'attente.
- *   - Timer = `decisionStartedAt + tourTimeSeconds`. Reset à chaque action
- *     côté serveur. À expiration, **n'importe quel client** appelle
- *     `outbid_force_timeout` (pas de leader logic, le SQL est idempotent).
+ * Layout (révision) :
+ *   - 2/3 haut : scène de jeu
+ *       • Carte en cours en haut centre
+ *       • Deux colonnes horizontales (moi à gauche, adverse à droite)
+ *         Chaque colonne : avatar → points → cartes acquises empilées
+ *         (taille auto = (hauteur dispo) / teamSize)
+ *       • UI d'enchère en bas, grisée quand ce n'est pas mon tour
+ *   - 1/3 bas : chat realtime
  *
  * Robustesse (leçons de DYP) :
- *   - Un seul `setInterval` persistant (créé au mount avec deps `[]`) qui
- *     lit l'état courant via une `ref` synchronisée à chaque render → jamais
- *     de blocage par stale closures.
- *   - Bouton manuel "Forcer la fin du tour" si bloqué > 5s.
- *   - Logs en console pour diagnostic en cas de RPC error.
+ *   - Un seul `setInterval` persistant qui lit l'état courant via `ref`
+ *     et appelle `outbid_force_timeout` (idempotent côté SQL).
+ *   - Bouton manuel de secours après 5s de blocage.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -138,6 +136,14 @@ export default function OutbidOnlinePlay({
     : null;
   const isSpectator = !myPlayer;
 
+  // En tant que spectateur on garde l'ordre originel (A à gauche)
+  const leftPlayer: OutbidPlayer | null = isSpectator
+    ? state?.playerA ?? null
+    : myPlayer;
+  const rightPlayer: OutbidPlayer | null = isSpectator
+    ? state?.playerB ?? null
+    : otherPlayer;
+
   // ── Carte courante ────────────────────────────────────────────────
   const currentCardId = state
     ? state.cardOrder[state.currentCardIndex] ?? null
@@ -232,8 +238,9 @@ export default function OutbidOnlinePlay({
   }
 
   function applyQuick(delta: number) {
-    if (!myPlayer || !currentBid) return;
-    const newAmount = Math.min(maxBid, currentBid.amount + delta);
+    if (!myPlayer) return;
+    const base = currentBid?.amount ?? 0;
+    const newAmount = Math.min(maxBid, base + delta);
     setBidInput(String(newAmount));
   }
   function applyAllIn() {
@@ -273,10 +280,8 @@ export default function OutbidOnlinePlay({
     const tick = async () => {
       const s = stateRef.current;
       if (s.finished) return;
-      // Si on a un timestamp valide et que le timer n'est pas écoulé, on attend.
       const tsValid = s.decisionStartedMs > 0;
       if (tsValid && Date.now() < s.decisionStartedMs + s.tourMs) return;
-      // Throttle 1.5s par clé
       const key = `${s.roomId}:${s.voteRound}`;
       const last = lastTimeoutAttemptRef.current;
       if (last && last.key === key && Date.now() - last.ts < 1500) return;
@@ -329,38 +334,20 @@ export default function OutbidOnlinePlay({
 
   const totalCards = state.cardOrder.length;
   const cardNumber = Math.min(state.currentCardIndex + 1, totalCards);
+  const teamSize = state.teamSize;
 
   return (
     <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
-      {/* Bandeau adversaire en haut */}
-      {otherPlayer && (
-        <PlayerBanner
-          player={otherPlayer}
-          cards={state.cards}
-          cardById={cardById}
-          isYou={false}
-          isHisTurn={state.awaitingResponse === otherPlayer.name}
-          avatar={playerAvatars[otherPlayer.name] ?? null}
-          t={t}
-        />
-      )}
-
-      {/* Centre : carte + enchère + timer */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        <div className="flex-1 min-h-0 px-3 py-2 flex flex-col items-center justify-center max-w-md w-full mx-auto">
-          {/* Carte */}
-          <div className="w-full flex justify-center">
-            <CurrentCardDisplay card={currentCard} />
-          </div>
-
-          {/* Position dans la pioche */}
-          <p className="text-surface-600 text-[10px] font-mono mt-1.5">
+      {/* ───── Scène de jeu : 2/3 ───── */}
+      <div className="flex-[2] min-h-0 flex flex-col">
+        {/* Top : carte courante + enchère + timer */}
+        <div className="shrink-0 px-3 pt-2 pb-1.5 flex flex-col items-center gap-1.5">
+          <CurrentCardDisplay card={currentCard} />
+          <p className="text-surface-600 text-[10px] font-mono">
             {t("cardCounter", { current: cardNumber, total: totalCards })}
           </p>
-
-          {/* Enchère courante */}
           {currentBid && (
-            <div className="mt-2 px-3 py-1.5 rounded-xl bg-amber-950/40 border border-amber-700/40">
+            <div className="px-3 py-1 rounded-lg bg-amber-950/40 border border-amber-700/40">
               <p className="text-center text-amber-300 font-mono text-xs">
                 <span className="font-bold text-base">{currentBid.amount}</span>{" "}
                 <span className="opacity-70">
@@ -369,10 +356,8 @@ export default function OutbidOnlinePlay({
               </p>
             </div>
           )}
-
-          {/* Timer */}
-          <div className="w-full mt-2 max-w-xs">
-            <div className="flex items-center justify-between text-[11px]">
+          <div className="w-full max-w-xs">
+            <div className="flex items-center justify-between text-[10px]">
               <span className="text-surface-500">{t("timeLeft")}</span>
               <span
                 className={`font-mono font-bold ${
@@ -382,7 +367,7 @@ export default function OutbidOnlinePlay({
                 {remainingSec}s
               </span>
             </div>
-            <div className="h-1 rounded-full bg-surface-800/60 overflow-hidden mt-1">
+            <div className="h-1 rounded-full bg-surface-800/60 overflow-hidden mt-0.5">
               <motion.div
                 className={`h-full ${isUrgent ? "bg-red-500" : "bg-amber-500"}`}
                 animate={{ width: `${progress * 100}%` }}
@@ -392,37 +377,56 @@ export default function OutbidOnlinePlay({
           </div>
         </div>
 
-        {/* UI décision */}
-        {!isSpectator && myPlayer && (
-          <div className="shrink-0 px-3 pb-2 max-w-md w-full mx-auto">
-            {isMyTurn ? (
-              <DecisionUI
-                bidInput={bidInput}
-                setBidInput={setBidInput}
-                minBid={minBid}
-                maxBid={maxBid}
-                isBidValid={isBidValid}
-                isSubmitting={isSubmitting}
-                onBid={() => placeBid(parsedBid)}
-                onPass={pass}
-                onQuick={applyQuick}
-                onAllIn={applyAllIn}
-                myPoints={myPlayer.points}
-                t={t}
-              />
-            ) : (
-              <div className="rounded-xl border border-surface-700/40 bg-surface-900/50 px-3 py-2 text-center">
-                <p className="text-surface-400 text-sm">
-                  {t("waitingForOther", { name: state.awaitingResponse ?? "?" })}
-                </p>
-              </div>
-            )}
+        {/* Milieu : 2 colonnes joueurs côte à côte */}
+        <div className="flex-1 min-h-0 px-2 pb-1 grid grid-cols-2 gap-2">
+          {leftPlayer && (
+            <PlayerColumn
+              player={leftPlayer}
+              cardById={cardById}
+              isYou={!isSpectator && leftPlayer.name === myName}
+              isHisTurn={state.awaitingResponse === leftPlayer.name}
+              avatar={playerAvatars[leftPlayer.name] ?? null}
+              teamSize={teamSize}
+              t={t}
+            />
+          )}
+          {rightPlayer && (
+            <PlayerColumn
+              player={rightPlayer}
+              cardById={cardById}
+              isYou={!isSpectator && rightPlayer.name === myName}
+              isHisTurn={state.awaitingResponse === rightPlayer.name}
+              avatar={playerAvatars[rightPlayer.name] ?? null}
+              teamSize={teamSize}
+              t={t}
+            />
+          )}
+        </div>
 
+        {/* Bas : UI d'enchère (toujours visible, grisée si pas mon tour) */}
+        {!isSpectator && (
+          <div className="shrink-0 px-3 pt-1 pb-2 max-w-xl w-full mx-auto">
+            <DecisionUI
+              bidInput={bidInput}
+              setBidInput={setBidInput}
+              minBid={minBid}
+              maxBid={maxBid}
+              isBidValid={isBidValid}
+              isSubmitting={isSubmitting}
+              isMyTurn={isMyTurn}
+              awaitingName={state.awaitingResponse}
+              onBid={() => placeBid(parsedBid)}
+              onPass={pass}
+              onQuick={applyQuick}
+              onAllIn={applyAllIn}
+              myPoints={myPlayer?.points ?? 0}
+              t={t}
+            />
             {showManualUnlock && (
               <button
                 type="button"
                 onClick={manualForceTimeout}
-                className="mt-2 w-full py-2 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
+                className="mt-1 w-full py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
               >
                 {t("manualUnlock")}
               </button>
@@ -431,22 +435,9 @@ export default function OutbidOnlinePlay({
         )}
       </div>
 
-      {/* Bandeau "moi" en bas (juste équipe + points, plus compact) */}
-      {myPlayer && (
-        <PlayerBanner
-          player={myPlayer}
-          cards={state.cards}
-          cardById={cardById}
-          isYou={true}
-          isHisTurn={isMyTurn}
-          avatar={playerAvatars[myPlayer.name] ?? null}
-          t={t}
-        />
-      )}
-
-      {/* Chat */}
-      <div className="shrink-0 border-t border-surface-800/40 bg-surface-950/95 h-40">
-        <div className="max-w-md w-full mx-auto h-full flex flex-col">
+      {/* ───── Chat : 1/3 ───── */}
+      <div className="flex-1 min-h-0 border-t border-surface-800/60 bg-surface-950/95">
+        <div className="max-w-2xl w-full mx-auto h-full flex flex-col">
           <RoomChat
             roomId={room.id}
             myName={myName}
@@ -470,135 +461,148 @@ export default function OutbidOnlinePlay({
   );
 }
 
-// ── Sous-composant : bandeau joueur (avatar, points, équipe) ─────────────
-function PlayerBanner({
+// ── Sous-composant : colonne joueur (avatar → points → cartes empilées) ──
+function PlayerColumn({
   player,
   cardById,
   isYou,
   isHisTurn,
   avatar,
+  teamSize,
   t,
 }: {
   player: OutbidPlayer;
-  cards: DYPCard[];
   cardById: Map<string, DYPCard>;
   isYou: boolean;
   isHisTurn: boolean;
   avatar: string | null;
+  teamSize: number;
   t: ReturnType<typeof useTranslations>;
 }) {
+  // Slots = teamSize, remplis par player.team puis vides
+  const slots = Array.from({ length: teamSize }, (_, i) => player.team[i] ?? null);
+
   return (
     <div
-      className={`shrink-0 px-3 py-1.5 border-b border-surface-800/40 ${
-        isHisTurn ? "bg-amber-950/30" : "bg-surface-900/40"
-      }`}
+      className={`h-full min-h-0 flex flex-col rounded-xl border ${
+        isHisTurn
+          ? "border-amber-500/60 bg-amber-950/20 ring-1 ring-amber-500/30"
+          : "border-surface-800/60 bg-surface-900/40"
+      } overflow-hidden`}
     >
-      <div className="max-w-md w-full mx-auto flex items-center gap-2">
-        {/* Avatar + nom + points */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="relative w-7 h-7 rounded-full overflow-hidden ring-2 ring-surface-800">
-            {avatar ? (
-              <Image
-                src={avatar}
-                alt={player.name}
-                fill
-                sizes="32px"
-                className="object-cover"
-              />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-xs font-bold">
-                {player.name.charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
-          <div className="min-w-0">
-            <p className="text-white text-xs font-bold truncate max-w-[80px]">
-              {isYou ? t("you") : player.name}
-            </p>
-            <p className="text-amber-400 text-[11px] font-mono font-bold">
-              {player.points} pts
-            </p>
-          </div>
-        </div>
-
-        {/* Slots équipe (cartes acquises) */}
-        <div className="flex-1 min-w-0 flex gap-1 overflow-x-auto no-scrollbar">
-          <AnimatePresence>
-            {player.team.map((entry, i) => {
-              const card = cardById.get(entry.cardId);
-              if (!card) return null;
-              return (
-                <motion.div
-                  key={`${entry.cardId}-${i}`}
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 320, damping: 20 }}
-                  className="relative shrink-0 w-10 h-12 rounded-md overflow-hidden ring-1 ring-amber-700/40"
-                  title={`${card.name} — ${entry.price} pts`}
-                >
-                  {card.imageUrl ? (
-                    <Image
-                      src={card.imageUrl}
-                      alt={card.name}
-                      fill
-                      sizes="40px"
-                      className="object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/80 text-amber-300 text-[8px] font-mono font-bold text-center leading-tight">
-                    {entry.price}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-          {player.team.length === 0 && (
-            <p className="text-surface-700 text-[10px] italic self-center">
-              {t("emptyTeam")}
-            </p>
+      {/* Avatar + nom */}
+      <div className="shrink-0 flex flex-col items-center gap-0.5 pt-2 pb-1">
+        <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-surface-800">
+          {avatar ? (
+            <Image
+              src={avatar}
+              alt={player.name}
+              fill
+              sizes="40px"
+              className="object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-sm font-bold">
+              {player.name.charAt(0).toUpperCase()}
+            </div>
           )}
         </div>
+        <p className="text-white text-xs font-bold truncate max-w-full px-1">
+          {isYou ? t("you") : player.name}
+        </p>
+        <p className="text-amber-400 text-[11px] font-mono font-bold leading-none">
+          {player.points} pts
+        </p>
+      </div>
+
+      {/* Cartes empilées : grid avec autant de lignes que teamSize, taille auto */}
+      <div
+        className="flex-1 min-h-0 px-1 pb-1 grid gap-0.5"
+        style={{ gridTemplateRows: `repeat(${teamSize}, minmax(0, 1fr))` }}
+      >
+        <AnimatePresence>
+          {slots.map((entry, i) => {
+            if (!entry) {
+              return (
+                <div
+                  key={`empty-${i}`}
+                  className="rounded-md border border-dashed border-surface-800/50"
+                />
+              );
+            }
+            const card = cardById.get(entry.cardId);
+            return (
+              <motion.div
+                key={`${entry.cardId}-${i}`}
+                initial={{ scale: 0.5, opacity: 0, y: -20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 320, damping: 20 }}
+                className="relative rounded-md overflow-hidden ring-1 ring-amber-700/40 bg-surface-900"
+                title={card ? `${card.name} — ${entry.price} pts` : ""}
+              >
+                {card?.imageUrl ? (
+                  <Image
+                    src={card.imageUrl}
+                    alt={card.name}
+                    fill
+                    sizes="120px"
+                    className="object-cover"
+                    unoptimized
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
+                )}
+                {/* Overlay nom + prix */}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-1 pt-1 pb-0.5 flex items-end justify-between gap-1">
+                  <span className="text-white text-[9px] font-bold truncate flex-1 leading-none">
+                    {card?.name ?? "?"}
+                  </span>
+                  <span className="text-amber-300 text-[9px] font-mono font-bold leading-none shrink-0">
+                    {entry.price}p
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
-// ── Sous-composant : carte courante en grand ─────────────────────────────
+// ── Sous-composant : carte courante en haut au centre ────────────────────
 function CurrentCardDisplay({ card }: { card: DYPCard | null }) {
   if (!card) {
     return (
-      <div className="w-40 h-40 rounded-2xl bg-surface-900/60 ring-1 ring-surface-800 flex items-center justify-center">
-        <span className="text-surface-700 text-3xl">⌛</span>
+      <div className="w-24 h-24 rounded-xl bg-surface-900/60 ring-1 ring-surface-800 flex items-center justify-center">
+        <span className="text-surface-700 text-2xl">⌛</span>
       </div>
     );
   }
   return (
     <motion.div
       key={card.id}
-      initial={{ opacity: 0, scale: 0.85, y: 10 }}
+      initial={{ opacity: 0, scale: 0.8, y: -10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 220, damping: 22 }}
-      className="relative w-44 aspect-square rounded-2xl overflow-hidden ring-2 ring-amber-500/60"
-      style={{ boxShadow: "0 0 28px rgba(245,158,11,0.35)" }}
+      className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden ring-2 ring-amber-500/70"
+      style={{ boxShadow: "0 0 22px rgba(245,158,11,0.45)" }}
     >
       {card.imageUrl ? (
         <Image
           src={card.imageUrl}
           alt={card.name}
           fill
-          sizes="(max-width: 768px) 50vw, 200px"
+          sizes="(max-width: 768px) 30vw, 130px"
           className="object-cover"
           unoptimized
         />
       ) : (
         <div className="absolute inset-0 bg-gradient-to-br from-amber-900/70 via-surface-900 to-brand-900/70" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 px-2 pb-1.5 pt-3">
-        <p className="font-display font-bold text-white text-sm leading-tight drop-shadow-lg line-clamp-2 text-center">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 px-1.5 pb-1 pt-2">
+        <p className="font-display font-bold text-white text-xs leading-tight drop-shadow-lg line-clamp-2 text-center">
           {card.name}
         </p>
       </div>
@@ -606,7 +610,7 @@ function CurrentCardDisplay({ card }: { card: DYPCard | null }) {
   );
 }
 
-// ── Sous-composant : UI de décision (mon tour) ───────────────────────────
+// ── Sous-composant : UI de décision (toujours visible, grisée si pas mon tour) ──
 function DecisionUI({
   bidInput,
   setBidInput,
@@ -614,6 +618,8 @@ function DecisionUI({
   maxBid,
   isBidValid,
   isSubmitting,
+  isMyTurn,
+  awaitingName,
   onBid,
   onPass,
   onQuick,
@@ -627,6 +633,8 @@ function DecisionUI({
   maxBid: number;
   isBidValid: boolean;
   isSubmitting: boolean;
+  isMyTurn: boolean;
+  awaitingName: string | null;
   onBid: () => void;
   onPass: () => void;
   onQuick: (delta: number) => void;
@@ -634,72 +642,86 @@ function DecisionUI({
   myPoints: number;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const disabled = !isMyTurn || isSubmitting;
+  const wrapperOpacity = isMyTurn ? "opacity-100" : "opacity-50";
+
   return (
-    <div className="space-y-2">
-      {/* Saisie + boutons rapides */}
-      <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-2 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            inputMode="numeric"
-            value={bidInput}
-            onChange={(e) => setBidInput(e.target.value.replace(/[^0-9]/g, ""))}
-            min={minBid}
-            max={maxBid}
-            placeholder={t("bidPlaceholder", { min: minBid })}
-            disabled={isSubmitting}
-            className="flex-1 bg-surface-900/80 border border-surface-700/60 rounded-lg px-3 py-2 text-amber-300 font-mono font-bold text-base text-center focus:outline-none focus:ring-2 focus:ring-amber-500/60"
-          />
-          <button
-            type="button"
-            onClick={onBid}
-            disabled={!isBidValid || isSubmitting}
-            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
-              isBidValid && !isSubmitting
-                ? "bg-amber-500 hover:bg-amber-400 text-white"
-                : "bg-surface-800/60 text-surface-700 cursor-not-allowed"
-            }`}
-          >
-            {t("bidAction")}
-          </button>
-        </div>
+    <div
+      className={`rounded-xl border p-2 transition-opacity ${wrapperOpacity} ${
+        isMyTurn
+          ? "border-amber-700/50 bg-amber-950/20"
+          : "border-surface-800/60 bg-surface-900/40"
+      }`}
+      aria-disabled={!isMyTurn}
+    >
+      {/* Bandeau de statut */}
+      <div className="flex items-center justify-between text-[10px] font-mono mb-1.5">
+        <span className={isMyTurn ? "text-amber-300 font-bold" : "text-surface-500"}>
+          {isMyTurn
+            ? t("yourTurn")
+            : t("waitingForOther", { name: awaitingName ?? "?" })}
+        </span>
+        <span className="text-surface-500">
+          {myPoints} {t("points")}
+        </span>
+      </div>
 
-        {/* Boutons rapides */}
-        <div className="grid grid-cols-4 gap-1">
-          {OUTBID_QUICK_BIDS.map((delta) => (
-            <button
-              key={delta}
-              type="button"
-              onClick={() => onQuick(delta)}
-              disabled={isSubmitting || maxBid < minBid}
-              className="py-1.5 rounded-md bg-surface-800/80 hover:bg-surface-700 text-amber-300 text-xs font-mono font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              +{delta}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={onAllIn}
-            disabled={isSubmitting || maxBid < minBid}
-            className="py-1.5 rounded-md bg-red-700/80 hover:bg-red-600 text-white text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            {t("allIn")}
-          </button>
-        </div>
+      {/* Input + bouton Surenchérir */}
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          inputMode="numeric"
+          value={bidInput}
+          onChange={(e) => setBidInput(e.target.value.replace(/[^0-9]/g, ""))}
+          min={minBid}
+          max={maxBid}
+          placeholder={t("bidPlaceholder", { min: minBid })}
+          disabled={disabled}
+          className="flex-1 bg-surface-900/80 border border-surface-700/60 rounded-lg px-3 py-2 text-amber-300 font-mono font-bold text-base text-center focus:outline-none focus:ring-2 focus:ring-amber-500/60 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+        <button
+          type="button"
+          onClick={onBid}
+          disabled={disabled || !isBidValid}
+          className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${
+            !disabled && isBidValid
+              ? "bg-amber-500 hover:bg-amber-400 text-white"
+              : "bg-surface-800/60 text-surface-700 cursor-not-allowed"
+          }`}
+        >
+          {t("bidAction")}
+        </button>
+      </div>
 
-        {/* Hint mini */}
-        <p className="text-[10px] text-surface-600 text-center font-mono">
-          {t("bidRange", { min: minBid, max: maxBid })} · {myPoints}{" "}
-          {t("points")}
-        </p>
+      {/* Boutons rapides */}
+      <div className="grid grid-cols-5 gap-1 mt-1.5">
+        {OUTBID_QUICK_BIDS.map((delta) => (
+          <button
+            key={delta}
+            type="button"
+            onClick={() => onQuick(delta)}
+            disabled={disabled || maxBid < minBid}
+            className="py-1.5 rounded-md bg-surface-800/80 hover:bg-surface-700 text-amber-300 text-xs font-mono font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            +{delta}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onAllIn}
+          disabled={disabled || maxBid < minBid}
+          className="py-1.5 rounded-md bg-red-700/80 hover:bg-red-600 text-white text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          {t("allIn")}
+        </button>
       </div>
 
       {/* Pass */}
       <button
         type="button"
         onClick={onPass}
-        disabled={isSubmitting}
-        className="w-full py-2.5 rounded-xl border border-surface-700/60 bg-surface-900/60 hover:bg-surface-800/60 text-surface-300 text-sm font-bold transition-colors disabled:opacity-50"
+        disabled={disabled}
+        className="mt-1.5 w-full py-2 rounded-lg border border-surface-700/60 bg-surface-900/60 hover:bg-surface-800/60 text-surface-300 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
       >
         {t("pass")}
       </button>
