@@ -23,7 +23,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import Avatar from "@/components/ui/Avatar";
 import RoomChat from "@/games/online/components/RoomChat";
 import { createClient } from "@/lib/supabase/client";
 import { vibrate } from "@/lib/utils";
@@ -115,7 +114,16 @@ export default function DypOnlinePlay({
 
   const state = readState(room);
   const voteRound = room.vote_round ?? 0;
-  const currentVotes = votes.filter((v) => v.vote_round === voteRound);
+
+  // Pendant la pause inter-duel ou inter-round, le `vote_round` a été
+  // incrémenté côté serveur juste après la résolution. Pour continuer à
+  // montrer "qui a voté pour qui", on doit lire les votes du round précédent.
+  const inMatchTransitionFlag = !!state?.pendingMatchTransition;
+  const inRoundTransitionFlag = !!state?.pendingTransition;
+  const voteDisplayRound =
+    inMatchTransitionFlag || inRoundTransitionFlag ? voteRound - 1 : voteRound;
+
+  const currentVotes = votes.filter((v) => v.vote_round === voteDisplayRound);
 
   const cardById = useMemo(() => {
     const map = new Map<string, DYPCard>();
@@ -185,16 +193,32 @@ export default function DypOnlinePlay({
     return firstOnline?.display_name === myName;
   }
 
+  // Refs : on garde la dernière clé "successfully fired" + un timestamp pour
+  // throttle les retries (1 toutes les 1.5 s) en cas d'erreur RPC.
+  const forcedTimeoutRef = useRef<{ key: string; ts: number } | null>(null);
+  const forcedAdvanceRef = useRef<{ key: string; ts: number } | null>(null);
+  const forcedMatchAdvanceRef = useRef<{ key: string; ts: number } | null>(null);
+
+  function shouldFire(
+    ref: React.MutableRefObject<{ key: string; ts: number } | null>,
+    key: string
+  ): boolean {
+    const last = ref.current;
+    if (!last) return true;
+    if (last.key !== key) return true;
+    return Date.now() - last.ts > 1500;
+  }
+
   // Quand le timer du duel = 0 : leader force la résolution.
-  const forcedTimeoutRef = useRef<string | null>(null);
   useEffect(() => {
     if (!state || state.pendingTransition || state.pendingMatchTransition) return;
     if (remainingMs > 0) return;
-    if (startedAtMs <= 0) return; // pas de timestamp valide → ne rien forcer
-    if (forcedTimeoutRef.current === `${room.id}:${voteRound}`) return;
+    if (startedAtMs <= 0) return;
+    const key = `${room.id}:${voteRound}`;
+    if (!shouldFire(forcedTimeoutRef, key)) return;
     if (!amILeader()) return;
 
-    forcedTimeoutRef.current = `${room.id}:${voteRound}`;
+    forcedTimeoutRef.current = { key, ts: Date.now() };
     const supabase = createClient();
     supabase
       .rpc("dyp_force_timeout", {
@@ -202,21 +226,25 @@ export default function DypOnlinePlay({
         p_vote_round: voteRound,
       })
       .then(({ error }) => {
-        if (error) console.error("[dyp_force_timeout]", error);
+        if (error) {
+          console.error("[dyp_force_timeout]", error);
+          // Reset partiel pour permettre un retry rapide
+          forcedTimeoutRef.current = { key, ts: Date.now() - 1000 };
+        }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remainingMs, voteRound, room.id, state?.pendingTransition, state?.pendingMatchTransition]);
 
   // Quand le timer inter-rounds = 0 : leader force le nouveau round.
-  const forcedAdvanceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!state || !state.pendingTransition) return;
     if (transitionRemainingMs > 0) return;
     if (transitionStartedMs <= 0) return;
-    if (forcedAdvanceRef.current === `${room.id}:${voteRound}`) return;
+    const key = `${room.id}:${voteRound}`;
+    if (!shouldFire(forcedAdvanceRef, key)) return;
     if (!amILeader()) return;
 
-    forcedAdvanceRef.current = `${room.id}:${voteRound}`;
+    forcedAdvanceRef.current = { key, ts: Date.now() };
     const supabase = createClient();
     supabase
       .rpc("dyp_force_round_advance", {
@@ -224,21 +252,24 @@ export default function DypOnlinePlay({
         p_vote_round: voteRound,
       })
       .then(({ error }) => {
-        if (error) console.error("[dyp_force_round_advance]", error);
+        if (error) {
+          console.error("[dyp_force_round_advance]", error);
+          forcedAdvanceRef.current = { key, ts: Date.now() - 1000 };
+        }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transitionRemainingMs, voteRound, room.id, state?.pendingTransition]);
 
   // Quand le timer inter-duels = 0 : leader force le duel suivant.
-  const forcedMatchAdvanceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!state || !state.pendingMatchTransition) return;
     if (matchTransitionRemainingMs > 0) return;
     if (matchTransitionStartedMs <= 0) return;
-    if (forcedMatchAdvanceRef.current === `${room.id}:${voteRound}`) return;
+    const key = `${room.id}:${voteRound}`;
+    if (!shouldFire(forcedMatchAdvanceRef, key)) return;
     if (!amILeader()) return;
 
-    forcedMatchAdvanceRef.current = `${room.id}:${voteRound}`;
+    forcedMatchAdvanceRef.current = { key, ts: Date.now() };
     const supabase = createClient();
     supabase
       .rpc("dyp_force_match_advance", {
@@ -246,7 +277,10 @@ export default function DypOnlinePlay({
         p_vote_round: voteRound,
       })
       .then(({ error }) => {
-        if (error) console.error("[dyp_force_match_advance]", error);
+        if (error) {
+          console.error("[dyp_force_match_advance]", error);
+          forcedMatchAdvanceRef.current = { key, ts: Date.now() - 1000 };
+        }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchTransitionRemainingMs, voteRound, room.id, state?.pendingMatchTransition]);
@@ -284,7 +318,7 @@ export default function DypOnlinePlay({
   return (
     <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
       {/* Bandeau round + timer (compact) */}
-      <div className="px-4 pt-safe pt-3 pb-2 space-y-2 shrink-0 max-w-md w-full mx-auto">
+      <div className="px-4 pt-safe pt-2 pb-1.5 space-y-1.5 shrink-0 max-w-md w-full mx-auto">
         <div className="flex items-center justify-between text-[11px] text-surface-500">
           <span className="font-mono">
             {t("roundLabel", {
@@ -302,7 +336,7 @@ export default function DypOnlinePlay({
 
         {/* Timer (caché en transition) */}
         {!inRoundTransition && !inMatchTransition && (
-          <div className="rounded-xl border border-amber-700/30 bg-amber-950/20 px-3 py-1.5">
+          <div className="rounded-lg border border-amber-700/30 bg-amber-950/20 px-2.5 py-1">
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-surface-500">{t("timeLeft")}</span>
               <span
@@ -326,11 +360,9 @@ export default function DypOnlinePlay({
         )}
       </div>
 
-      {/* Zone centrale : duel ou transition de round.
-          flex-1 + min-h-0 pour qu'elle prenne tout l'espace restant
-          mais que son contenu soit centré verticalement. */}
-      <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-1 overflow-hidden">
-        <div className="max-w-xs w-full mx-auto">
+      {/* Zone centrale : scène (cartes compactes), hauteur naturelle. */}
+      <div className="shrink-0 px-4 py-2 w-full">
+        <div className="max-w-[170px] w-full mx-auto">
           {inRoundTransition ? (
             <TransitionScreen
               state={state}
@@ -355,9 +387,9 @@ export default function DypOnlinePlay({
         </div>
       </div>
 
-      {/* Chat — collé sous la scène, hauteur réduite. */}
-      <div className="border-t border-surface-800/40 bg-surface-950/95 w-full shrink-0">
-        <div className="max-w-md w-full mx-auto h-[28vh] min-h-[160px] max-h-[34vh] flex flex-col">
+      {/* Chat — prend tout l'espace restant avec un mini gap visuel. */}
+      <div className="flex-1 min-h-0 mt-1 border-t border-surface-800/40 bg-surface-950/95 w-full">
+        <div className="max-w-md w-full mx-auto h-full flex flex-col">
           <RoomChat
             roomId={room.id}
             myName={myName}
@@ -423,7 +455,7 @@ function DuelScreen({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.2 }}
-      className="w-full flex flex-col items-center gap-2"
+      className="w-full flex flex-col items-center gap-1.5"
     >
       <DuelCard
         card={card1}
@@ -436,14 +468,14 @@ function DuelScreen({
         disabled={disabled}
       />
 
-      {/* VS badge */}
-      <div className="shrink-0 flex items-center gap-3 w-full">
+      {/* VS badge compact */}
+      <div className="shrink-0 flex items-center gap-2 w-full">
         <div className="flex-1 h-px bg-surface-800/60" />
         <div
-          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-surface-700/40 bg-surface-900"
-          style={{ boxShadow: "0 0 12px rgba(0,0,0,0.5)" }}
+          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-surface-700/40 bg-surface-900"
+          style={{ boxShadow: "0 0 10px rgba(0,0,0,0.5)" }}
         >
-          <span className="text-amber-400/70 text-[10px] font-black tracking-tight">
+          <span className="text-amber-400/70 text-[9px] font-black tracking-tight">
             {t("vs")}
           </span>
         </div>
@@ -528,11 +560,11 @@ function DuelCard({
       )}
 
       {/* Gradient bottom pour lisibilité du nom */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
       {/* Nom carte */}
-      <div className="absolute bottom-0 left-0 right-0 p-3">
-        <p className="font-display font-bold text-white text-base leading-tight drop-shadow-lg line-clamp-2">
+      <div className="absolute bottom-0 left-0 right-0 px-2 pb-1.5 pt-3">
+        <p className="font-display font-bold text-white text-xs leading-tight drop-shadow-lg line-clamp-2 text-center">
           {card.name}
         </p>
       </div>
@@ -543,40 +575,111 @@ function DuelCard({
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.05, type: "spring", stiffness: 320 }}
-          className="absolute top-2 right-2 w-9 h-9 rounded-full bg-amber-500/95 flex items-center justify-center shadow-lg"
+          className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-amber-500/95 flex items-center justify-center shadow-lg"
         >
-          <span className="text-base">👑</span>
+          <span className="text-sm">👑</span>
         </motion.div>
       )}
 
-      {/* Avatars des votants (top-left) */}
+      {/* Avatars des votants : taille adaptative selon le nombre */}
       {voters.length > 0 && (
-        <div className="absolute top-2 left-2 flex -space-x-1.5">
-          <AnimatePresence>
-            {voters.slice(0, 5).map((name) => (
-              <motion.div
-                key={name}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.6 }}
-              >
-                <Avatar
-                  src={playerAvatars[name]}
-                  name={name}
-                  size="xs"
-                  className="rounded-full ring-2 ring-surface-950"
-                />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          {voters.length > 5 && (
-            <div className="w-6 h-6 rounded-full bg-surface-900/90 ring-2 ring-surface-950 flex items-center justify-center text-[9px] font-bold text-surface-200">
-              +{voters.length - 5}
-            </div>
-          )}
-        </div>
+        <VoterStack voters={voters} playerAvatars={playerAvatars} />
       )}
     </motion.button>
+  );
+}
+
+/**
+ * Pile d'avatars de votants empilés. La taille de chaque avatar et le
+ * recouvrement diminuent quand le nombre augmente, pour qu'on les voie tous
+ * dans la limite de la carte (~150 px de large).
+ */
+function VoterStack({
+  voters,
+  playerAvatars,
+}: {
+  voters: string[];
+  playerAvatars: Record<string, string | null>;
+}) {
+  const n = voters.length;
+  // Tailles (px) en fonction du nombre — pensé pour tenir dans une carte 160 px.
+  let size: number;
+  if (n <= 1) size = 28;
+  else if (n <= 3) size = 26;
+  else if (n <= 6) size = 22;
+  else if (n <= 10) size = 18;
+  else size = 15;
+  // Overlap = ~40 % de la taille → resserre la pile mais garde l'avatar lisible.
+  const overlap = Math.round(size * 0.4);
+
+  return (
+    <div className="absolute top-1.5 left-1.5 flex" style={{ marginLeft: 0 }}>
+      <AnimatePresence>
+        {voters.map((name, i) => (
+          <motion.div
+            key={name}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.6 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              marginLeft: i === 0 ? 0 : -overlap,
+              zIndex: voters.length - i,
+            }}
+          >
+            <VoterAvatar
+              src={playerAvatars[name] ?? null}
+              name={name}
+              size={size}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const VOTER_GRADIENTS = [
+  "from-brand-600 to-ghost-600",
+  "from-brand-500 to-blue-600",
+  "from-ghost-600 to-pink-600",
+  "from-emerald-500 to-brand-600",
+  "from-orange-500 to-ghost-600",
+];
+
+function gradientFor(name: string): string {
+  return VOTER_GRADIENTS[name.charCodeAt(0) % VOTER_GRADIENTS.length];
+}
+
+function VoterAvatar({
+  src,
+  name,
+  size,
+}: {
+  src: string | null;
+  name: string;
+  size: number;
+}) {
+  const initial = name.charAt(0).toUpperCase() || "?";
+  const fontSize = Math.max(8, Math.round(size * 0.45));
+  return (
+    <div
+      className="rounded-full overflow-hidden ring-2 ring-surface-950 shrink-0"
+      style={{ width: size, height: size }}
+    >
+      {src ? (
+        <div className="relative w-full h-full">
+          <Image src={src} alt={name} fill className="object-cover" sizes="32px" />
+        </div>
+      ) : (
+        <div
+          className={`w-full h-full flex items-center justify-center bg-gradient-to-br ${gradientFor(name)} text-white font-bold`}
+          style={{ fontSize }}
+        >
+          {initial}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -23,7 +23,7 @@ export type DypTieBreak = (typeof DYP_TIE_BREAKS)[number];
 export const DYP_TRANSITION_SECONDS = 3;
 
 /** Durée de la pause inter-duels pour montrer le vainqueur (en secondes). */
-export const DYP_MATCH_TRANSITION_SECONDS = 2;
+export const DYP_MATCH_TRANSITION_SECONDS = 1;
 
 /** Tailles de bracket valides (puissances de 2). */
 export const DYP_BRACKET_SIZES = [2, 4, 8, 16, 32, 64, 128] as const;

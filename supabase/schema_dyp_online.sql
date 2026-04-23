@@ -309,7 +309,7 @@ BEGIN
   v_match_started := (v_dyp ->> 'matchTransitionStartedAt')::TIMESTAMPTZ;
 
   IF NOT v_pending THEN RETURN; END IF;
-  IF v_match_started IS NULL OR now() < v_match_started + INTERVAL '2 seconds' THEN
+  IF v_match_started IS NULL OR now() < v_match_started + INTERVAL '1 second' THEN
     RETURN;
   END IF;
 
