@@ -9,5 +9,5 @@ export const BLINDRANK_META: GameMeta = {
   minPlayers: 1,
   maxPlayers: 1,
   estimatedDuration: "3-10 min",
-  tags: ["solo", "classement", "stratégie", "intuition"],
+  tags: ["Solo/Online", "classement", "stratégie", "intuition"],
 };

@@ -1,22 +1,24 @@
 "use client";
 
 /**
- * Phase "playing" de DYP online.
+ * Phase "playing" de DYP online — layout horizontal (2 cartes côte à côte).
  *
- * Trois modes d'affichage selon les flags du state :
- *   - duel                   : 2 cartes face à face, on vote pour son préféré
- *   - pendingMatchTransition : pause de 2 s pour montrer le winner du duel
- *   - pendingTransition      : pause de 3 s entre 2 rounds (qualifiés)
+ * Pause "winner annoncé" entre 2 duels d'un même round :
+ *   - Gérée 100 % côté client (overlay local de 1 s).
+ *   - Quand on détecte que `currentMatchIndex` a augmenté, on continue
+ *     d'afficher le match précédent (avec son winnerId) pendant 1 s avant
+ *     de basculer sur le match courant. Aucun RPC requis → pas de blocage
+ *     possible si la migration SQL n'est pas à jour.
  *
- * Logique :
- *   - Vote via RPC `dyp_cast_vote` (target_name = "card:<id>")
- *   - Quand le timer du duel expire, le 1er joueur online (par join_order)
- *     appelle `dyp_force_timeout` pour résoudre le duel.
- *   - Quand le timer inter-duels (2 s) expire, le leader appelle
- *     `dyp_force_match_advance` pour passer au duel suivant.
- *   - Quand le timer inter-rounds (3 s) expire, le leader appelle
- *     `dyp_force_round_advance` pour générer le round suivant.
- *   - Tout le reste est géré côté serveur par les triggers/RPCs PG.
+ * Transition entre 2 rounds :
+ *   - Gérée serveur : `pendingTransition` + `transitionStartedAt` + 3 s.
+ *   - Le 1er joueur online (par join_order) appelle `dyp_force_round_advance`
+ *     pour générer le round suivant.
+ *
+ * Vote :
+ *   - RPC `dyp_cast_vote` (target_name = "card:<id>").
+ *   - Trigger SQL `trg_process_dyp_vote` résoud quand tous les alives ont voté.
+ *   - Sinon : `dyp_force_timeout` quand le timer du duel expire.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -26,10 +28,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import RoomChat from "@/games/online/components/RoomChat";
 import { createClient } from "@/lib/supabase/client";
 import { vibrate } from "@/lib/utils";
-import {
-  DYP_TRANSITION_SECONDS,
-  DYP_MATCH_TRANSITION_SECONDS,
-} from "@/games/dyp/online-config";
+import { DYP_TRANSITION_SECONDS } from "@/games/dyp/online-config";
 import type {
   OnlineRoom,
   RoomPlayer,
@@ -37,6 +36,8 @@ import type {
   RoomVote,
 } from "@/types/rooms";
 import type { DYPCard } from "@/types/games";
+
+const MATCH_OVERLAY_MS = 1000; // pause client après chaque duel
 
 interface DypMatch {
   matchId: string;
@@ -58,8 +59,6 @@ interface DypOnlineState {
   currentRoundStartedAt: string;
   pendingTransition: boolean;
   transitionStartedAt: string | null;
-  pendingMatchTransition?: boolean;
-  matchTransitionStartedAt?: string | null;
   championId: string | null;
   finished: boolean;
 }
@@ -86,17 +85,12 @@ function cardIdFromVote(target: string): string | null {
   return target.slice(5) || null;
 }
 
-/**
- * Parse un timestamp Postgres ou ISO de manière robuste.
- * `now()::TEXT` produit `2026-04-10 12:34:56.789012+00` (espace au lieu de T)
- * que certains navigateurs refusent. On normalise vers ISO 8601.
- */
+/** Parse robuste : tolère "2026-04-10 12:34:56+00" (PG) ET ISO 8601. */
 function parseTimestamp(s: string | null | undefined): number {
   if (!s) return 0;
   const t = Date.parse(s);
   if (!Number.isNaN(t)) return t;
-  const normalised = s.replace(" ", "T");
-  const t2 = Date.parse(normalised);
+  const t2 = Date.parse(s.replace(" ", "T"));
   return Number.isNaN(t2) ? 0 : t2;
 }
 
@@ -115,27 +109,80 @@ export default function DypOnlinePlay({
   const state = readState(room);
   const voteRound = room.vote_round ?? 0;
 
-  // Pendant la pause inter-duel ou inter-round, le `vote_round` a été
-  // incrémenté côté serveur juste après la résolution. Pour continuer à
-  // montrer "qui a voté pour qui", on doit lire les votes du round précédent.
-  const inMatchTransitionFlag = !!state?.pendingMatchTransition;
-  const inRoundTransitionFlag = !!state?.pendingTransition;
-  const voteDisplayRound =
-    inMatchTransitionFlag || inRoundTransitionFlag ? voteRound - 1 : voteRound;
+  // ── Overlay client : 1 s pour montrer le winner du duel précédent ────
+  const [overlay, setOverlay] = useState<{
+    round: number;
+    matchIdx: number;
+    voteRound: number;
+    until: number;
+  } | null>(null);
 
-  const currentVotes = votes.filter((v) => v.vote_round === voteDisplayRound);
+  const prevRef = useRef<{ round: number; idx: number; voteRound: number } | null>(
+    null
+  );
 
+  useEffect(() => {
+    if (!state) return;
+    const round = state.currentRound;
+    const idx = state.currentMatchIndex;
+    const prev = prevRef.current;
+    prevRef.current = { round, idx, voteRound };
+
+    if (!prev) return;
+    // On a avancé d'un match dans le même round : déclenche overlay.
+    if (prev.round === round && idx > prev.idx) {
+      const until = Date.now() + MATCH_OVERLAY_MS;
+      setOverlay({
+        round: prev.round,
+        matchIdx: prev.idx,
+        voteRound: prev.voteRound,
+        until,
+      });
+    }
+  }, [state?.currentRound, state?.currentMatchIndex, voteRound, state]);
+
+  // Tick global pour timer + overlay expiry
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, []);
+
+  // Eteindre l'overlay quand le délai est passé
+  useEffect(() => {
+    if (overlay && overlay.until <= now) setOverlay(null);
+  }, [now, overlay]);
+
+  const overlayActive = !!overlay && overlay.until > now;
+
+  // ── Sélection du match à afficher ─────────────────────────────────
   const cardById = useMemo(() => {
     const map = new Map<string, DYPCard>();
     state?.cards.forEach((c) => map.set(c.id, c));
     return map;
   }, [state]);
 
-  const currentMatch: DypMatch | null = state
+  const liveMatch: DypMatch | null = state
     ? state.bracket[state.currentRound - 1]?.[state.currentMatchIndex] ?? null
     : null;
-  const card1 = currentMatch ? cardById.get(currentMatch.card1Id) ?? null : null;
-  const card2 = currentMatch ? cardById.get(currentMatch.card2Id) ?? null : null;
+  const overlayMatch: DypMatch | null =
+    overlayActive && state
+      ? state.bracket[overlay!.round - 1]?.[overlay!.matchIdx] ?? null
+      : null;
+  const displayedMatch = overlayMatch ?? liveMatch;
+
+  const card1 = displayedMatch ? cardById.get(displayedMatch.card1Id) ?? null : null;
+  const card2 = displayedMatch ? cardById.get(displayedMatch.card2Id) ?? null : null;
+
+  // Pendant l'overlay, on lit les votes du round précédent.
+  // Pendant pendingTransition, idem.
+  const inRoundTransition = !!state?.pendingTransition;
+  const voteDisplayRound = overlayActive
+    ? overlay!.voteRound
+    : inRoundTransition
+      ? voteRound - 1
+      : voteRound;
+  const currentVotes = votes.filter((v) => v.vote_round === voteDisplayRound);
 
   const myVote = currentVotes.find((v) => v.voter_name === myName);
   const myCardId = myVote ? cardIdFromVote(myVote.target_name) : null;
@@ -152,35 +199,21 @@ export default function DypOnlinePlay({
     return map;
   }, [currentVotes]);
 
-  // ── Timer ─────────────────────────────────────────────────
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, []);
-
+  // ── Timer du duel ─────────────────────────────────────────────────
   const startedAtMs = parseTimestamp(state?.currentRoundStartedAt);
   const tourMs = (state?.tourTimeSeconds ?? 60) * 1000;
   const remainingMs = startedAtMs > 0 ? Math.max(0, startedAtMs + tourMs - now) : tourMs;
   const remainingSec = Math.ceil(remainingMs / 1000);
   const progress = Math.max(0, Math.min(1, remainingMs / tourMs));
 
-  // Timer de transition entre rounds
+  // Timer transition entre rounds
   const transitionStartedMs = parseTimestamp(state?.transitionStartedAt);
   const transitionMs = DYP_TRANSITION_SECONDS * 1000;
   const transitionRemainingMs =
-    state?.pendingTransition && transitionStartedMs > 0
+    inRoundTransition && transitionStartedMs > 0
       ? Math.max(0, transitionStartedMs + transitionMs - now)
       : 0;
   const transitionRemainingSec = Math.ceil(transitionRemainingMs / 1000);
-
-  // Timer de transition entre duels (court)
-  const matchTransitionStartedMs = parseTimestamp(state?.matchTransitionStartedAt);
-  const matchTransitionMs = DYP_MATCH_TRANSITION_SECONDS * 1000;
-  const matchTransitionRemainingMs =
-    state?.pendingMatchTransition && matchTransitionStartedMs > 0
-      ? Math.max(0, matchTransitionStartedMs + matchTransitionMs - now)
-      : 0;
 
   // Helper : suis-je le 1er joueur online (par join_order) ?
   function amILeader(): boolean {
@@ -193,12 +226,9 @@ export default function DypOnlinePlay({
     return firstOnline?.display_name === myName;
   }
 
-  // Refs : on garde la dernière clé "successfully fired" + un timestamp pour
-  // throttle les retries (1 toutes les 1.5 s) en cas d'erreur RPC.
+  // RPC refs avec retry timestamp (évite blocage si RPC échoue)
   const forcedTimeoutRef = useRef<{ key: string; ts: number } | null>(null);
   const forcedAdvanceRef = useRef<{ key: string; ts: number } | null>(null);
-  const forcedMatchAdvanceRef = useRef<{ key: string; ts: number } | null>(null);
-
   function shouldFire(
     ref: React.MutableRefObject<{ key: string; ts: number } | null>,
     key: string
@@ -209,9 +239,9 @@ export default function DypOnlinePlay({
     return Date.now() - last.ts > 1500;
   }
 
-  // Quand le timer du duel = 0 : leader force la résolution.
+  // Timer duel = 0 → leader force la résolution.
   useEffect(() => {
-    if (!state || state.pendingTransition || state.pendingMatchTransition) return;
+    if (!state || inRoundTransition || overlayActive) return;
     if (remainingMs > 0) return;
     if (startedAtMs <= 0) return;
     const key = `${room.id}:${voteRound}`;
@@ -228,16 +258,15 @@ export default function DypOnlinePlay({
       .then(({ error }) => {
         if (error) {
           console.error("[dyp_force_timeout]", error);
-          // Reset partiel pour permettre un retry rapide
           forcedTimeoutRef.current = { key, ts: Date.now() - 1000 };
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingMs, voteRound, room.id, state?.pendingTransition, state?.pendingMatchTransition]);
+  }, [remainingMs, voteRound, room.id, inRoundTransition, overlayActive]);
 
-  // Quand le timer inter-rounds = 0 : leader force le nouveau round.
+  // Timer inter-rounds = 0 → leader force le nouveau round.
   useEffect(() => {
-    if (!state || !state.pendingTransition) return;
+    if (!state || !inRoundTransition) return;
     if (transitionRemainingMs > 0) return;
     if (transitionStartedMs <= 0) return;
     const key = `${room.id}:${voteRound}`;
@@ -258,37 +287,11 @@ export default function DypOnlinePlay({
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transitionRemainingMs, voteRound, room.id, state?.pendingTransition]);
+  }, [transitionRemainingMs, voteRound, room.id, inRoundTransition]);
 
-  // Quand le timer inter-duels = 0 : leader force le duel suivant.
-  useEffect(() => {
-    if (!state || !state.pendingMatchTransition) return;
-    if (matchTransitionRemainingMs > 0) return;
-    if (matchTransitionStartedMs <= 0) return;
-    const key = `${room.id}:${voteRound}`;
-    if (!shouldFire(forcedMatchAdvanceRef, key)) return;
-    if (!amILeader()) return;
-
-    forcedMatchAdvanceRef.current = { key, ts: Date.now() };
-    const supabase = createClient();
-    supabase
-      .rpc("dyp_force_match_advance", {
-        p_room_id: room.id,
-        p_vote_round: voteRound,
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.error("[dyp_force_match_advance]", error);
-          forcedMatchAdvanceRef.current = { key, ts: Date.now() - 1000 };
-        }
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchTransitionRemainingMs, voteRound, room.id, state?.pendingMatchTransition]);
-
-  // ── Voter ─────────────────────────────────────────────────
+  // ── Voter ─────────────────────────────────────────────────────────
   async function castVote(cardId: string) {
-    if (!state) return;
-    if (state.pendingTransition || state.pendingMatchTransition) return;
+    if (!state || inRoundTransition || overlayActive) return;
     if (myCardId === cardId) return;
     vibrate(40);
     const supabase = createClient();
@@ -309,11 +312,10 @@ export default function DypOnlinePlay({
   }
 
   const totalMatchesInRound = state.bracket[state.currentRound - 1]?.length ?? 0;
-  const inRoundTransition = state.pendingTransition;
-  const inMatchTransition = !!state.pendingMatchTransition;
-  // Pendant la pause inter-duel, le winnerId est déjà posé sur le match courant
-  const matchWinnerId =
-    inMatchTransition && currentMatch ? currentMatch.winnerId : null;
+  const matchWinnerId = overlayActive ? displayedMatch?.winnerId ?? null : null;
+  // Pour l'affichage du compteur de match, on montre l'ancien index pendant overlay
+  const displayedRound = overlayActive ? overlay!.round : state.currentRound;
+  const displayedMatchIdx = overlayActive ? overlay!.matchIdx : state.currentMatchIndex;
 
   return (
     <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
@@ -322,20 +324,19 @@ export default function DypOnlinePlay({
         <div className="flex items-center justify-between text-[11px] text-surface-500">
           <span className="font-mono">
             {t("roundLabel", {
-              current: state.currentRound,
+              current: displayedRound,
               total: state.totalRounds,
             })}
           </span>
           <span className="font-mono">
             {t("matchLabel", {
-              current: state.currentMatchIndex + 1,
+              current: displayedMatchIdx + 1,
               total: totalMatchesInRound,
             })}
           </span>
         </div>
 
-        {/* Timer (caché en transition) */}
-        {!inRoundTransition && !inMatchTransition && (
+        {!inRoundTransition && !overlayActive && (
           <div className="rounded-lg border border-amber-700/30 bg-amber-950/20 px-2.5 py-1">
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-surface-500">{t("timeLeft")}</span>
@@ -360,9 +361,9 @@ export default function DypOnlinePlay({
         )}
       </div>
 
-      {/* Zone centrale : scène (cartes compactes), hauteur naturelle. */}
-      <div className="shrink-0 px-4 py-2 w-full">
-        <div className="max-w-[170px] w-full mx-auto">
+      {/* Scène (cartes en horizontal, taille naturelle) */}
+      <div className="shrink-0 px-3 py-2 w-full">
+        <div className="max-w-md w-full mx-auto">
           {inRoundTransition ? (
             <TransitionScreen
               state={state}
@@ -371,8 +372,8 @@ export default function DypOnlinePlay({
               t={t}
             />
           ) : (
-            <DuelScreen
-              key={`${state.currentRound}-${state.currentMatchIndex}`}
+            <DuelHorizontal
+              key={`${displayedRound}-${displayedMatchIdx}`}
               card1={card1}
               card2={card2}
               myCardId={myCardId}
@@ -381,7 +382,7 @@ export default function DypOnlinePlay({
               playerAvatars={playerAvatars}
               onVote={castVote}
               t={t}
-              disabled={inMatchTransition}
+              disabled={overlayActive}
             />
           )}
         </div>
@@ -413,8 +414,8 @@ export default function DypOnlinePlay({
   );
 }
 
-// ── Sous-composant : Duel (2 cartes pleines empilées) ───────────────────────
-function DuelScreen({
+// ── Sous-composant : 2 cartes côte à côte ─────────────────────────────────
+function DuelHorizontal({
   card1,
   card2,
   myCardId,
@@ -441,8 +442,6 @@ function DuelScreen({
     );
   }
 
-  // Si on a un winner (pause inter-duels), on indique qui a perdu pour
-  // appliquer l'animation de défaite (fade + shrink).
   const hasWinner = !!winnerId;
   const card1IsWinner = hasWinner && winnerId === card1.id;
   const card2IsWinner = hasWinner && winnerId === card2.id;
@@ -455,7 +454,7 @@ function DuelScreen({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.2 }}
-      className="w-full flex flex-col items-center gap-1.5"
+      className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-2"
     >
       <DuelCard
         card={card1}
@@ -468,18 +467,18 @@ function DuelScreen({
         disabled={disabled}
       />
 
-      {/* VS badge compact */}
-      <div className="shrink-0 flex items-center gap-2 w-full">
-        <div className="flex-1 h-px bg-surface-800/60" />
+      {/* VS badge vertical au milieu */}
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        <div className="h-12 w-px bg-gradient-to-b from-transparent via-amber-700/40 to-transparent" />
         <div
-          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 border border-surface-700/40 bg-surface-900"
-          style={{ boxShadow: "0 0 10px rgba(0,0,0,0.5)" }}
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-surface-700/40 bg-surface-900"
+          style={{ boxShadow: "0 0 12px rgba(0,0,0,0.5)" }}
         >
-          <span className="text-amber-400/70 text-[9px] font-black tracking-tight">
+          <span className="text-amber-400/80 text-[11px] font-black tracking-tight">
             {t("vs")}
           </span>
         </div>
-        <div className="flex-1 h-px bg-surface-800/60" />
+        <div className="h-12 w-px bg-gradient-to-b from-amber-700/40 via-amber-700/40 to-transparent" />
       </div>
 
       <DuelCard
@@ -515,21 +514,19 @@ function DuelCard({
   onClick: () => void;
   disabled: boolean;
 }) {
-  // Mise en valeur : si on est en pause inter-duel, on agrandit le winner
-  // et on fade le loser. Sinon, on met juste un ring si c'est mon vote.
   return (
     <motion.button
       type="button"
       onClick={onClick}
       disabled={disabled}
       animate={{
-        scale: isWinner ? 1.04 : isLoser ? 0.9 : 1,
-        opacity: isLoser ? 0.25 : 1,
-        y: isLoser ? 8 : 0,
+        scale: isWinner ? 1.05 : isLoser ? 0.92 : 1,
+        opacity: isLoser ? 0.3 : 1,
+        y: isLoser ? 6 : 0,
       }}
       transition={{ duration: 0.35, ease: "easeInOut" }}
       whileTap={disabled ? undefined : { scale: 0.98 }}
-      className={`relative rounded-2xl overflow-hidden cursor-pointer shrink-0
+      className={`relative rounded-2xl overflow-hidden cursor-pointer
         w-full aspect-square
         transition-shadow
         ${isWinner
@@ -540,10 +537,10 @@ function DuelCard({
         }`}
       style={{
         boxShadow: isWinner
-          ? "0 0 32px rgba(245,158,11,0.55)"
+          ? "0 0 28px rgba(245,158,11,0.55)"
           : isMyVote
-            ? "0 0 22px rgba(245,158,11,0.35)"
-            : "0 4px 24px rgba(0,0,0,0.5)",
+            ? "0 0 18px rgba(245,158,11,0.35)"
+            : "0 4px 22px rgba(0,0,0,0.5)",
       }}
     >
       {card.imageUrl ? (
@@ -551,7 +548,7 @@ function DuelCard({
           src={card.imageUrl}
           alt={card.name}
           fill
-          sizes="(max-width: 768px) 90vw, 320px"
+          sizes="(max-width: 768px) 45vw, 200px"
           className="object-cover"
           unoptimized
         />
@@ -559,7 +556,7 @@ function DuelCard({
         <div className="absolute inset-0 bg-gradient-to-br from-amber-900/70 via-surface-900 to-brand-900/70" />
       )}
 
-      {/* Gradient bottom pour lisibilité du nom */}
+      {/* Gradient pour lisibilité du nom */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
       {/* Nom carte */}
@@ -581,7 +578,7 @@ function DuelCard({
         </motion.div>
       )}
 
-      {/* Avatars des votants : taille adaptative selon le nombre */}
+      {/* Pile d'avatars de votants (taille adaptative) */}
       {voters.length > 0 && (
         <VoterStack voters={voters} playerAvatars={playerAvatars} />
       )}
@@ -592,7 +589,7 @@ function DuelCard({
 /**
  * Pile d'avatars de votants empilés. La taille de chaque avatar et le
  * recouvrement diminuent quand le nombre augmente, pour qu'on les voie tous
- * dans la limite de la carte (~150 px de large).
+ * dans la limite de la carte.
  */
 function VoterStack({
   voters,
@@ -602,18 +599,16 @@ function VoterStack({
   playerAvatars: Record<string, string | null>;
 }) {
   const n = voters.length;
-  // Tailles (px) en fonction du nombre — pensé pour tenir dans une carte 160 px.
   let size: number;
-  if (n <= 1) size = 28;
-  else if (n <= 3) size = 26;
-  else if (n <= 6) size = 22;
-  else if (n <= 10) size = 18;
-  else size = 15;
-  // Overlap = ~40 % de la taille → resserre la pile mais garde l'avatar lisible.
+  if (n <= 1) size = 26;
+  else if (n <= 3) size = 22;
+  else if (n <= 6) size = 18;
+  else if (n <= 10) size = 16;
+  else size = 14;
   const overlap = Math.round(size * 0.4);
 
   return (
-    <div className="absolute top-1.5 left-1.5 flex" style={{ marginLeft: 0 }}>
+    <div className="absolute top-1.5 left-1.5 flex">
       <AnimatePresence>
         {voters.map((name, i) => (
           <motion.div
@@ -695,7 +690,6 @@ function TransitionScreen({
   remainingSec: number;
   t: ReturnType<typeof useTranslations>;
 }) {
-  // Liste des winners du round qui vient de se terminer
   const justFinishedRound = state.bracket[state.currentRound - 1] ?? [];
   const winners = justFinishedRound
     .map((m) => (m.winnerId ? cardById.get(m.winnerId) ?? null : null))
@@ -719,14 +713,14 @@ function TransitionScreen({
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {winners.map((card) => (
           <motion.div
             key={card.id}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: "spring", stiffness: 220, damping: 18 }}
-            className="rounded-2xl border border-amber-700/30 bg-amber-950/20 overflow-hidden"
+            className="rounded-xl border border-amber-700/30 bg-amber-950/20 overflow-hidden"
           >
             {card.imageUrl ? (
               <div className="relative w-full aspect-square">
@@ -734,16 +728,16 @@ function TransitionScreen({
                   src={card.imageUrl}
                   alt={card.name}
                   fill
-                  sizes="(max-width: 768px) 50vw, 200px"
+                  sizes="(max-width: 768px) 33vw, 150px"
                   className="object-cover"
                 />
               </div>
             ) : (
               <div className="w-full aspect-square bg-amber-950/40 flex items-center justify-center">
-                <span className="text-4xl">⚡</span>
+                <span className="text-2xl">⚡</span>
               </div>
             )}
-            <p className="px-2 py-1 text-white text-xs font-bold truncate text-center">
+            <p className="px-1.5 py-1 text-white text-[10px] font-bold truncate text-center">
               {card.name}
             </p>
           </motion.div>

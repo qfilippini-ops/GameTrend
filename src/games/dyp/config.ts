@@ -9,5 +9,5 @@ export const DYP_META: GameMeta = {
   minPlayers: 1,
   maxPlayers: 16,
   estimatedDuration: "5-15 min",
-  tags: ["solo", "online", "choix", "bracket", "tournoi"],
+  tags: ["Solo/Online", "choix", "bracket", "tournoi"],
 };

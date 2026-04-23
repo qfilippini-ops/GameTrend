@@ -109,12 +109,9 @@ BEGIN
   v_dyp           := v_config -> 'dyp';
   IF v_dyp IS NULL THEN RETURN; END IF;
 
-  -- Si on est déjà en transition (entre rounds OU entre duels), ce n'est pas
-  -- le moment de résoudre un duel.
+  -- Si on est déjà en transition entre rounds, ce n'est pas le moment de
+  -- résoudre un duel.
   IF COALESCE((v_dyp ->> 'pendingTransition')::BOOLEAN, FALSE) THEN
-    RETURN;
-  END IF;
-  IF COALESCE((v_dyp ->> 'pendingMatchTransition')::BOOLEAN, FALSE) THEN
     RETURN;
   END IF;
 
@@ -258,9 +255,10 @@ BEGIN
            vote_round = vote_round + 1
      WHERE id = p_room_id AND phase = 'playing' AND vote_round = p_vote_round;
   ELSE
-    -- Pause 2 s pour montrer le winner du duel, puis match suivant.
-    v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'true'::jsonb);
-    v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', to_jsonb(now()));
+    -- Match suivant dans le même round (la pause "winner annoncé" est gérée
+    -- côté client via un overlay local de 1 s, pour ne dépendre d'aucun RPC).
+    v_dyp := jsonb_set(v_dyp, '{currentMatchIndex}', to_jsonb(v_current_match + 1));
+    v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()));
     v_config := jsonb_set(v_config, '{dyp}', v_dyp);
     UPDATE game_rooms
        SET config = v_config,
@@ -504,9 +502,6 @@ BEGIN
   v_pending := COALESCE((v_dyp ->> 'pendingTransition')::BOOLEAN, FALSE);
   IF v_pending THEN
     RAISE EXCEPTION 'Transition in progress';
-  END IF;
-  IF COALESCE((v_dyp ->> 'pendingMatchTransition')::BOOLEAN, FALSE) THEN
-    RAISE EXCEPTION 'Match transition in progress';
   END IF;
 
   -- Vérifie que la carte fait bien partie du duel courant
