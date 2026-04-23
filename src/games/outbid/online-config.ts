@@ -16,8 +16,8 @@ export const OUTBID_TEAM_MIN = 3;
 export const OUTBID_TEAM_MAX = 11;
 export const OUTBID_TEAM_DEFAULT = 8;
 
-export const OUTBID_STARTING_POINTS = 100;
-export const OUTBID_OPENING_BID = 10;
+export const OUTBID_STARTING_POINTS = 100000;
+export const OUTBID_OPENING_BID = 100;
 
 export const OUTBID_OPENING_BIDDERS = [
   "alternate",
@@ -27,4 +27,4 @@ export const OUTBID_OPENING_BIDDERS = [
 ] as const;
 export type OutbidOpeningBidder = (typeof OUTBID_OPENING_BIDDERS)[number];
 
-export const OUTBID_QUICK_BIDS = [10, 50, 100] as const;
+export const OUTBID_QUICK_BIDS = [100, 1000, 10000] as const;

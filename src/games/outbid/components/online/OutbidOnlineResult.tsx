@@ -307,11 +307,11 @@ function TeamColumn({
           </p>
           <div className="flex items-center gap-2 text-[10px] font-mono">
             <span className="text-amber-400 font-bold">
-              {player.points} pts
+              {player.points.toLocaleString("fr-FR")} pts
             </span>
             <span className="text-surface-700">·</span>
             <span className="text-surface-500">
-              −{OUTBID_STARTING_POINTS - player.points}
+              −{(OUTBID_STARTING_POINTS - player.points).toLocaleString("fr-FR")}
             </span>
           </div>
         </div>
@@ -331,7 +331,7 @@ function TeamColumn({
               <div
                 key={`${entry.cardId}-${i}`}
                 className="relative rounded-md overflow-hidden ring-1 ring-amber-700/40 aspect-[3/4]"
-                title={`${card.name} — ${entry.price} pts`}
+                title={`${card.name} — ${entry.price.toLocaleString("fr-FR")} pts`}
               >
                 {card.imageUrl ? (
                   <Image
@@ -350,7 +350,9 @@ function TeamColumn({
                     {card.name}
                   </p>
                   <p className="text-amber-300 text-[10px] font-mono font-bold">
-                    {entry.price === 0 ? t("freePrice") : `${entry.price}`}
+                    {entry.price === 0
+                      ? t("freePrice")
+                      : entry.price.toLocaleString("fr-FR")}
                   </p>
                 </div>
               </div>
@@ -365,7 +367,7 @@ function TeamColumn({
           {t("cardsCount", { n: player.team.length })}
         </span>
         <span className="text-amber-400 font-bold">
-          {t("totalSpent", { amount: totalSpent })}
+          {t("totalSpent", { amount: totalSpent.toLocaleString("fr-FR") })}
         </span>
       </div>
     </div>

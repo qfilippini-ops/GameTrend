@@ -3,19 +3,23 @@
 /**
  * Phase "playing" de Outbid online (1v1 enchères).
  *
- * Layout (révision) :
- *   - 2/3 haut : scène de jeu
- *       • Carte en cours en haut centre
- *       • Deux colonnes horizontales (moi à gauche, adverse à droite)
- *         Chaque colonne : avatar → points → cartes acquises empilées
- *         (taille auto = (hauteur dispo) / teamSize)
- *       • UI d'enchère en bas, grisée quand ce n'est pas mon tour
- *   - 1/3 bas : chat realtime
+ * Layout :
+ *   - Scène de jeu (2/3 de la hauteur), grille horizontale 20% / 60% / 20% :
+ *       • Colonne gauche  (20%, full height) : joueur A — avatar, nom, points,
+ *         puis cartes acquises empilées qui remplissent le reste.
+ *       • Colonne centre (60%, full height) : carte courante en haut, panel
+ *         d'enchère en bas (toujours visible, grisé hors de son tour).
+ *       • Colonne droite (20%, full height) : joueur B, mêmes éléments.
+ *   - Chat (1/3 de la hauteur).
+ *
+ * Comportement input :
+ *   - L'input affiche la somme **brute** que le joueur veut miser.
+ *   - Quick buttons (+100 / +1000 / +10000) **additionnent** au contenu actuel.
+ *   - All-in écrit `maxBid`. Validation : montant > currentBid.amount.
  *
  * Robustesse (leçons de DYP) :
- *   - Un seul `setInterval` persistant qui lit l'état courant via `ref`
- *     et appelle `outbid_force_timeout` (idempotent côté SQL).
- *   - Bouton manuel de secours après 5s de blocage.
+ *   - `setInterval` persistant qui appelle `outbid_force_timeout` (idempotent).
+ *   - Bouton manuel après 5s de blocage.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -91,6 +95,10 @@ function parseTimestamp(s: string | null | undefined): number {
   return Number.isNaN(t2) ? 0 : t2;
 }
 
+function formatPoints(n: number): string {
+  return n.toLocaleString("fr-FR");
+}
+
 export default function OutbidOnlinePlay({
   room,
   players: _players,
@@ -136,7 +144,8 @@ export default function OutbidOnlinePlay({
     : null;
   const isSpectator = !myPlayer;
 
-  // En tant que spectateur on garde l'ordre originel (A à gauche)
+  // Conventions d'affichage : moi à gauche / adverse à droite.
+  // Spectateur : A à gauche, B à droite.
   const leftPlayer: OutbidPlayer | null = isSpectator
     ? state?.playerA ?? null
     : myPlayer;
@@ -237,15 +246,22 @@ export default function OutbidOnlinePlay({
     }
   }
 
+  // Quick buttons : ADDITIONNENT au contenu actuel de l'input
   function applyQuick(delta: number) {
     if (!myPlayer) return;
-    const base = currentBid?.amount ?? 0;
-    const newAmount = Math.min(maxBid, base + delta);
-    setBidInput(String(newAmount));
+    setBidInput((prev) => {
+      const current = Number(prev);
+      const base = Number.isFinite(current) && current > 0 ? current : 0;
+      const next = Math.min(maxBid, base + delta);
+      return String(next);
+    });
   }
   function applyAllIn() {
     if (!myPlayer) return;
     setBidInput(String(maxBid));
+  }
+  function clearInput() {
+    setBidInput("");
   }
 
   // ── Auto-timeout : interval persistant qui lit stateRef ───────────
@@ -339,99 +355,107 @@ export default function OutbidOnlinePlay({
   return (
     <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
       {/* ───── Scène de jeu : 2/3 ───── */}
-      <div className="flex-[2] min-h-0 flex flex-col">
-        {/* Top : carte courante + enchère + timer */}
-        <div className="shrink-0 px-3 pt-2 pb-1.5 flex flex-col items-center gap-1.5">
-          <CurrentCardDisplay card={currentCard} />
-          <p className="text-surface-600 text-[10px] font-mono">
-            {t("cardCounter", { current: cardNumber, total: totalCards })}
-          </p>
-          {currentBid && (
-            <div className="px-3 py-1 rounded-lg bg-amber-950/40 border border-amber-700/40">
-              <p className="text-center text-amber-300 font-mono text-xs">
-                <span className="font-bold text-base">{currentBid.amount}</span>{" "}
-                <span className="opacity-70">
-                  {t("byBidder", { name: currentBid.bidder })}
+      <div className="flex-[2] min-h-0 grid grid-cols-[20%_60%_20%]">
+        {/* Colonne gauche : joueur A (ou moi) */}
+        {leftPlayer && (
+          <PlayerColumn
+            player={leftPlayer}
+            cardById={cardById}
+            isYou={!isSpectator && leftPlayer.name === myName}
+            isHisTurn={state.awaitingResponse === leftPlayer.name}
+            avatar={playerAvatars[leftPlayer.name] ?? null}
+            teamSize={teamSize}
+            t={t}
+          />
+        )}
+
+        {/* Colonne centre : carte + bid panel */}
+        <div className="min-h-0 flex flex-col px-2 pt-2 pb-2 gap-2">
+          {/* Carte + enchère + timer (en haut) */}
+          <div className="shrink-0 flex flex-col items-center gap-1.5">
+            <CurrentCardDisplay card={currentCard} />
+            <p className="text-surface-600 text-[10px] font-mono">
+              {t("cardCounter", { current: cardNumber, total: totalCards })}
+            </p>
+            {currentBid && (
+              <div className="px-3 py-1 rounded-lg bg-amber-950/40 border border-amber-700/40">
+                <p className="text-center text-amber-300 font-mono text-xs">
+                  <span className="font-bold text-base">
+                    {formatPoints(currentBid.amount)}
+                  </span>{" "}
+                  <span className="opacity-70">
+                    {t("byBidder", { name: currentBid.bidder })}
+                  </span>
+                </p>
+              </div>
+            )}
+            <div className="w-full max-w-xs">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-surface-500">{t("timeLeft")}</span>
+                <span
+                  className={`font-mono font-bold ${
+                    isUrgent ? "text-red-400" : "text-amber-300"
+                  }`}
+                >
+                  {remainingSec}s
                 </span>
-              </p>
-            </div>
-          )}
-          <div className="w-full max-w-xs">
-            <div className="flex items-center justify-between text-[10px]">
-              <span className="text-surface-500">{t("timeLeft")}</span>
-              <span
-                className={`font-mono font-bold ${
-                  isUrgent ? "text-red-400" : "text-amber-300"
-                }`}
-              >
-                {remainingSec}s
-              </span>
-            </div>
-            <div className="h-1 rounded-full bg-surface-800/60 overflow-hidden mt-0.5">
-              <motion.div
-                className={`h-full ${isUrgent ? "bg-red-500" : "bg-amber-500"}`}
-                animate={{ width: `${progress * 100}%` }}
-                transition={{ duration: 0.2, ease: "linear" }}
-              />
+              </div>
+              <div className="h-1 rounded-full bg-surface-800/60 overflow-hidden mt-0.5">
+                <motion.div
+                  className={`h-full ${isUrgent ? "bg-red-500" : "bg-amber-500"}`}
+                  animate={{ width: `${progress * 100}%` }}
+                  transition={{ duration: 0.2, ease: "linear" }}
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Milieu : 2 colonnes joueurs côte à côte */}
-        <div className="flex-1 min-h-0 px-2 pb-1 grid grid-cols-2 gap-2">
-          {leftPlayer && (
-            <PlayerColumn
-              player={leftPlayer}
-              cardById={cardById}
-              isYou={!isSpectator && leftPlayer.name === myName}
-              isHisTurn={state.awaitingResponse === leftPlayer.name}
-              avatar={playerAvatars[leftPlayer.name] ?? null}
-              teamSize={teamSize}
-              t={t}
-            />
-          )}
-          {rightPlayer && (
-            <PlayerColumn
-              player={rightPlayer}
-              cardById={cardById}
-              isYou={!isSpectator && rightPlayer.name === myName}
-              isHisTurn={state.awaitingResponse === rightPlayer.name}
-              avatar={playerAvatars[rightPlayer.name] ?? null}
-              teamSize={teamSize}
-              t={t}
-            />
-          )}
-        </div>
-
-        {/* Bas : UI d'enchère (toujours visible, grisée si pas mon tour) */}
-        {!isSpectator && (
-          <div className="shrink-0 px-3 pt-1 pb-2 max-w-xl w-full mx-auto">
-            <DecisionUI
-              bidInput={bidInput}
-              setBidInput={setBidInput}
-              minBid={minBid}
-              maxBid={maxBid}
-              isBidValid={isBidValid}
-              isSubmitting={isSubmitting}
-              isMyTurn={isMyTurn}
-              awaitingName={state.awaitingResponse}
-              onBid={() => placeBid(parsedBid)}
-              onPass={pass}
-              onQuick={applyQuick}
-              onAllIn={applyAllIn}
-              myPoints={myPlayer?.points ?? 0}
-              t={t}
-            />
-            {showManualUnlock && (
-              <button
-                type="button"
-                onClick={manualForceTimeout}
-                className="mt-1 w-full py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
-              >
-                {t("manualUnlock")}
-              </button>
+          {/* Bid panel : prend le reste de la place verticale, ancré en bas */}
+          <div className="flex-1 min-h-0 flex flex-col justify-end">
+            {!isSpectator && (
+              <>
+                <DecisionUI
+                  bidInput={bidInput}
+                  setBidInput={setBidInput}
+                  minBid={minBid}
+                  maxBid={maxBid}
+                  isBidValid={isBidValid}
+                  isSubmitting={isSubmitting}
+                  isMyTurn={isMyTurn}
+                  awaitingName={state.awaitingResponse}
+                  onBid={() => placeBid(parsedBid)}
+                  onPass={pass}
+                  onQuick={applyQuick}
+                  onAllIn={applyAllIn}
+                  onClear={clearInput}
+                  myPoints={myPlayer?.points ?? 0}
+                  t={t}
+                />
+                {showManualUnlock && (
+                  <button
+                    type="button"
+                    onClick={manualForceTimeout}
+                    className="mt-1 w-full py-1.5 rounded-lg bg-red-600/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
+                  >
+                    {t("manualUnlock")}
+                  </button>
+                )}
+              </>
             )}
           </div>
+        </div>
+
+        {/* Colonne droite : joueur B (ou adverse) */}
+        {rightPlayer && (
+          <PlayerColumn
+            player={rightPlayer}
+            cardById={cardById}
+            isYou={!isSpectator && rightPlayer.name === myName}
+            isHisTurn={state.awaitingResponse === rightPlayer.name}
+            avatar={playerAvatars[rightPlayer.name] ?? null}
+            teamSize={teamSize}
+            t={t}
+          />
         )}
       </div>
 
@@ -461,7 +485,7 @@ export default function OutbidOnlinePlay({
   );
 }
 
-// ── Sous-composant : colonne joueur (avatar → points → cartes empilées) ──
+// ── Sous-composant : colonne joueur (avatar → nom → points → cartes) ────
 function PlayerColumn({
   player,
   cardById,
@@ -479,45 +503,53 @@ function PlayerColumn({
   teamSize: number;
   t: ReturnType<typeof useTranslations>;
 }) {
-  // Slots = teamSize, remplis par player.team puis vides
+  // Slots fixes = teamSize, remplis chronologiquement
   const slots = Array.from({ length: teamSize }, (_, i) => player.team[i] ?? null);
 
   return (
     <div
-      className={`h-full min-h-0 flex flex-col rounded-xl border ${
-        isHisTurn
-          ? "border-amber-500/60 bg-amber-950/20 ring-1 ring-amber-500/30"
-          : "border-surface-800/60 bg-surface-900/40"
-      } overflow-hidden`}
+      className={`h-full min-h-0 flex flex-col border-r border-surface-800/60 first:border-l-0 last:border-r-0 first:border-r last:border-l ${
+        isHisTurn ? "bg-amber-950/15" : "bg-surface-900/30"
+      }`}
     >
-      {/* Avatar + nom */}
-      <div className="shrink-0 flex flex-col items-center gap-0.5 pt-2 pb-1">
-        <div className="relative w-10 h-10 rounded-full overflow-hidden ring-2 ring-surface-800">
+      {/* Header : avatar + nom + points */}
+      <div
+        className={`shrink-0 flex flex-col items-center gap-0.5 px-1 py-2 border-b ${
+          isHisTurn
+            ? "border-amber-600/60 bg-amber-950/30"
+            : "border-surface-800/60"
+        }`}
+      >
+        <div
+          className={`relative w-12 h-12 rounded-full overflow-hidden ring-2 ${
+            isHisTurn ? "ring-amber-400" : "ring-surface-700"
+          }`}
+        >
           {avatar ? (
             <Image
               src={avatar}
               alt={player.name}
               fill
-              sizes="40px"
+              sizes="48px"
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-sm font-bold">
+            <div className="w-full h-full bg-gradient-to-br from-brand-600 to-ghost-600 flex items-center justify-center text-white text-base font-bold">
               {player.name.charAt(0).toUpperCase()}
             </div>
           )}
         </div>
-        <p className="text-white text-xs font-bold truncate max-w-full px-1">
+        <p className="text-white text-xs font-bold truncate max-w-full px-1 text-center">
           {isYou ? t("you") : player.name}
         </p>
         <p className="text-amber-400 text-[11px] font-mono font-bold leading-none">
-          {player.points} pts
+          {formatPoints(player.points)}
         </p>
       </div>
 
-      {/* Cartes empilées : grid avec autant de lignes que teamSize, taille auto */}
+      {/* Cartes empilées : 1 ligne par slot, taille = (hauteur dispo) / teamSize */}
       <div
-        className="flex-1 min-h-0 px-1 pb-1 grid gap-0.5"
+        className="flex-1 min-h-0 px-1 py-1 grid gap-0.5"
         style={{ gridTemplateRows: `repeat(${teamSize}, minmax(0, 1fr))` }}
       >
         <AnimatePresence>
@@ -534,32 +566,31 @@ function PlayerColumn({
             return (
               <motion.div
                 key={`${entry.cardId}-${i}`}
-                initial={{ scale: 0.5, opacity: 0, y: -20 }}
+                initial={{ scale: 0.6, opacity: 0, y: -12 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 transition={{ type: "spring", stiffness: 320, damping: 20 }}
                 className="relative rounded-md overflow-hidden ring-1 ring-amber-700/40 bg-surface-900"
-                title={card ? `${card.name} — ${entry.price} pts` : ""}
+                title={card ? `${card.name} — ${formatPoints(entry.price)} pts` : ""}
               >
                 {card?.imageUrl ? (
                   <Image
                     src={card.imageUrl}
                     alt={card.name}
                     fill
-                    sizes="120px"
+                    sizes="100px"
                     className="object-cover"
                     unoptimized
                   />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
+                  <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900 flex items-center justify-center">
+                    <span className="text-[8px] text-amber-400 font-bold truncate px-1">
+                      {card?.name ?? "?"}
+                    </span>
+                  </div>
                 )}
-                {/* Overlay nom + prix */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-1 pt-1 pb-0.5 flex items-end justify-between gap-1">
-                  <span className="text-white text-[9px] font-bold truncate flex-1 leading-none">
-                    {card?.name ?? "?"}
-                  </span>
-                  <span className="text-amber-300 text-[9px] font-mono font-bold leading-none shrink-0">
-                    {entry.price}p
-                  </span>
+                {/* Badge prix en coin */}
+                <div className="absolute top-0.5 right-0.5 px-1 py-px rounded bg-black/85 text-amber-300 text-[8px] font-mono font-bold leading-tight">
+                  {formatPoints(entry.price)}
                 </div>
               </motion.div>
             );
@@ -574,7 +605,7 @@ function PlayerColumn({
 function CurrentCardDisplay({ card }: { card: DYPCard | null }) {
   if (!card) {
     return (
-      <div className="w-24 h-24 rounded-xl bg-surface-900/60 ring-1 ring-surface-800 flex items-center justify-center">
+      <div className="w-28 h-28 rounded-xl bg-surface-900/60 ring-1 ring-surface-800 flex items-center justify-center">
         <span className="text-surface-700 text-2xl">⌛</span>
       </div>
     );
@@ -585,7 +616,7 @@ function CurrentCardDisplay({ card }: { card: DYPCard | null }) {
       initial={{ opacity: 0, scale: 0.8, y: -10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 220, damping: 22 }}
-      className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden ring-2 ring-amber-500/70"
+      className="relative w-32 h-32 sm:w-36 sm:h-36 rounded-xl overflow-hidden ring-2 ring-amber-500/70"
       style={{ boxShadow: "0 0 22px rgba(245,158,11,0.45)" }}
     >
       {card.imageUrl ? (
@@ -593,7 +624,7 @@ function CurrentCardDisplay({ card }: { card: DYPCard | null }) {
           src={card.imageUrl}
           alt={card.name}
           fill
-          sizes="(max-width: 768px) 30vw, 130px"
+          sizes="(max-width: 768px) 30vw, 150px"
           className="object-cover"
           unoptimized
         />
@@ -624,6 +655,7 @@ function DecisionUI({
   onPass,
   onQuick,
   onAllIn,
+  onClear,
   myPoints,
   t,
 }: {
@@ -639,6 +671,7 @@ function DecisionUI({
   onPass: () => void;
   onQuick: (delta: number) => void;
   onAllIn: () => void;
+  onClear: () => void;
   myPoints: number;
   t: ReturnType<typeof useTranslations>;
 }) {
@@ -662,23 +695,35 @@ function DecisionUI({
             : t("waitingForOther", { name: awaitingName ?? "?" })}
         </span>
         <span className="text-surface-500">
-          {myPoints} {t("points")}
+          {formatPoints(myPoints)} {t("points")}
         </span>
       </div>
 
-      {/* Input + bouton Surenchérir */}
+      {/* Input + bouton Surenchérir + clear */}
       <div className="flex items-center gap-2">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={bidInput}
-          onChange={(e) => setBidInput(e.target.value.replace(/[^0-9]/g, ""))}
-          min={minBid}
-          max={maxBid}
-          placeholder={t("bidPlaceholder", { min: minBid })}
-          disabled={disabled}
-          className="flex-1 bg-surface-900/80 border border-surface-700/60 rounded-lg px-3 py-2 text-amber-300 font-mono font-bold text-base text-center focus:outline-none focus:ring-2 focus:ring-amber-500/60 disabled:cursor-not-allowed disabled:opacity-60"
-        />
+        <div className="flex-1 relative">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={bidInput}
+            onChange={(e) => setBidInput(e.target.value.replace(/[^0-9]/g, ""))}
+            min={minBid}
+            max={maxBid}
+            placeholder={t("bidPlaceholder", { min: formatPoints(minBid) })}
+            disabled={disabled}
+            className="w-full bg-surface-900/80 border border-surface-700/60 rounded-lg pl-3 pr-8 py-2 text-amber-300 font-mono font-bold text-base text-center focus:outline-none focus:ring-2 focus:ring-amber-500/60 disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          {bidInput && !disabled && (
+            <button
+              type="button"
+              onClick={onClear}
+              aria-label={t("clear")}
+              className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded text-surface-500 hover:text-surface-200"
+            >
+              ×
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={onBid}
@@ -693,8 +738,8 @@ function DecisionUI({
         </button>
       </div>
 
-      {/* Boutons rapides */}
-      <div className="grid grid-cols-5 gap-1 mt-1.5">
+      {/* Boutons rapides : ADDITIONNENT à l'input */}
+      <div className="grid grid-cols-4 gap-1 mt-1.5">
         {OUTBID_QUICK_BIDS.map((delta) => (
           <button
             key={delta}
@@ -703,7 +748,7 @@ function DecisionUI({
             disabled={disabled || maxBid < minBid}
             className="py-1.5 rounded-md bg-surface-800/80 hover:bg-surface-700 text-amber-300 text-xs font-mono font-bold disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            +{delta}
+            +{formatPoints(delta)}
           </button>
         ))}
         <button

@@ -23,11 +23,11 @@
 --     cards:              [{id,name,imageUrl?}, ...],   -- snapshot, len = teamSize*2
 --     cardOrder:          ["id1","id2",...],            -- ordre de tirage, len = teamSize*2
 --     currentCardIndex:   0,                            -- index dans cardOrder
---     currentBid:         {"amount": 10, "bidder": "Alice"},
+--     currentBid:         {"amount": 100, "bidder": "Alice"},
 --     awaitingResponse:   "Bob",                        -- nom du joueur qui doit répondre
 --     decisionStartedAt:  "iso ts",                     -- reset à chaque décision
---     playerA:            {"name":"Alice","points":100,"team":[{"cardId":"x","price":50}]},
---     playerB:            {"name":"Bob",  "points":100,"team":[]},
+--     playerA:            {"name":"Alice","points":100000,"team":[{"cardId":"x","price":50000}]},
+--     playerB:            {"name":"Bob",  "points":100000,"team":[]},
 --     firstBidder:        "Alice",                      -- qui a ouvert la 1ère carte (random)
 --     lastWinner:         null,                         -- pour openingBidder='winner'
 --     lastLoser:          null,                         -- pour openingBidder='loser'
@@ -35,8 +35,8 @@
 --   }
 --
 -- Cycle d'une carte :
---   1. Une carte est posée : currentBid = { amount: 10, bidder: opener }
---      (ou amount = points restants si opener < 10)
+--   1. Une carte est posée : currentBid = { amount: 100, bidder: opener }
+--      (ou amount = points restants si opener < 100)
 --      awaitingResponse = autre joueur
 --   2. L'autre joueur appelle outbid_place_bid (surenchérir) ou outbid_pass.
 --   3. Si surenchère : currentBid mis à jour, awaitingResponse swap, vote_round++.
@@ -246,12 +246,12 @@ BEGIN
     ELSE v_first_bidder
   END;
 
-  -- Détermine la mise d'ouverture (10 ou tout le reste si < 10)
+  -- Détermine la mise d'ouverture (100 ou tout le reste si < 100)
   v_opener_points := CASE WHEN v_next_opener = v_a_name
                           THEN COALESCE((v_player_a ->> 'points')::INT, 0)
                           ELSE COALESCE((v_player_b ->> 'points')::INT, 0)
                      END;
-  v_opening_amount := LEAST(10, v_opener_points);
+  v_opening_amount := LEAST(100, v_opener_points);
 
   v_outbid := jsonb_set(
     v_outbid, '{currentBid}',

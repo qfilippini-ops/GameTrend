@@ -1401,6 +1401,7 @@
           "waitingForOther": "Waiting for {name}…",
           "bidPlaceholder": "Min {min}",
           "bidAction": "Outbid",
+          "clear": "Clear bid",
           "bidRange": "Min {min} · Max {max}",
           "points": "pts",
           "allIn": "All-in",

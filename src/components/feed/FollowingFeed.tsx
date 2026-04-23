@@ -529,9 +529,9 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
     isOutbid && outbidPlayerA && outbidPlayerB ?
       tGames("outbid.feed.summary", {
         a: outbidPlayerA.name,
-        ap: 100 - outbidPlayerA.points,
+        ap: (100000 - outbidPlayerA.points).toLocaleString("fr-FR"),
         b: outbidPlayerB.name,
-        bp: 100 - outbidPlayerB.points,
+        bp: (100000 - outbidPlayerB.points).toLocaleString("fr-FR"),
       }) :
     t("actions.sharedResult");
 
@@ -582,7 +582,7 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
                     {p.name}
                   </span>
                   <span className="text-surface-500 text-[9px] font-mono shrink-0 ml-1">
-                    {p.team.length} · {100 - p.points}pts
+                    {p.team.length} · {(100000 - p.points).toLocaleString("fr-FR")}pts
                   </span>
                 </div>
                 <div className="p-1.5 grid grid-cols-3 gap-1">
