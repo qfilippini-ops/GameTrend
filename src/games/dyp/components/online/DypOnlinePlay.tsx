@@ -3,18 +3,20 @@
 /**
  * Phase "playing" de DYP online.
  *
- * Deux modes d'affichage selon `state.pendingTransition` :
- *   - duel       : 2 cartes face à face, on vote pour son préféré
- *   - transition : pause de 3 s entre 2 rounds, affiche les gagnants
+ * Trois modes d'affichage selon les flags du state :
+ *   - duel                   : 2 cartes face à face, on vote pour son préféré
+ *   - pendingMatchTransition : pause de 2 s pour montrer le winner du duel
+ *   - pendingTransition      : pause de 3 s entre 2 rounds (qualifiés)
  *
  * Logique :
  *   - Vote via RPC `dyp_cast_vote` (target_name = "card:<id>")
  *   - Quand le timer du duel expire, le 1er joueur online (par join_order)
  *     appelle `dyp_force_timeout` pour résoudre le duel.
- *   - Quand le timer de transition (3 s) expire, le 1er joueur online appelle
- *     `dyp_force_round_advance` pour passer au round suivant.
- *   - Tout le reste (résolution, advance bracket) est géré côté serveur par
- *     les triggers/RPCs PG → atomique, pas de race.
+ *   - Quand le timer inter-duels (2 s) expire, le leader appelle
+ *     `dyp_force_match_advance` pour passer au duel suivant.
+ *   - Quand le timer inter-rounds (3 s) expire, le leader appelle
+ *     `dyp_force_round_advance` pour générer le round suivant.
+ *   - Tout le reste est géré côté serveur par les triggers/RPCs PG.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -25,7 +27,10 @@ import Avatar from "@/components/ui/Avatar";
 import RoomChat from "@/games/online/components/RoomChat";
 import { createClient } from "@/lib/supabase/client";
 import { vibrate } from "@/lib/utils";
-import { DYP_TRANSITION_SECONDS } from "@/games/dyp/online-config";
+import {
+  DYP_TRANSITION_SECONDS,
+  DYP_MATCH_TRANSITION_SECONDS,
+} from "@/games/dyp/online-config";
 import type {
   OnlineRoom,
   RoomPlayer,
@@ -54,6 +59,8 @@ interface DypOnlineState {
   currentRoundStartedAt: string;
   pendingTransition: boolean;
   transitionStartedAt: string | null;
+  pendingMatchTransition?: boolean;
+  matchTransitionStartedAt?: string | null;
   championId: string | null;
   finished: boolean;
 }
@@ -80,6 +87,20 @@ function cardIdFromVote(target: string): string | null {
   return target.slice(5) || null;
 }
 
+/**
+ * Parse un timestamp Postgres ou ISO de manière robuste.
+ * `now()::TEXT` produit `2026-04-10 12:34:56.789012+00` (espace au lieu de T)
+ * que certains navigateurs refusent. On normalise vers ISO 8601.
+ */
+function parseTimestamp(s: string | null | undefined): number {
+  if (!s) return 0;
+  const t = Date.parse(s);
+  if (!Number.isNaN(t)) return t;
+  const normalised = s.replace(" ", "T");
+  const t2 = Date.parse(normalised);
+  return Number.isNaN(t2) ? 0 : t2;
+}
+
 export default function DypOnlinePlay({
   room,
   players,
@@ -102,18 +123,15 @@ export default function DypOnlinePlay({
     return map;
   }, [state]);
 
-  // Match courant
   const currentMatch: DypMatch | null = state
     ? state.bracket[state.currentRound - 1]?.[state.currentMatchIndex] ?? null
     : null;
   const card1 = currentMatch ? cardById.get(currentMatch.card1Id) ?? null : null;
   const card2 = currentMatch ? cardById.get(currentMatch.card2Id) ?? null : null;
 
-  // Mon vote actuel
   const myVote = currentVotes.find((v) => v.voter_name === myName);
   const myCardId = myVote ? cardIdFromVote(myVote.target_name) : null;
 
-  // Votes par carte : cardId → noms[]
   const votesByCard = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const v of currentVotes) {
@@ -133,22 +151,28 @@ export default function DypOnlinePlay({
     return () => clearInterval(id);
   }, []);
 
-  const startedAtMs = state ? new Date(state.currentRoundStartedAt).getTime() : 0;
+  const startedAtMs = parseTimestamp(state?.currentRoundStartedAt);
   const tourMs = (state?.tourTimeSeconds ?? 60) * 1000;
-  const remainingMs = Math.max(0, startedAtMs + tourMs - now);
+  const remainingMs = startedAtMs > 0 ? Math.max(0, startedAtMs + tourMs - now) : tourMs;
   const remainingSec = Math.ceil(remainingMs / 1000);
   const progress = Math.max(0, Math.min(1, remainingMs / tourMs));
 
-  // Timer de transition
-  const transitionStartedMs =
-    state?.transitionStartedAt != null
-      ? new Date(state.transitionStartedAt).getTime()
-      : 0;
+  // Timer de transition entre rounds
+  const transitionStartedMs = parseTimestamp(state?.transitionStartedAt);
   const transitionMs = DYP_TRANSITION_SECONDS * 1000;
-  const transitionRemainingMs = state?.pendingTransition
-    ? Math.max(0, transitionStartedMs + transitionMs - now)
-    : 0;
+  const transitionRemainingMs =
+    state?.pendingTransition && transitionStartedMs > 0
+      ? Math.max(0, transitionStartedMs + transitionMs - now)
+      : 0;
   const transitionRemainingSec = Math.ceil(transitionRemainingMs / 1000);
+
+  // Timer de transition entre duels (court)
+  const matchTransitionStartedMs = parseTimestamp(state?.matchTransitionStartedAt);
+  const matchTransitionMs = DYP_MATCH_TRANSITION_SECONDS * 1000;
+  const matchTransitionRemainingMs =
+    state?.pendingMatchTransition && matchTransitionStartedMs > 0
+      ? Math.max(0, matchTransitionStartedMs + matchTransitionMs - now)
+      : 0;
 
   // Helper : suis-je le 1er joueur online (par join_order) ?
   function amILeader(): boolean {
@@ -164,8 +188,9 @@ export default function DypOnlinePlay({
   // Quand le timer du duel = 0 : leader force la résolution.
   const forcedTimeoutRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!state || state.pendingTransition) return;
+    if (!state || state.pendingTransition || state.pendingMatchTransition) return;
     if (remainingMs > 0) return;
+    if (startedAtMs <= 0) return; // pas de timestamp valide → ne rien forcer
     if (forcedTimeoutRef.current === `${room.id}:${voteRound}`) return;
     if (!amILeader()) return;
 
@@ -180,13 +205,14 @@ export default function DypOnlinePlay({
         if (error) console.error("[dyp_force_timeout]", error);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remainingMs, voteRound, room.id, state?.pendingTransition]);
+  }, [remainingMs, voteRound, room.id, state?.pendingTransition, state?.pendingMatchTransition]);
 
-  // Quand le timer de transition = 0 : leader force l'avancée du round.
+  // Quand le timer inter-rounds = 0 : leader force le nouveau round.
   const forcedAdvanceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!state || !state.pendingTransition) return;
     if (transitionRemainingMs > 0) return;
+    if (transitionStartedMs <= 0) return;
     if (forcedAdvanceRef.current === `${room.id}:${voteRound}`) return;
     if (!amILeader()) return;
 
@@ -203,9 +229,32 @@ export default function DypOnlinePlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transitionRemainingMs, voteRound, room.id, state?.pendingTransition]);
 
+  // Quand le timer inter-duels = 0 : leader force le duel suivant.
+  const forcedMatchAdvanceRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state || !state.pendingMatchTransition) return;
+    if (matchTransitionRemainingMs > 0) return;
+    if (matchTransitionStartedMs <= 0) return;
+    if (forcedMatchAdvanceRef.current === `${room.id}:${voteRound}`) return;
+    if (!amILeader()) return;
+
+    forcedMatchAdvanceRef.current = `${room.id}:${voteRound}`;
+    const supabase = createClient();
+    supabase
+      .rpc("dyp_force_match_advance", {
+        p_room_id: room.id,
+        p_vote_round: voteRound,
+      })
+      .then(({ error }) => {
+        if (error) console.error("[dyp_force_match_advance]", error);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchTransitionRemainingMs, voteRound, room.id, state?.pendingMatchTransition]);
+
   // ── Voter ─────────────────────────────────────────────────
   async function castVote(cardId: string) {
-    if (!state || state.pendingTransition) return;
+    if (!state) return;
+    if (state.pendingTransition || state.pendingMatchTransition) return;
     if (myCardId === cardId) return;
     vibrate(40);
     const supabase = createClient();
@@ -226,12 +275,17 @@ export default function DypOnlinePlay({
   }
 
   const totalMatchesInRound = state.bracket[state.currentRound - 1]?.length ?? 0;
+  const inRoundTransition = state.pendingTransition;
+  const inMatchTransition = !!state.pendingMatchTransition;
+  // Pendant la pause inter-duel, le winnerId est déjà posé sur le match courant
+  const matchWinnerId =
+    inMatchTransition && currentMatch ? currentMatch.winnerId : null;
 
   return (
-    <div className="min-h-screen bg-surface-950 bg-grid flex flex-col">
-      {/* Bandeau round + timer */}
-      <div className="px-4 pt-safe pt-4 pb-3 space-y-3 shrink-0 max-w-md w-full mx-auto">
-        <div className="flex items-center justify-between text-xs text-surface-500">
+    <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
+      {/* Bandeau round + timer (compact) */}
+      <div className="px-4 pt-safe pt-3 pb-2 space-y-2 shrink-0 max-w-md w-full mx-auto">
+        <div className="flex items-center justify-between text-[11px] text-surface-500">
           <span className="font-mono">
             {t("roundLabel", {
               current: state.currentRound,
@@ -247,9 +301,9 @@ export default function DypOnlinePlay({
         </div>
 
         {/* Timer (caché en transition) */}
-        {!state.pendingTransition && (
-          <div className="rounded-2xl border border-amber-700/30 bg-gradient-to-br from-amber-950/40 via-surface-900 to-amber-950/30 px-4 py-3">
-            <div className="flex items-center justify-between text-xs">
+        {!inRoundTransition && !inMatchTransition && (
+          <div className="rounded-xl border border-amber-700/30 bg-amber-950/20 px-3 py-1.5">
+            <div className="flex items-center justify-between text-[11px]">
               <span className="text-surface-500">{t("timeLeft")}</span>
               <span
                 className={`font-mono font-bold ${
@@ -259,7 +313,7 @@ export default function DypOnlinePlay({
                 {remainingSec}s
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-surface-800/60 overflow-hidden mt-1.5">
+            <div className="h-1 rounded-full bg-surface-800/60 overflow-hidden mt-1">
               <motion.div
                 className={`h-full ${
                   remainingSec <= 5 ? "bg-red-500" : "bg-amber-500"
@@ -272,10 +326,12 @@ export default function DypOnlinePlay({
         )}
       </div>
 
-      {/* Zone centrale : duel ou transition */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
-        <div className="max-w-md w-full mx-auto">
-          {state.pendingTransition ? (
+      {/* Zone centrale : duel ou transition de round.
+          flex-1 + min-h-0 pour qu'elle prenne tout l'espace restant
+          mais que son contenu soit centré verticalement. */}
+      <div className="flex-1 min-h-0 flex items-center justify-center px-4 py-1 overflow-hidden">
+        <div className="max-w-xs w-full mx-auto">
+          {inRoundTransition ? (
             <TransitionScreen
               state={state}
               cardById={cardById}
@@ -284,21 +340,24 @@ export default function DypOnlinePlay({
             />
           ) : (
             <DuelScreen
+              key={`${state.currentRound}-${state.currentMatchIndex}`}
               card1={card1}
               card2={card2}
               myCardId={myCardId}
+              winnerId={matchWinnerId}
               votesByCard={votesByCard}
               playerAvatars={playerAvatars}
               onVote={castVote}
               t={t}
+              disabled={inMatchTransition}
             />
           )}
         </div>
       </div>
 
-      {/* Chat — hauteur fixe avec scroll interne */}
+      {/* Chat — collé sous la scène, hauteur réduite. */}
       <div className="border-t border-surface-800/40 bg-surface-950/95 w-full shrink-0">
-        <div className="max-w-md w-full mx-auto h-[36vh] min-h-[200px] max-h-[50vh] flex flex-col">
+        <div className="max-w-md w-full mx-auto h-[28vh] min-h-[160px] max-h-[34vh] flex flex-col">
           <RoomChat
             roomId={room.id}
             myName={myName}
@@ -322,144 +381,206 @@ export default function DypOnlinePlay({
   );
 }
 
-// ── Sous-composant : Duel (2 cartes face à face) ─────────────────────────
+// ── Sous-composant : Duel (2 cartes pleines empilées) ───────────────────────
 function DuelScreen({
   card1,
   card2,
   myCardId,
+  winnerId,
   votesByCard,
   playerAvatars,
   onVote,
   t,
+  disabled,
 }: {
   card1: DYPCard | null;
   card2: DYPCard | null;
   myCardId: string | null;
+  winnerId: string | null;
   votesByCard: Map<string, string[]>;
   playerAvatars: Record<string, string | null>;
   onVote: (cardId: string) => void;
   t: ReturnType<typeof useTranslations>;
+  disabled: boolean;
 }) {
   if (!card1 || !card2) {
     return (
       <p className="text-surface-500 text-sm text-center py-8">{t("noDuel")}</p>
     );
   }
+
+  // Si on a un winner (pause inter-duels), on indique qui a perdu pour
+  // appliquer l'animation de défaite (fade + shrink).
+  const hasWinner = !!winnerId;
+  const card1IsWinner = hasWinner && winnerId === card1.id;
+  const card2IsWinner = hasWinner && winnerId === card2.id;
+  const card1IsLoser = hasWinner && !card1IsWinner;
+  const card2IsLoser = hasWinner && !card2IsWinner;
+
   return (
-    <div className="space-y-3">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      transition={{ duration: 0.2 }}
+      className="w-full flex flex-col items-center gap-2"
+    >
       <DuelCard
         card={card1}
-        isSelected={myCardId === card1.id}
+        isMyVote={myCardId === card1.id}
+        isWinner={card1IsWinner}
+        isLoser={card1IsLoser}
         voters={votesByCard.get(card1.id) ?? []}
         playerAvatars={playerAvatars}
         onClick={() => onVote(card1.id)}
-        t={t}
+        disabled={disabled}
       />
-      {/* Séparateur VS */}
-      <div className="flex items-center gap-3 my-1">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-amber-700/40" />
-        <span className="text-amber-400/70 font-display font-black text-base tracking-widest">
-          {t("vs")}
-        </span>
-        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-amber-700/40" />
+
+      {/* VS badge */}
+      <div className="shrink-0 flex items-center gap-3 w-full">
+        <div className="flex-1 h-px bg-surface-800/60" />
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 border border-surface-700/40 bg-surface-900"
+          style={{ boxShadow: "0 0 12px rgba(0,0,0,0.5)" }}
+        >
+          <span className="text-amber-400/70 text-[10px] font-black tracking-tight">
+            {t("vs")}
+          </span>
+        </div>
+        <div className="flex-1 h-px bg-surface-800/60" />
       </div>
+
       <DuelCard
         card={card2}
-        isSelected={myCardId === card2.id}
+        isMyVote={myCardId === card2.id}
+        isWinner={card2IsWinner}
+        isLoser={card2IsLoser}
         voters={votesByCard.get(card2.id) ?? []}
         playerAvatars={playerAvatars}
         onClick={() => onVote(card2.id)}
-        t={t}
+        disabled={disabled}
       />
-    </div>
+    </motion.div>
   );
 }
 
 function DuelCard({
   card,
-  isSelected,
+  isMyVote,
+  isWinner,
+  isLoser,
   voters,
   playerAvatars,
   onClick,
-  t,
+  disabled,
 }: {
   card: DYPCard;
-  isSelected: boolean;
+  isMyVote: boolean;
+  isWinner: boolean;
+  isLoser: boolean;
   voters: string[];
   playerAvatars: Record<string, string | null>;
   onClick: () => void;
-  t: ReturnType<typeof useTranslations>;
+  disabled: boolean;
 }) {
+  // Mise en valeur : si on est en pause inter-duel, on agrandit le winner
+  // et on fade le loser. Sinon, on met juste un ring si c'est mon vote.
   return (
     <motion.button
       type="button"
       onClick={onClick}
-      whileTap={{ scale: 0.98 }}
-      className={`relative w-full rounded-3xl border overflow-hidden text-left transition-all ${
-        isSelected
-          ? "border-amber-500/70 bg-amber-950/30 ring-2 ring-amber-500/50"
-          : "border-surface-700/40 bg-surface-900/50 hover:border-amber-700/40 hover:bg-amber-950/15"
-      }`}
+      disabled={disabled}
+      animate={{
+        scale: isWinner ? 1.04 : isLoser ? 0.9 : 1,
+        opacity: isLoser ? 0.25 : 1,
+        y: isLoser ? 8 : 0,
+      }}
+      transition={{ duration: 0.35, ease: "easeInOut" }}
+      whileTap={disabled ? undefined : { scale: 0.98 }}
+      className={`relative rounded-2xl overflow-hidden cursor-pointer shrink-0
+        w-full aspect-square
+        transition-shadow
+        ${isWinner
+          ? "ring-2 ring-amber-400/90"
+          : isMyVote
+            ? "ring-2 ring-amber-400/70"
+            : "ring-1 ring-surface-700/40"
+        }`}
+      style={{
+        boxShadow: isWinner
+          ? "0 0 32px rgba(245,158,11,0.55)"
+          : isMyVote
+            ? "0 0 22px rgba(245,158,11,0.35)"
+            : "0 4px 24px rgba(0,0,0,0.5)",
+      }}
     >
-      <div className="flex items-center gap-3 p-3">
-        {card.imageUrl ? (
-          <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-surface-700/40 shrink-0">
-            <Image
-              src={card.imageUrl}
-              alt={card.name}
-              fill
-              sizes="80px"
-              className="object-cover"
-            />
-          </div>
-        ) : (
-          <div className="w-20 h-20 rounded-2xl bg-surface-800/60 border border-surface-700/40 flex items-center justify-center shrink-0">
-            <span className="text-3xl">⚡</span>
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-display font-bold text-base leading-tight truncate">
-            {card.name}
-          </p>
-          <p className="text-surface-500 text-xs mt-0.5">
-            {voters.length === 0
-              ? t("noVotes")
-              : t("votesCount", { count: voters.length })}
-          </p>
-          {voters.length > 0 && (
-            <div className="flex -space-x-2 mt-2">
-              <AnimatePresence>
-                {voters.slice(0, 6).map((name) => (
-                  <motion.div
-                    key={name}
-                    initial={{ opacity: 0, scale: 0.6 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.6 }}
-                    className="relative"
-                  >
-                    <Avatar
-                      src={playerAvatars[name]}
-                      name={name}
-                      size="xs"
-                      className="rounded-full ring-2 ring-surface-950"
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {voters.length > 6 && (
-                <div className="w-6 h-6 rounded-full bg-surface-800 border-2 border-surface-950 flex items-center justify-center text-[9px] font-bold text-surface-400">
-                  +{voters.length - 6}
-                </div>
-              )}
+      {card.imageUrl ? (
+        <Image
+          src={card.imageUrl}
+          alt={card.name}
+          fill
+          sizes="(max-width: 768px) 90vw, 320px"
+          className="object-cover"
+          unoptimized
+        />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-900/70 via-surface-900 to-brand-900/70" />
+      )}
+
+      {/* Gradient bottom pour lisibilité du nom */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+      {/* Nom carte */}
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+        <p className="font-display font-bold text-white text-base leading-tight drop-shadow-lg line-clamp-2">
+          {card.name}
+        </p>
+      </div>
+
+      {/* Couronne winner */}
+      {isWinner && (
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.05, type: "spring", stiffness: 320 }}
+          className="absolute top-2 right-2 w-9 h-9 rounded-full bg-amber-500/95 flex items-center justify-center shadow-lg"
+        >
+          <span className="text-base">👑</span>
+        </motion.div>
+      )}
+
+      {/* Avatars des votants (top-left) */}
+      {voters.length > 0 && (
+        <div className="absolute top-2 left-2 flex -space-x-1.5">
+          <AnimatePresence>
+            {voters.slice(0, 5).map((name) => (
+              <motion.div
+                key={name}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.6 }}
+              >
+                <Avatar
+                  src={playerAvatars[name]}
+                  name={name}
+                  size="xs"
+                  className="rounded-full ring-2 ring-surface-950"
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          {voters.length > 5 && (
+            <div className="w-6 h-6 rounded-full bg-surface-900/90 ring-2 ring-surface-950 flex items-center justify-center text-[9px] font-bold text-surface-200">
+              +{voters.length - 5}
             </div>
           )}
         </div>
-      </div>
+      )}
     </motion.button>
   );
 }
 
-// ── Sous-composant : Transition entre rounds ─────────────────────────────
+// ── Sous-composant : Transition entre rounds (qualifiés) ──────────────────
 function TransitionScreen({
   state,
   cardById,
@@ -481,13 +602,13 @@ function TransitionScreen({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 py-2"
+      className="space-y-3 py-2"
     >
       <div className="text-center space-y-1">
         <p className="text-amber-400/70 text-[10px] uppercase tracking-[0.2em] font-mono">
           {t("transition.title", { round: state.currentRound })}
         </p>
-        <h2 className="text-white font-display font-black text-2xl">
+        <h2 className="text-white font-display font-black text-xl">
           {t("transition.qualified", { count: winners.length })}
         </h2>
         <p className="text-surface-500 text-xs">
@@ -519,7 +640,7 @@ function TransitionScreen({
                 <span className="text-4xl">⚡</span>
               </div>
             )}
-            <p className="px-2 py-1.5 text-white text-xs font-bold truncate text-center">
+            <p className="px-2 py-1 text-white text-xs font-bold truncate text-center">
               {card.name}
             </p>
           </motion.div>

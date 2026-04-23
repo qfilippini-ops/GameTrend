@@ -28,11 +28,13 @@
 --     ],
 --     currentRound:       1,                              -- 1-based
 --     currentMatchIndex:  0,
---     currentRoundStartedAt: "iso ts",                    -- début du duel
---     pendingTransition:  false,                          -- vrai entre 2 rounds
---     transitionStartedAt: "iso ts|null",                 -- start du compte 3 s
---     championId:         null,
---     finished:           false
+--     currentRoundStartedAt:    "iso ts",                 -- début du duel
+--     pendingTransition:        false,                    -- vrai entre 2 rounds
+--     transitionStartedAt:      "iso ts|null",            -- start du compte 3 s
+--     pendingMatchTransition:   false,                    -- vrai entre 2 duels
+--     matchTransitionStartedAt: "iso ts|null",            -- start du compte 2 s
+--     championId:               null,
+--     finished:                 false
 --   }
 --
 -- Sécurité de concurrence :
@@ -47,9 +49,15 @@
 --      tous les joueurs alive ont voté.
 --   3. Si timer expiré côté client, n'importe quel client appelle
 --      `dyp_force_timeout` → `_dyp_resolve_round(..., true)`.
---   4. Le resolver place le winner, advance currentMatchIndex, ou (si dernier
---      match du round) bascule en pendingTransition pendant 3 s.
---   5. Pendant la transition, n'importe quel client appelle
+--   4. Le resolver place le winnerId du duel courant, puis :
+--        - dernier match du dernier round → phase='result', championId, finished
+--        - dernier match du round (mais pas dernier round) →
+--          pendingTransition=true (pause 3 s avant nouveau round)
+--        - sinon → pendingMatchTransition=true (pause 2 s pour montrer le winner
+--          du duel avant de passer au suivant)
+--   5. Pendant la pause inter-duels, n'importe quel client appelle
+--      `dyp_force_match_advance` au timeout local pour passer au duel suivant.
+--   6. Pendant la transition de round, n'importe quel client appelle
 --      `dyp_force_round_advance` au timeout local pour générer le round suivant.
 -- ===========================================================================
 
@@ -101,9 +109,12 @@ BEGIN
   v_dyp           := v_config -> 'dyp';
   IF v_dyp IS NULL THEN RETURN; END IF;
 
-  -- Si on est déjà en transition entre rounds, ce n'est pas le moment de
-  -- résoudre un duel.
+  -- Si on est déjà en transition (entre rounds OU entre duels), ce n'est pas
+  -- le moment de résoudre un duel.
   IF COALESCE((v_dyp ->> 'pendingTransition')::BOOLEAN, FALSE) THEN
+    RETURN;
+  END IF;
+  IF COALESCE((v_dyp ->> 'pendingMatchTransition')::BOOLEAN, FALSE) THEN
     RETURN;
   END IF;
 
@@ -240,22 +251,94 @@ BEGIN
   ELSIF v_is_last_match THEN
     -- Fin du round → on entre en transition (3 s) avant le round suivant.
     v_dyp := jsonb_set(v_dyp, '{pendingTransition}', 'true'::jsonb);
-    v_dyp := jsonb_set(v_dyp, '{transitionStartedAt}', to_jsonb(now()::TEXT));
+    v_dyp := jsonb_set(v_dyp, '{transitionStartedAt}', to_jsonb(now()));
     v_config := jsonb_set(v_config, '{dyp}', v_dyp);
     UPDATE game_rooms
        SET config = v_config,
            vote_round = vote_round + 1
      WHERE id = p_room_id AND phase = 'playing' AND vote_round = p_vote_round;
   ELSE
-    -- Match suivant dans le même round
-    v_dyp := jsonb_set(v_dyp, '{currentMatchIndex}', to_jsonb(v_current_match + 1));
-    v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()::TEXT));
+    -- Pause 2 s pour montrer le winner du duel, puis match suivant.
+    v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'true'::jsonb);
+    v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', to_jsonb(now()));
     v_config := jsonb_set(v_config, '{dyp}', v_dyp);
     UPDATE game_rooms
        SET config = v_config,
            vote_round = vote_round + 1
      WHERE id = p_room_id AND phase = 'playing' AND vote_round = p_vote_round;
   END IF;
+END;
+$$;
+
+
+-- ── 1bis. Avancement vers le duel suivant après pause de 2 s ──────────────
+CREATE OR REPLACE FUNCTION public._dyp_advance_match_internal(
+  p_room_id    TEXT,
+  p_vote_round INT
+)
+RETURNS VOID LANGUAGE PLPGSQL SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_lock_key      BIGINT;
+  v_phase         TEXT;
+  v_round         INT;
+  v_game_type     TEXT;
+  v_config        JSONB;
+  v_dyp           JSONB;
+  v_bracket       JSONB;
+  v_current_round INT;
+  v_current_match INT;
+  v_round_matches JSONB;
+  v_pending       BOOLEAN;
+  v_match_started TIMESTAMPTZ;
+BEGIN
+  v_lock_key := abs(hashtext(p_room_id))::BIGINT;
+  PERFORM pg_advisory_xact_lock(v_lock_key);
+
+  SELECT phase, vote_round, game_type, config
+    INTO v_phase, v_round, v_game_type, v_config
+    FROM game_rooms WHERE id = p_room_id;
+
+  IF v_game_type IS DISTINCT FROM 'dyp' THEN RETURN; END IF;
+  IF v_phase IS DISTINCT FROM 'playing' THEN RETURN; END IF;
+  IF v_round <> p_vote_round THEN RETURN; END IF;
+
+  v_dyp := v_config -> 'dyp';
+  IF v_dyp IS NULL THEN RETURN; END IF;
+
+  v_pending       := COALESCE((v_dyp ->> 'pendingMatchTransition')::BOOLEAN, FALSE);
+  v_match_started := (v_dyp ->> 'matchTransitionStartedAt')::TIMESTAMPTZ;
+
+  IF NOT v_pending THEN RETURN; END IF;
+  IF v_match_started IS NULL OR now() < v_match_started + INTERVAL '2 seconds' THEN
+    RETURN;
+  END IF;
+
+  v_current_round := COALESCE((v_dyp ->> 'currentRound')::INT, 1);
+  v_current_match := COALESCE((v_dyp ->> 'currentMatchIndex')::INT, 0);
+  v_bracket       := v_dyp -> 'bracket';
+  v_round_matches := v_bracket -> (v_current_round - 1);
+
+  -- Sécurité : si on est déjà au dernier match (cas pathologique), on ne fait
+  -- qu'éteindre le flag.
+  IF v_current_match >= jsonb_array_length(v_round_matches) - 1 THEN
+    v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'false'::jsonb);
+    v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', 'null'::jsonb);
+    v_config := jsonb_set(v_config, '{dyp}', v_dyp);
+    UPDATE game_rooms SET config = v_config
+     WHERE id = p_room_id AND phase = 'playing' AND vote_round = p_vote_round;
+    RETURN;
+  END IF;
+
+  v_dyp := jsonb_set(v_dyp, '{currentMatchIndex}', to_jsonb(v_current_match + 1));
+  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()));
+  v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'false'::jsonb);
+  v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', 'null'::jsonb);
+  v_config := jsonb_set(v_config, '{dyp}', v_dyp);
+
+  UPDATE game_rooms
+     SET config = v_config,
+         vote_round = vote_round + 1
+   WHERE id = p_room_id AND phase = 'playing' AND vote_round = p_vote_round;
 END;
 $$;
 
@@ -348,7 +431,9 @@ BEGIN
   v_dyp := jsonb_set(v_dyp, '{currentMatchIndex}', '0'::jsonb);
   v_dyp := jsonb_set(v_dyp, '{pendingTransition}', 'false'::jsonb);
   v_dyp := jsonb_set(v_dyp, '{transitionStartedAt}', 'null'::jsonb);
-  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()::TEXT));
+  v_dyp := jsonb_set(v_dyp, '{pendingMatchTransition}', 'false'::jsonb);
+  v_dyp := jsonb_set(v_dyp, '{matchTransitionStartedAt}', 'null'::jsonb);
+  v_dyp := jsonb_set(v_dyp, '{currentRoundStartedAt}', to_jsonb(now()));
   v_config := jsonb_set(v_config, '{dyp}', v_dyp);
 
   UPDATE game_rooms
@@ -420,6 +505,9 @@ BEGIN
   IF v_pending THEN
     RAISE EXCEPTION 'Transition in progress';
   END IF;
+  IF COALESCE((v_dyp ->> 'pendingMatchTransition')::BOOLEAN, FALSE) THEN
+    RAISE EXCEPTION 'Match transition in progress';
+  END IF;
 
   -- Vérifie que la carte fait bien partie du duel courant
   v_match := (v_dyp -> 'bracket')
@@ -469,6 +557,20 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.dyp_force_round_advance(TEXT, INT) TO authenticated, anon;
+
+
+-- ── 6bis. RPC publique : avancer au duel suivant après pause de 2 s ──────
+CREATE OR REPLACE FUNCTION public.dyp_force_match_advance(
+  p_room_id    TEXT,
+  p_vote_round INT
+)
+RETURNS VOID LANGUAGE PLPGSQL SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  PERFORM public._dyp_advance_match_internal(p_room_id, p_vote_round);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.dyp_force_match_advance(TEXT, INT) TO authenticated, anon;
 
 
 -- ── 7. Patch : seuil min_players adaptatif par jeu (ajoute DYP) ───────────

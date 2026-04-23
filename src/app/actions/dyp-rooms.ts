@@ -294,6 +294,8 @@ export async function startDypGame(
     currentRoundStartedAt: new Date().toISOString(),
     pendingTransition: false,
     transitionStartedAt: null,
+    pendingMatchTransition: false,
+    matchTransitionStartedAt: null,
     championId: null,
     finished: false,
   };
