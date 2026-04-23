@@ -3,9 +3,11 @@ import type { DYPConfig } from "@/types/games";
 import type { GameAdapter, PlayerAssignment, EliminationResult } from "@/types/adapters";
 
 /**
- * Adapter DYP — jeu solo uniquement en v1.
- * Les méthodes assignPlayers et resolveElimination ne sont pas utilisées
- * (pas de partie en ligne), mais sont implémentées pour respecter l'interface.
+ * Adapter DYP — solo + online (depuis v2).
+ *
+ * Compatibilité presets : DYP et Blind Rank partagent la même structure
+ * `{ cards: [...] }`, donc les presets sont interchangeables entre les
+ * deux jeux.
  */
 export const DYPAdapter: GameAdapter = {
   meta: DYP_META,
@@ -31,6 +33,12 @@ export const DYPAdapter: GameAdapter = {
     return strings;
   },
 
-  // DYP accepte aussi les presets Blind Rank (même structure { cards: [...] })
   acceptedPresetTypes: () => ["dyp", "blindrank"],
+
+  onlineConfig: {
+    supportsOnline: true,
+    minPlayers: 2,
+    maxPlayers: 16,
+    chatMode: "realtime",
+  },
 };

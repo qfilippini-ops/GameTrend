@@ -254,6 +254,14 @@ function DYPLobbyPageContent() {
           {launching ? t("preparing") : t("startTournament")}
         </motion.button>
 
+        {/* ── Jouer en ligne ── */}
+        <Link
+          href="/games/dyp/online"
+          className="block w-full py-4 rounded-2xl font-display font-bold text-base text-center border border-amber-700/40 bg-amber-950/30 text-amber-200 hover:bg-amber-900/40 hover:border-amber-600/50 transition-all"
+        >
+          {t("playOnline")}
+        </Link>
+
       </div>
     </div>
   );

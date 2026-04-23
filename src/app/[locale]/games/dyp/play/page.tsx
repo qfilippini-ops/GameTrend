@@ -147,6 +147,18 @@ export default function DYPPlayPage() {
     }
   }, [state]);
 
+  // Auto-continue : la phase round_transition s'enchaîne automatiquement après
+  // 3 s pour rester fluide (cohérent avec le mode online).
+  useEffect(() => {
+    if (state?.phase !== "round_transition") return;
+    const tm = setTimeout(() => {
+      const newState = continueToNextRound(state);
+      saveState(newState);
+      setState(newState);
+    }, 3000);
+    return () => clearTimeout(tm);
+  }, [state]);
+
   function handleVote(side: "left" | "right") {
     if (!state || voteState !== null || state.phase !== "duel") return;
     setVoteState(side);
@@ -158,13 +170,6 @@ export default function DYPPlayPage() {
       setState(newState);
       setVoteState(null);
     }, 500);
-  }
-
-  function handleContinue() {
-    if (!state) return;
-    const newState = continueToNextRound(state);
-    saveState(newState);
-    setState(newState);
   }
 
   function handleReplay() {
@@ -213,17 +218,10 @@ export default function DYPPlayPage() {
             </p>
           </div>
 
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handleContinue}
-            className="w-full py-4 rounded-2xl font-display font-bold text-lg text-white"
-            style={{
-              background: "linear-gradient(135deg, #f59e0b, #d97706)",
-              boxShadow: "0 0 24px rgba(245,158,11,0.3)",
-            }}
-          >
-            {t("continue")}
-          </motion.button>
+          {/* Indicateur d'auto-continue (3 s) */}
+          <div className="text-surface-500 text-xs font-mono uppercase tracking-widest pt-2">
+            {t("autoContinue")}
+          </div>
         </motion.div>
       </div>
     );

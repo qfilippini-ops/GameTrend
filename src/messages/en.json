@@ -896,6 +896,10 @@
       }
     },
     "dyp": {
+      "feed": {
+        "topShare": "🏆 My champion: {name}",
+        "moreRanks": "+{count, plural, =1 {# more} other {# more}}"
+      },
       "lobby": {
         "preset": "Preset",
         "compatBadge": "Blind Rank-compatible",
@@ -910,7 +914,8 @@
         "amongAvailable": " among {count} available",
         "andRounds": " · {count, plural, =1 {# round} other {# rounds}}",
         "preparing": "Preparing…",
-        "startTournament": "⚡ Start tournament"
+        "startTournament": "⚡ Start tournament",
+        "playOnline": "🌐 Play online"
       },
       "play": {
         "roundFinished": "Round {n} finished",
@@ -918,6 +923,7 @@
         "roundOf": "Round {current} / {total}",
         "duelsToGo": "{count, plural, =1 {# duel to go} other {# duels to go}}",
         "continue": "Continue →",
+        "autoContinue": "Next round in 3s...",
         "champion": "Tournament champion",
         "podium": "Podium",
         "restRanking": "Rest of ranking",
@@ -930,6 +936,150 @@
         "roundProgress": "Round {current}/{total}",
         "duelProgress": "Duel {current}/{total}",
         "tapHint": "Tap your favorite card"
+      },
+      "online": {
+        "lobby": {
+          "title": "DYP online",
+          "createCta": "⚡ Create room"
+        },
+        "shell": {
+          "tabCreate": "Create",
+          "tabJoin": "Join",
+          "yourAccount": "Your account",
+          "yourNickname": "Your nickname",
+          "nicknamePlaceholder": "e.g. Ace",
+          "roomCodeLabel": "Room code",
+          "roomCodePlaceholder": "AB3X9K",
+          "visibility": "Visibility",
+          "visibilityPrivate": "Visible only with the code",
+          "visibilityPublic": "Visible in the public rooms list",
+          "private": "Private",
+          "public": "Public",
+          "joinCta": "🚪 Join room",
+          "loadingShort": "…",
+          "errEnterNick": "Enter a nickname",
+          "errInvalidCode": "Invalid code (6 characters)",
+          "errServer": "Server error",
+          "errAuth": "Auth: {message}",
+          "errRoomNotFound": "Room not found",
+          "errAlreadyStarted": "Game already started",
+          "errWrongGame": "This room is not a DYP room",
+          "errNickTaken": "This nickname is already taken in the room",
+          "anonHint": "You're playing anonymously.",
+          "loginCta": "Sign in",
+          "loginSuffix": "to save your profile."
+        },
+        "shellShared": {
+          "enterNickname": "Choose your nickname",
+          "nicknamePlaceholder": "e.g. Ace",
+          "joinCta": "Join",
+          "loadingShort": "…",
+          "errEnterNick": "Enter a nickname",
+          "errAuth": "Auth: {message}",
+          "errNickTaken": "Nickname already taken",
+          "errServer": "Server error",
+          "leave": "Leave",
+          "menu": "Menu",
+          "cancel": "Cancel",
+          "options": "Options",
+          "connecting": "Connecting…",
+          "identifying": "Identifying…",
+          "back": "← Back",
+          "ok": "OK",
+          "errRoomNotFound": "Room not found",
+          "errRoomNotFoundReason": "Room not found ({reason})",
+          "errAlreadyStarted": "Game already started",
+          "evtPlayerLeft": "🚪 {name} left the game",
+          "evtHostLeft": "🚷 Host {name} left",
+          "evtNewHost": " — 👑 {name} is the new host",
+          "evtNewHostYou": " — 👑 You are the new host",
+          "evtKicked": "🚷 {name} was kicked"
+        },
+        "room": {
+          "joinTitle": "Join room"
+        },
+        "waiting": {
+          "launch": "⚡ Start tournament ({count})"
+        },
+        "waitingShared": {
+          "abandonReasonClose": "Close",
+          "roomCode": "Room code",
+          "copyLink": "📋 Copy link",
+          "copied": "✓ Copied",
+          "share": "📤 Share",
+          "shareTitle": "Join my DYP game",
+          "shareText": "Come play DYP with me!",
+          "players": "Players",
+          "playersMinSuffix": "/ {min} min",
+          "host": "Host",
+          "you": "(you)",
+          "offline": "(offline)",
+          "kickTitle": "Kick {name}",
+          "settings": "Settings",
+          "close": "Close",
+          "edit": "Edit",
+          "waitingForPlayers": "{current} / {min} players minimum",
+          "starting": "Starting…",
+          "needPlayers": "At least {min} players are required",
+          "closeLobby": "Close room",
+          "closeLobbyConfirm": "Close this room and kick all players?",
+          "waitingHostStart": "The host will start the tournament…",
+          "leaveRoom": "Leave room"
+        },
+        "settings": {
+          "preset": "Preset",
+          "compatBadge": "Blind Rank-compatible",
+          "myPresets": "My presets",
+          "defaultCards": "Default cards ({count})",
+          "cardsInPreset": "{count, plural, =1 {# card in this preset} other {# cards in this preset}}",
+          "bracketSize": "Tournament size",
+          "bracketSizeHint": "Number of cards in competition (powers of 2)",
+          "tourTime": "Time per duel",
+          "tourTimeHint": "Time to vote before resolution",
+          "tieBreak": "Tie-break",
+          "tieBreakHint": "How to decide when several cards have the same number of votes",
+          "tieBreakRandom": "🎲 Random",
+          "tieBreakFirst": "⚡ First vote"
+        },
+        "play": {
+          "preparing": "Preparing tournament…",
+          "roundLabel": "Round {current} / {total}",
+          "matchLabel": "Duel {current} / {total}",
+          "timeLeft": "Time left",
+          "vs": "VS",
+          "noDuel": "Waiting for next duel…",
+          "noVotes": "Tap to vote",
+          "votesCount": "{count, plural, =1 {# vote} other {# votes}}",
+          "transition": {
+            "title": "Round {round} finished",
+            "qualified": "{count, plural, =1 {# card qualified} other {# cards qualified}}",
+            "next": "Next round in {seconds}s…"
+          }
+        },
+        "chat": {
+          "emptyState": "Be the first to chat",
+          "inputPlaceholder": "Message…",
+          "sendShort": "→",
+          "passShort": "Pass",
+          "passedLabel": "(empty message)"
+        },
+        "result": {
+          "gameOver": "Tournament over",
+          "champion": "Champion",
+          "winner": "Winner",
+          "bracketTitle": "Full bracket",
+          "finalRound": "Final",
+          "roundN": "Round {n}",
+          "andNow": "And now?",
+          "replay": "🔄 Replay",
+          "lobby": "🏠 Lobby",
+          "wantsReplay": "You want to replay ✓ ",
+          "wantsLobby": "You want to go back to the lobby ✓ ",
+          "waitingChoice": "(waiting for others)",
+          "replayLabel": "Want to replay",
+          "tip": "Everyone must vote Replay to start over.",
+          "shareText": "Our DYP online champion: {name} 🏆 — Come play on GameTrend!"
+        }
       }
     },
     "blindrank": {
