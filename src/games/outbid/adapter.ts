@@ -1,5 +1,5 @@
-import { BLINDRANK_META } from "@/games/blindrank/config";
-import type { BlindRankConfig } from "@/types/games";
+import { OUTBID_META } from "@/games/outbid/config";
+import type { DYPConfig } from "@/types/games";
 import type {
   GameAdapter,
   PlayerAssignment,
@@ -7,14 +7,13 @@ import type {
 } from "@/types/adapters";
 
 /**
- * Adapter Blind Rank — jeu solo uniquement en v1.
+ * Adapter Outbid — jeu online uniquement, 1v1 strict.
  *
- * Compatibilité presets : Blind Rank et DYP partagent la même structure
- * `{ cards: [...] }`, donc les presets sont interchangeables entre les
- * deux jeux. Voir `src/games/compat.ts`.
+ * Compatibilité presets : Outbid partage le format `{ cards: [...] }` avec
+ * DYP et Blind Rank. Les presets sont interchangeables entre les trois.
  */
-export const BlindRankAdapter: GameAdapter = {
-  meta: BLINDRANK_META,
+export const OutbidAdapter: GameAdapter = {
+  meta: OUTBID_META,
 
   assignPlayers(): PlayerAssignment[] {
     return [];
@@ -27,7 +26,7 @@ export const BlindRankAdapter: GameAdapter = {
   getSearchableStrings(config: unknown): string[] {
     const strings: string[] = [];
     try {
-      const c = config as BlindRankConfig;
+      const c = config as DYPConfig;
       for (const card of c?.cards ?? []) {
         if (card.name) strings.push(card.name);
       }
@@ -37,12 +36,12 @@ export const BlindRankAdapter: GameAdapter = {
     return strings;
   },
 
-  acceptedPresetTypes: () => ["blindrank", "dyp", "outbid"],
+  acceptedPresetTypes: () => ["dyp", "blindrank", "outbid"],
 
   onlineConfig: {
     supportsOnline: true,
     minPlayers: 2,
-    maxPlayers: 16,
+    maxPlayers: 2,
     chatMode: "realtime",
   },
 };

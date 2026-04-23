@@ -44,7 +44,7 @@ export const PRESET_FAMILIES: PresetFamily[] = [
   },
   {
     id: "cards",
-    gameTypes: ["dyp", "blindrank"],
+    gameTypes: ["dyp", "blindrank", "outbid"],
     icon: "🃏",
     i18nKey: "cards",
   },

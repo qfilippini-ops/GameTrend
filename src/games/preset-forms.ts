@@ -25,6 +25,7 @@ const PRESET_FORM_MAP: Record<string, ComponentType<PresetFormProps>> = {
   ghostword: GhostWordPresetForm as ComponentType<PresetFormProps>,
   dyp: DYPPresetForm as ComponentType<PresetFormProps>,
   blindrank: DYPPresetForm as ComponentType<PresetFormProps>,
+  outbid: DYPPresetForm as ComponentType<PresetFormProps>,
 };
 
 /**

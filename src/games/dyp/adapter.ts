@@ -33,7 +33,7 @@ export const DYPAdapter: GameAdapter = {
     return strings;
   },
 
-  acceptedPresetTypes: () => ["dyp", "blindrank"],
+  acceptedPresetTypes: () => ["dyp", "blindrank", "outbid"],
 
   onlineConfig: {
     supportsOnline: true,

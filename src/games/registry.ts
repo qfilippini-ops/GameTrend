@@ -16,6 +16,8 @@ import { DYP_META } from "@/games/dyp/config";
 import { DYPAdapter } from "@/games/dyp/adapter";
 import { BLINDRANK_META } from "@/games/blindrank/config";
 import { BlindRankAdapter } from "@/games/blindrank/adapter";
+import { OUTBID_META } from "@/games/outbid/config";
+import { OutbidAdapter } from "@/games/outbid/adapter";
 import type { GameMeta } from "@/types/games";
 import type { GameAdapter } from "@/types/adapters";
 
@@ -24,6 +26,7 @@ export const GAMES_REGISTRY: GameMeta[] = [
   GHOSTWORD_META,
   DYP_META,
   BLINDRANK_META,
+  OUTBID_META,
 ];
 
 /** Map gameType → adapter */
@@ -31,6 +34,7 @@ const ADAPTERS: Record<string, GameAdapter> = {
   ghostword: GhostWordAdapter,
   dyp: DYPAdapter,
   blindrank: BlindRankAdapter,
+  outbid: OutbidAdapter,
 };
 
 /**

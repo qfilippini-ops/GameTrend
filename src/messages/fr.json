@@ -1252,6 +1252,189 @@
           "shareText": "Notre n°1 sur Blind Rank online : {name} 🎴 — Viens jouer sur GameTrend !"
         }
       }
+    },
+    "outbid": {
+      "feed": {
+        "summary": "🪙 Outbid · {a} ({ap}pts) vs {b} ({bp}pts)",
+        "teamPreview": "{count} cartes pour {points} pts dépensés"
+      },
+      "lobby": {
+        "rulesTitle": "Comment jouer",
+        "rule1": "Duel 1v1 avec 100 points chacun. Tu mises pour acquérir des cartes une par une.",
+        "rule2": "L'enchérisseur initial mise 10 points par défaut. À l'autre de surenchérir ou laisser passer.",
+        "rule3": "Quand un joueur passe, l'autre remporte la carte au prix actuel et la place dans son équipe.",
+        "rule4": "La partie se termine quand les deux équipes sont remplies (ou quand un joueur n'a plus de points).",
+        "rule5": "Aucun gagnant officiel : à vous de juger qui a la meilleure équipe !",
+        "playOnline": "🪙 Jouer en ligne",
+        "onlineOnlyHint": "Outbid se joue exclusivement en 1v1 en ligne."
+      },
+      "online": {
+        "lobby": {
+          "title": "Outbid en ligne",
+          "createCta": "🪙 Créer le duel"
+        },
+        "shell": {
+          "tabCreate": "Créer",
+          "tabJoin": "Rejoindre",
+          "yourAccount": "Ton compte",
+          "yourNickname": "Ton pseudo",
+          "nicknamePlaceholder": "Ex: Ace",
+          "roomCodeLabel": "Code du salon",
+          "roomCodePlaceholder": "AB3X9K",
+          "visibility": "Visibilité",
+          "visibilityPrivate": "Visible uniquement avec le code",
+          "visibilityPublic": "Visible dans la liste des salons publics",
+          "private": "Privé",
+          "public": "Public",
+          "joinCta": "🚪 Rejoindre",
+          "loadingShort": "…",
+          "errEnterNick": "Entre un pseudo",
+          "errInvalidCode": "Code invalide (6 caractères)",
+          "errServer": "Erreur serveur",
+          "errAuth": "Auth: {message}",
+          "errRoomNotFound": "Salon introuvable",
+          "errAlreadyStarted": "La partie a déjà commencé",
+          "errWrongGame": "Ce salon n'est pas un salon Outbid",
+          "errNickTaken": "Ce pseudo est déjà pris dans le salon",
+          "errRoomFull": "Salon complet (Outbid se joue à 2)",
+          "anonHint": "Tu joues en mode anonyme.",
+          "loginCta": "Connecte-toi",
+          "loginSuffix": "pour sauvegarder ton profil."
+        },
+        "shellShared": {
+          "enterNickname": "Choisis ton pseudo",
+          "nicknamePlaceholder": "Ex: Ace",
+          "joinCta": "Rejoindre",
+          "loadingShort": "…",
+          "errEnterNick": "Entre un pseudo",
+          "errAuth": "Auth: {message}",
+          "errNickTaken": "Pseudo déjà pris",
+          "errServer": "Erreur serveur",
+          "leave": "Quitter",
+          "menu": "Menu",
+          "cancel": "Annuler",
+          "options": "Options",
+          "connecting": "Connexion…",
+          "identifying": "Identification…",
+          "back": "← Retour",
+          "ok": "OK",
+          "errRoomNotFound": "Salon introuvable",
+          "errRoomNotFoundReason": "Salon introuvable ({reason})",
+          "errAlreadyStarted": "La partie a déjà commencé",
+          "evtPlayerLeft": "🚪 {name} a quitté la partie",
+          "evtHostLeft": "🚷 L'hôte {name} a quitté",
+          "evtNewHost": " — 👑 {name} est le nouvel hôte",
+          "evtNewHostYou": " — 👑 Tu es le nouvel hôte",
+          "evtKicked": "🚷 {name} a été expulsé"
+        },
+        "room": {
+          "joinTitle": "Rejoindre le duel"
+        },
+        "waiting": {
+          "launch": "🪙 Lancer le duel ({count})"
+        },
+        "waitingShared": {
+          "abandonReasonClose": "Fermer",
+          "roomCode": "Code du salon",
+          "copyLink": "📋 Copier le lien",
+          "copied": "✓ Copié",
+          "share": "📤 Partager",
+          "shareTitle": "Rejoins mon duel Outbid",
+          "shareText": "Viens m'affronter sur Outbid !",
+          "players": "Joueurs",
+          "playersMinSuffix": "/ {min} requis",
+          "host": "Hôte",
+          "you": "(toi)",
+          "offline": "(hors ligne)",
+          "kickTitle": "Expulser {name}",
+          "settings": "Paramètres",
+          "close": "Fermer",
+          "edit": "Modifier",
+          "waitingForPlayers": "{current} / {min} joueurs",
+          "starting": "Démarrage…",
+          "needPlayers": "Il faut {min} joueurs",
+          "closeLobby": "Fermer le salon",
+          "closeLobbyConfirm": "Fermer ce salon et expulser tous les joueurs ?",
+          "waitingHostStart": "L'hôte va lancer la partie…",
+          "leaveRoom": "Quitter le salon"
+        },
+        "settings": {
+          "preset": "Preset",
+          "compatBadge": "Compatible DYP / Blind Rank",
+          "myPresets": "Mes presets",
+          "presetRequired": "⚠ Sélectionne un preset pour démarrer.",
+          "cardsInPreset": "{count, plural, =1 {# carte dans ce preset} other {# cartes dans ce preset}}",
+          "presetTooSmall": "Il faut au moins {needed} cartes pour cette taille d'équipe.",
+          "teamSize": "Cartes par équipe",
+          "teamSizeHint": "Chaque joueur acquiert ce nombre de cartes (3 à 11).",
+          "tourTime": "Temps par décision",
+          "tourTimeHint": "Le timer redémarre à chaque mise ou pass.",
+          "openingBidder": "Premier enchérisseur",
+          "openingBidderHint": "Qui ouvre l'enchère sur chaque carte ?",
+          "opening": {
+            "alternate": {
+              "label": "🔁 Alterné",
+              "hint": "Un coup chacun"
+            },
+            "loser": {
+              "label": "🪂 Perdant",
+              "hint": "Le passeur ouvre"
+            },
+            "winner": {
+              "label": "🏆 Gagnant",
+              "hint": "L'acquéreur ouvre"
+            },
+            "random": {
+              "label": "🎲 Aléatoire",
+              "hint": "Tirage à chaque carte"
+            }
+          }
+        },
+        "play": {
+          "preparing": "Préparation du duel…",
+          "you": "Toi",
+          "emptyTeam": "Aucune carte",
+          "cardCounter": "Carte {current} / {total}",
+          "byBidder": "par {name}",
+          "timeLeft": "Temps restant",
+          "waitingForOther": "En attente de {name}…",
+          "bidPlaceholder": "Min {min}",
+          "bidAction": "Surenchérir",
+          "bidRange": "Min {min} · Max {max}",
+          "points": "pts",
+          "allIn": "All-in",
+          "pass": "Passer",
+          "manualUnlock": "🔓 Forcer la fin du tour",
+          "bidError": "Mise refusée : {msg}",
+          "passError": "Erreur : {msg}"
+        },
+        "chat": {
+          "emptyState": "Provoquez votre adversaire 🔥",
+          "inputPlaceholder": "Message…",
+          "sendShort": "→",
+          "passShort": "Passer",
+          "passedLabel": "(message vide)"
+        },
+        "result": {
+          "loading": "Chargement…",
+          "gameOver": "Duel terminé",
+          "title": "Les deux équipes",
+          "subtitle": "À vous de juger qui a la meilleure équipe.",
+          "you": "toi",
+          "emptyTeam": "Aucune carte",
+          "freePrice": "free",
+          "cardsCount": "{n} cartes",
+          "totalSpent": "−{amount} pts",
+          "andNow": "Et maintenant ?",
+          "replay": "🔄 Rejouer",
+          "lobby": "🏠 Lobby",
+          "wantsReplay": "Tu veux rejouer ✓ ",
+          "wantsLobby": "Tu veux retourner au lobby ✓ ",
+          "waitingChoice": "(en attente de l'autre)",
+          "replayLabel": "Veulent rejouer",
+          "shareText": "Outbid : {a} vs {b} — Mon duel sur GameTrend !"
+        }
+      }
     }
   },
   "share": {

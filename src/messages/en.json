@@ -1252,6 +1252,189 @@
           "shareText": "Our #1 on Blind Rank online: {name} 🎴 — Come play on GameTrend!"
         }
       }
+    },
+    "outbid": {
+      "feed": {
+        "summary": "🪙 Outbid · {a} ({ap}pts) vs {b} ({bp}pts)",
+        "teamPreview": "{count} cards for {points} pts spent"
+      },
+      "lobby": {
+        "rulesTitle": "How to play",
+        "rule1": "1v1 duel with 100 points each. Bid to acquire cards one by one.",
+        "rule2": "The opener bids 10 by default. The other player can outbid or pass.",
+        "rule3": "When a player passes, the opponent wins the card at the current price and adds it to their team.",
+        "rule4": "The game ends when both teams are full (or when a player runs out of points).",
+        "rule5": "No declared winner — judge for yourselves which team is best!",
+        "playOnline": "🪙 Play online",
+        "onlineOnlyHint": "Outbid is exclusively a 1v1 online game."
+      },
+      "online": {
+        "lobby": {
+          "title": "Outbid online",
+          "createCta": "🪙 Create the duel"
+        },
+        "shell": {
+          "tabCreate": "Create",
+          "tabJoin": "Join",
+          "yourAccount": "Your account",
+          "yourNickname": "Your nickname",
+          "nicknamePlaceholder": "e.g.: Ace",
+          "roomCodeLabel": "Room code",
+          "roomCodePlaceholder": "AB3X9K",
+          "visibility": "Visibility",
+          "visibilityPrivate": "Visible only with the code",
+          "visibilityPublic": "Visible in the public rooms list",
+          "private": "Private",
+          "public": "Public",
+          "joinCta": "🚪 Join",
+          "loadingShort": "…",
+          "errEnterNick": "Enter a nickname",
+          "errInvalidCode": "Invalid code (6 chars)",
+          "errServer": "Server error",
+          "errAuth": "Auth: {message}",
+          "errRoomNotFound": "Room not found",
+          "errAlreadyStarted": "Game already started",
+          "errWrongGame": "This is not an Outbid room",
+          "errNickTaken": "This nickname is already taken",
+          "errRoomFull": "Room full (Outbid is 1v1)",
+          "anonHint": "You're playing anonymously.",
+          "loginCta": "Sign in",
+          "loginSuffix": "to save your profile."
+        },
+        "shellShared": {
+          "enterNickname": "Choose your nickname",
+          "nicknamePlaceholder": "e.g.: Ace",
+          "joinCta": "Join",
+          "loadingShort": "…",
+          "errEnterNick": "Enter a nickname",
+          "errAuth": "Auth: {message}",
+          "errNickTaken": "Nickname already taken",
+          "errServer": "Server error",
+          "leave": "Leave",
+          "menu": "Menu",
+          "cancel": "Cancel",
+          "options": "Options",
+          "connecting": "Connecting…",
+          "identifying": "Identifying…",
+          "back": "← Back",
+          "ok": "OK",
+          "errRoomNotFound": "Room not found",
+          "errRoomNotFoundReason": "Room not found ({reason})",
+          "errAlreadyStarted": "Game already started",
+          "evtPlayerLeft": "🚪 {name} left the game",
+          "evtHostLeft": "🚷 Host {name} left",
+          "evtNewHost": " — 👑 {name} is the new host",
+          "evtNewHostYou": " — 👑 You are the new host",
+          "evtKicked": "🚷 {name} was kicked"
+        },
+        "room": {
+          "joinTitle": "Join the duel"
+        },
+        "waiting": {
+          "launch": "🪙 Start duel ({count})"
+        },
+        "waitingShared": {
+          "abandonReasonClose": "Close",
+          "roomCode": "Room code",
+          "copyLink": "📋 Copy link",
+          "copied": "✓ Copied",
+          "share": "📤 Share",
+          "shareTitle": "Join my Outbid duel",
+          "shareText": "Come challenge me on Outbid!",
+          "players": "Players",
+          "playersMinSuffix": "/ {min} required",
+          "host": "Host",
+          "you": "(you)",
+          "offline": "(offline)",
+          "kickTitle": "Kick {name}",
+          "settings": "Settings",
+          "close": "Close",
+          "edit": "Edit",
+          "waitingForPlayers": "{current} / {min} players",
+          "starting": "Starting…",
+          "needPlayers": "{min} players needed",
+          "closeLobby": "Close room",
+          "closeLobbyConfirm": "Close this room and kick all players?",
+          "waitingHostStart": "Host will start the game…",
+          "leaveRoom": "Leave room"
+        },
+        "settings": {
+          "preset": "Preset",
+          "compatBadge": "DYP / Blind Rank compatible",
+          "myPresets": "My presets",
+          "presetRequired": "⚠ Pick a preset to start.",
+          "cardsInPreset": "{count, plural, =1 {# card in this preset} other {# cards in this preset}}",
+          "presetTooSmall": "Need at least {needed} cards for this team size.",
+          "teamSize": "Cards per team",
+          "teamSizeHint": "Each player acquires this many cards (3 to 11).",
+          "tourTime": "Time per decision",
+          "tourTimeHint": "Timer resets at every bid or pass.",
+          "openingBidder": "Opening bidder",
+          "openingBidderHint": "Who opens the bidding on each card?",
+          "opening": {
+            "alternate": {
+              "label": "🔁 Alternate",
+              "hint": "One each in turn"
+            },
+            "loser": {
+              "label": "🪂 Loser",
+              "hint": "The passer opens"
+            },
+            "winner": {
+              "label": "🏆 Winner",
+              "hint": "The buyer opens"
+            },
+            "random": {
+              "label": "🎲 Random",
+              "hint": "Random each card"
+            }
+          }
+        },
+        "play": {
+          "preparing": "Preparing duel…",
+          "you": "You",
+          "emptyTeam": "No cards yet",
+          "cardCounter": "Card {current} / {total}",
+          "byBidder": "by {name}",
+          "timeLeft": "Time left",
+          "waitingForOther": "Waiting for {name}…",
+          "bidPlaceholder": "Min {min}",
+          "bidAction": "Outbid",
+          "bidRange": "Min {min} · Max {max}",
+          "points": "pts",
+          "allIn": "All-in",
+          "pass": "Pass",
+          "manualUnlock": "🔓 Force end of turn",
+          "bidError": "Bid rejected: {msg}",
+          "passError": "Error: {msg}"
+        },
+        "chat": {
+          "emptyState": "Trash-talk your opponent 🔥",
+          "inputPlaceholder": "Message…",
+          "sendShort": "→",
+          "passShort": "Pass",
+          "passedLabel": "(empty message)"
+        },
+        "result": {
+          "loading": "Loading…",
+          "gameOver": "Duel over",
+          "title": "Both teams",
+          "subtitle": "Judge for yourselves which team is best.",
+          "you": "you",
+          "emptyTeam": "No cards",
+          "freePrice": "free",
+          "cardsCount": "{n} cards",
+          "totalSpent": "−{amount} pts",
+          "andNow": "And now?",
+          "replay": "🔄 Replay",
+          "lobby": "🏠 Lobby",
+          "wantsReplay": "You want to replay ✓ ",
+          "wantsLobby": "You want to go back to lobby ✓ ",
+          "waitingChoice": "(waiting for the other player)",
+          "replayLabel": "Want to replay",
+          "shareText": "Outbid: {a} vs {b} — My duel on GameTrend!"
+        }
+      }
     }
   },
   "share": {

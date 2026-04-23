@@ -483,6 +483,17 @@ interface BlindRankRankItem {
   imageUrl?: string | null;
 }
 
+interface OutbidTeamCard {
+  name: string;
+  imageUrl?: string | null;
+  price: number;
+}
+interface OutbidPlayerSnapshot {
+  name: string;
+  points: number;
+  team: OutbidTeamCard[];
+}
+
 function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   const { game_type, preset_id, preset_name, result_data } = data;
   const rd = (result_data ?? {}) as Record<string, unknown>;
@@ -497,6 +508,14 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   const isBlindRank = game_type === "blindrank";
   const isGhost = game_type === "ghostword";
   const isDyp = game_type === "dyp";
+  const isOutbid = game_type === "outbid";
+
+  const outbidPlayerA = isOutbid
+    ? (rd.playerA as OutbidPlayerSnapshot | undefined) ?? null
+    : null;
+  const outbidPlayerB = isOutbid
+    ? (rd.playerB as OutbidPlayerSnapshot | undefined) ?? null
+    : null;
 
   const gameMeta = GAMES_REGISTRY.find((g) => g.id === game_type);
   const gameName = gameMeta?.name ?? game_type;
@@ -507,6 +526,13 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
     isDyp ? `${tGames("dyp.play.champion")} : ${champion?.name ?? "?"}` :
     isBlindRank && blindrankTop3 && blindrankTop3[0] ?
       tGames("blindrank.feed.topShare", { name: blindrankTop3[0].name }) :
+    isOutbid && outbidPlayerA && outbidPlayerB ?
+      tGames("outbid.feed.summary", {
+        a: outbidPlayerA.name,
+        ap: 100 - outbidPlayerA.points,
+        b: outbidPlayerB.name,
+        bp: 100 - outbidPlayerB.points,
+      }) :
     t("actions.sharedResult");
 
   const inner = (
@@ -540,6 +566,61 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
         {champion?.imageUrl && (
           <div className="relative w-full h-32 mt-3 rounded-xl overflow-hidden bg-surface-800">
             <Image src={champion.imageUrl} alt={champion.name} fill className="object-cover" />
+          </div>
+        )}
+
+        {/* Aperçu duel Outbid : 2 mini-équipes côte à côte */}
+        {isOutbid && outbidPlayerA && outbidPlayerB && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {[outbidPlayerA, outbidPlayerB].map((p) => (
+              <div
+                key={p.name}
+                className="rounded-xl border border-amber-700/25 bg-amber-950/15 overflow-hidden"
+              >
+                <div className="px-2 py-1.5 border-b border-amber-800/30 flex items-baseline justify-between">
+                  <span className="text-amber-300 text-[11px] font-bold truncate">
+                    {p.name}
+                  </span>
+                  <span className="text-surface-500 text-[9px] font-mono shrink-0 ml-1">
+                    {p.team.length} · {100 - p.points}pts
+                  </span>
+                </div>
+                <div className="p-1.5 grid grid-cols-3 gap-1">
+                  {p.team.slice(0, 3).map((c, i) => (
+                    <div
+                      key={`${c.name}-${i}`}
+                      className="relative aspect-[3/4] rounded-md overflow-hidden ring-1 ring-amber-700/30"
+                      title={`${c.name} — ${c.price}pts`}
+                    >
+                      {c.imageUrl ? (
+                        <Image
+                          src={c.imageUrl}
+                          alt={c.name}
+                          fill
+                          sizes="60px"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
+                      )}
+                    </div>
+                  ))}
+                  {Array.from({
+                    length: Math.max(0, 3 - p.team.length),
+                  }).map((_, i) => (
+                    <div
+                      key={`empty-${i}`}
+                      className="aspect-[3/4] rounded-md bg-surface-800/40"
+                    />
+                  ))}
+                </div>
+                {p.team.length > 3 && (
+                  <p className="px-2 py-1 text-[9px] text-amber-500/70 text-center bg-amber-950/30 border-t border-amber-700/20">
+                    +{p.team.length - 3}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
