@@ -216,6 +216,9 @@ export default function NotificationBell() {
                                 const href = resultId
                                   ? `/feed#result-${resultId}`
                                   : `/profile/${notif.from_user_id}`;
+                                // Si je suis l'auteur du partage, on affiche un
+                                // libellé "self" (pas de "X vient de partager…").
+                                const isSelf = notif.from_user_id === user?.id;
                                 return (
                                   <Link
                                     href={href}
@@ -227,10 +230,18 @@ export default function NotificationBell() {
                                   >
                                     <p className="text-white text-sm leading-snug">
                                       <span className="mr-1">🤖</span>
-                                      <span className="font-medium group-hover:text-violet-300 transition-colors">
-                                        {notif.from_profile?.username ?? t("anonymous")}
-                                      </span>{" "}
-                                      {t("outbidNaviShared")}
+                                      {isSelf ? (
+                                        <span className="group-hover:text-violet-300 transition-colors">
+                                          {t("outbidNaviShared.self")}
+                                        </span>
+                                      ) : (
+                                        <>
+                                          <span className="font-medium group-hover:text-violet-300 transition-colors">
+                                            {notif.from_profile?.username ?? t("anonymous")}
+                                          </span>{" "}
+                                          {t("outbidNaviShared.other")}
+                                        </>
+                                      )}
                                     </p>
                                   </Link>
                                 );

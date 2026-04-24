@@ -172,23 +172,28 @@ export async function POST(req: Request) {
   }
 
   // 5) Prompt fr/en
+  const teamABlock = teamA.map((n) => `- ${n}`).join("\n");
+  const teamBBlock = teamB.map((n) => `- ${n}`).join("\n");
+
   const prompt =
     locale === "en"
-      ? `Decide between these two teams in a clear and concise way. There must be a winner.\nTeam ${nameA}: ${teamA.join(", ")}\nTeam ${nameB}: ${teamB.join(", ")}`
-      : `Départage ces deux équipes de manière claire et concise. Il faut un vainqueur.\nÉquipe ${nameA} : ${teamA.join(", ")}\nÉquipe ${nameB} : ${teamB.join(", ")}`;
+      ? `Team ${nameA}:\n${teamABlock}\n\nTeam ${nameB}:\n${teamBBlock}`
+      : `Équipe ${nameA} :\n${teamABlock}\n\nÉquipe ${nameB} :\n${teamBBlock}`;
 
   const systemPrompt =
     locale === "en"
-      ? "You are Navi, a witty and fair AI referee for fantasy team duels. Always pick a single winner. Be punchy, max 4 short sentences. End with a clear verdict line: 'Winner: <name>'."
-      : "Tu es Navi, un arbitre IA piquant et équitable pour des duels d'équipes fantasy. Choisis toujours un seul gagnant. Sois percutant, 4 phrases courtes max. Termine par une ligne verdict claire : « Vainqueur : <nom> ».";
+      ? `You are Navi, friendly and upbeat. You must (1) identify the common concept, (2) rate each card with 3 stats suited to the concept, (3) provide a short justification paragraph, (4) end with "Winner:".`
+      : `Navi est sympa et enjoué, il doit (1) identifier le concept commun, (2) noter chaque carte avec 3 stats adaptées au concept, (3) fournir un court paragraphe de justification, (4) terminer par "Vainqueur :"`;
 
   // 6) Appel OpenAI
+  // Plus de tokens car la sortie inclut désormais une mini-fiche stats par
+  // carte. Pour 2 équipes de 11 cartes max, on prévoit large.
   const llm = await callLLM({
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
     ],
-    maxTokens: 500,
+    maxTokens: 1500,
   });
   if (!llm.ok) {
     console.error("[navi] LLM error:", llm.error);

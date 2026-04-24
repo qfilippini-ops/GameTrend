@@ -1444,6 +1444,8 @@
           "button": "Départager avec Navi, l'arbitre IA",
           "premiumHint": "Réservé aux abonnés Premium",
           "loading": "Navi délibère…",
+          "waitingTitle": "Navi est en train de départager…",
+          "waitingBody": "Patientez ici quelques secondes ou retournez à vos activités, le verdict s'affichera dès qu'il aura tranché et l'autre joueur sera prévenu par notification.",
           "verdictTitle": "L'avis de Navi, l'arbitre IA",
           "requestedBy": "Demandé par {name}",
           "notRequestedYet": "Aucun verdict pour cette partie",
@@ -1493,7 +1495,10 @@
     "presetCommented": "{name} a commenté ton preset « {preset} »",
     "newFollower": "{name} te suit maintenant",
     "newReferral": "{name} s'est inscrit grâce à toi",
-    "outbidNaviShared": "vient de partager votre duel Outbid avec l'avis de Navi 🤖",
+    "outbidNaviShared": {
+      "other": "vient de partager votre duel Outbid avec l'avis de Navi 🤖",
+      "self": "Navi a départagé votre duel Outbid 🤖"
+    },
     "minutesAgo": "il y a {n} min",
     "hoursAgo": "il y a {n} h",
     "daysAgo": "il y a {n} j",

@@ -120,13 +120,17 @@ GRANT EXECUTE ON FUNCTION public.outbid_save_navi_verdict(TEXT, TEXT, TEXT) TO a
 
 
 -- ── 3. RPC notify_outbid_share ─────────────────────────────────────────────
--- Insère une notif `outbid_navi_shared` pour chaque participant de la
--- partie partagée (sauf l'auteur du partage). À appeler depuis la
--- server action `shareGameResult` une fois la row marquée is_shared=TRUE.
+-- Insère une notif `outbid_navi_shared` pour CHAQUE participant de la
+-- partie partagée, AUTEUR INCLUS (ainsi le demandeur de Navi reçoit aussi
+-- la notif s'il a quitté l'app entre-temps). À appeler depuis la server
+-- action `shareGameResult` une fois la row marquée is_shared=TRUE.
+--
+-- Ne fait rien si la partie n'a pas (encore) de naviVerdict : on ne veut
+-- pas spammer une notif "avec l'avis de Navi" sur un partage sans Navi.
 --
 -- Récupère les participants depuis result_data.participants[].user_id.
 -- Idempotent : ne crée pas de doublon pour le même couple
--- (user, from_user, result_id).
+-- (user, result_id).
 --
 -- Sécurité : appelable uniquement par l'auteur du partage.
 
@@ -143,7 +147,6 @@ DECLARE
   v_game_type   TEXT;
   v_participant JSONB;
   v_target_id   UUID;
-  v_uid_str     TEXT;
 BEGIN
   IF v_uid IS NULL THEN RETURN; END IF;
 
@@ -156,7 +159,10 @@ BEGIN
   IF v_owner_id != v_uid THEN RETURN; END IF;
   IF v_game_type != 'outbid' THEN RETURN; END IF;
 
-  v_uid_str := v_uid::text;
+  -- Pas de naviVerdict → pas de notif (le label de notif mentionne Navi).
+  IF v_data->'naviVerdict' IS NULL OR v_data->'naviVerdict' = 'null'::jsonb THEN
+    RETURN;
+  END IF;
 
   FOR v_participant IN
     SELECT * FROM jsonb_array_elements(COALESCE(v_data->'participants', '[]'::jsonb))
@@ -165,7 +171,6 @@ BEGIN
     BEGIN
       IF v_participant->>'user_id' IS NOT NULL
          AND v_participant->>'user_id' != ''
-         AND v_participant->>'user_id' != v_uid_str
       THEN
         v_target_id := (v_participant->>'user_id')::UUID;
       END IF;
@@ -181,7 +186,6 @@ BEGIN
         SELECT 1 FROM public.notifications
          WHERE user_id = v_target_id
            AND type = 'outbid_navi_shared'
-           AND from_user_id = v_uid
            AND payload->>'result_id' = p_result_id::text
       );
     END IF;
@@ -201,8 +205,8 @@ GRANT EXECUTE ON FUNCTION public.notify_outbid_share(UUID) TO authenticated;
 -- Vérifs : authentifié, premium, participant (result_data.participants[].user_id),
 -- partie de type 'outbid' et déjà partagée.
 -- Idempotent : retourne le verdict existant sans rien réécrire.
--- Insère également les notifs `outbid_navi_shared` vers tous les autres
--- participants (sauf l'appelant), avec dédoublonnage.
+-- Insère également les notifs `outbid_navi_shared` vers TOUS les
+-- participants (auteur inclus), avec dédoublonnage.
 
 CREATE OR REPLACE FUNCTION public.outbid_save_navi_verdict_for_result(
   p_result_id UUID,
@@ -284,7 +288,7 @@ BEGIN
 
   UPDATE game_results SET result_data = v_data WHERE id = p_result_id;
 
-  -- Notifie les autres participants (sauf l'appelant), idempotent
+  -- Notifie TOUS les participants (auteur inclus), idempotent
   FOR v_participant IN
     SELECT * FROM jsonb_array_elements(COALESCE(v_data->'participants', '[]'::jsonb))
   LOOP
@@ -292,7 +296,6 @@ BEGIN
     BEGIN
       IF v_participant->>'user_id' IS NOT NULL
          AND v_participant->>'user_id' != ''
-         AND v_participant->>'user_id' != v_uid_str
       THEN
         v_target_id := (v_participant->>'user_id')::UUID;
       END IF;
@@ -308,7 +311,6 @@ BEGIN
         SELECT 1 FROM public.notifications
          WHERE user_id = v_target_id
            AND type = 'outbid_navi_shared'
-           AND from_user_id = v_uid
            AND payload->>'result_id' = p_result_id::text
       );
     END IF;

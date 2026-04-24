@@ -1444,6 +1444,8 @@
           "button": "Settle it with Navi, the AI referee",
           "premiumHint": "Premium subscribers only",
           "loading": "Navi is deliberating…",
+          "waitingTitle": "Navi is settling the duel…",
+          "waitingBody": "Wait here for a few seconds or go back to your activities — the verdict will show up here as soon as it's ready, and the other player will get a notification.",
           "verdictTitle": "Navi's verdict, the AI referee",
           "requestedBy": "Requested by {name}",
           "notRequestedYet": "No verdict for this game yet",
@@ -1493,7 +1495,10 @@
     "presetCommented": "{name} commented on your preset \"{preset}\"",
     "newFollower": "{name} is now following you",
     "newReferral": "{name} signed up thanks to you",
-    "outbidNaviShared": "just shared your Outbid duel with Navi's verdict 🤖",
+    "outbidNaviShared": {
+      "other": "just shared your Outbid duel with Navi's verdict 🤖",
+      "self": "Navi has settled your Outbid duel 🤖"
+    },
     "minutesAgo": "{n} min ago",
     "hoursAgo": "{n} h ago",
     "daysAgo": "{n} d ago",

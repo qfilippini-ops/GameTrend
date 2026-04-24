@@ -9,7 +9,7 @@
  * Pas de gagnant déclaré : les joueurs jugent eux-mêmes.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
 import ShareResultButton from "@/components/social/ShareResultButton";
 import { OUTBID_STARTING_POINTS } from "@/games/outbid/online-config";
+import { shareGameResult } from "@/app/actions/gameResults";
 import type { OnlineRoom, ReplayVote, RoomPlayer } from "@/types/rooms";
 import type { DYPCard } from "@/types/games";
 
@@ -125,6 +126,11 @@ export default function OutbidOnlineResult({
   const state = readState(room);
   const [voting, setVoting] = useState(false);
 
+  const myUserId = useMemo(
+    () => players.find((p) => p.display_name === myName)?.user_id ?? null,
+    [players, myName]
+  );
+
   const cardById = useMemo(() => {
     const map = new Map<string, DYPCard>();
     state?.cards.forEach((c) => map.set(c.id, c));
@@ -134,6 +140,70 @@ export default function OutbidOnlineResult({
   useEffect(() => {
     vibrate([60, 40, 120]);
   }, []);
+
+  // Auto-partage déclenché à la réception du verdict de Navi
+  // ─────────────────────────────────────────────────────────
+  // Quand le verdict apparaît dans l'état (via Realtime sur game_rooms.config),
+  // si c'est moi qui ai demandé Navi, je publie automatiquement le résultat
+  // (game_results.is_shared = true). La RPC `notify_outbid_share` notifie
+  // alors automatiquement l'autre participant. Ref pour idempotence.
+  const autoSharedRef = useRef(false);
+
+  useEffect(() => {
+    if (autoSharedRef.current) return;
+    if (!state?.navi || !myUserId) return;
+    if (state.navi.authorId !== myUserId) return;
+    autoSharedRef.current = true;
+
+    const buildTeam = (
+      team: Array<{ cardId: string; price: number }>
+    ) =>
+      team
+        .map((e) => {
+          const c = cardById.get(e.cardId);
+          return c
+            ? { name: c.name, imageUrl: c.imageUrl ?? null, price: e.price }
+            : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+    const payload = {
+      teamSize: state.teamSize,
+      playerA: {
+        name: state.playerA.name,
+        points: state.playerA.points,
+        team: buildTeam(state.playerA.team),
+      },
+      playerB: {
+        name: state.playerB.name,
+        points: state.playerB.points,
+        team: buildTeam(state.playerB.team),
+      },
+      participants: players.map((p) => ({
+        name: p.display_name,
+        user_id: p.user_id ?? null,
+        avatar_url: playerAvatars?.[p.display_name] ?? null,
+      })),
+      online: true,
+      naviVerdict: {
+        verdict: state.navi.verdict,
+        authorName: state.navi.authorName,
+        locale: state.navi.locale,
+      },
+    };
+
+    // Best-effort, non-bloquant. Side-effects côté serveur :
+    //   - INSERT/UPDATE game_results avec is_shared=true
+    //   - notify_outbid_share → notif à l'autre participant
+    void shareGameResult({
+      gameType: "outbid",
+      presetId: state.presetId ?? null,
+      presetName: null,
+      resultData: payload,
+    }).catch((err) => {
+      console.error("[OutbidOnlineResult] auto-share failed:", err);
+    });
+  }, [state, myUserId, cardById, players, playerAvatars]);
 
   const myVote = replayVotes.find((v) => v.player_name === myName);
   const replayCount = replayVotes.filter((v) => v.choice === "replay").length;
@@ -625,27 +695,34 @@ function NaviPanel({
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl border border-violet-700/40 bg-violet-950/20 p-3"
       >
-        <button
-          type="button"
-          onClick={requestVerdict}
-          disabled={loading}
-          className="w-full py-3 px-4 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-92 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-          style={{ boxShadow: "0 0 22px rgba(139,92,246,0.35)" }}
-        >
-          {loading ? (
-            <>
-              <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              <span>{t("loading")}</span>
-            </>
-          ) : (
-            <>
-              <span className="text-base">🤖</span>
-              <span>{t("button")}</span>
-              {!isPremium && <span className="text-[10px] opacity-90">🔒</span>}
-            </>
-          )}
-        </button>
-        {!isPremium && (
+        {loading ? (
+          // État d'attente long : on rassure le joueur, il peut quitter.
+          // L'auto-partage déclenchera une notif pour l'autre participant
+          // dès que le verdict sera prêt.
+          <div className="flex items-start gap-3 py-1">
+            <span className="inline-block w-5 h-5 mt-0.5 border-2 border-violet-300/40 border-t-violet-200 rounded-full animate-spin shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-violet-100 text-sm font-display font-bold leading-tight">
+                {t("waitingTitle")}
+              </p>
+              <p className="text-violet-300/80 text-[11px] mt-1 leading-snug">
+                {t("waitingBody")}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={requestVerdict}
+            className="w-full py-3 px-4 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-92 transition-all flex items-center justify-center gap-2"
+            style={{ boxShadow: "0 0 22px rgba(139,92,246,0.35)" }}
+          >
+            <span className="text-base">🤖</span>
+            <span>{t("button")}</span>
+            {!isPremium && <span className="text-[10px] opacity-90">🔒</span>}
+          </button>
+        )}
+        {!loading && !isPremium && (
           <p className="text-violet-300/80 text-[10px] text-center mt-2">
             {t("premiumHint")}
           </p>
