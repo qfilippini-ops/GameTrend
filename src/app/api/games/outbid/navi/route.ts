@@ -7,20 +7,25 @@ export const dynamic = "force-dynamic";
 
 /**
  * POST /api/games/outbid/navi
- * Body : { roomId: string, locale?: 'fr' | 'en' }
+ * Body : { roomId?: string, resultId?: string, locale?: 'fr' | 'en' }
  *
- * Génère le verdict de Navi (arbitre IA) pour une partie Outbid terminée
- * et le persiste dans `game_rooms.config.outbid.navi` via la RPC
- * `outbid_save_navi_verdict` (idempotente, premium-only).
+ * Génère le verdict de Navi (arbitre IA) pour une partie Outbid terminée.
+ *
+ * Deux modes :
+ *   - `roomId` : mode "live" (juste après la partie). Lit l'état dans
+ *     `game_rooms.config.outbid` et persiste via `outbid_save_navi_verdict`.
+ *   - `resultId` : mode "feed rétroactif". Lit l'état dans
+ *     `game_results.result_data` (la room peut avoir été nettoyée) et
+ *     persiste via `outbid_save_navi_verdict_for_result`.
  *
  * Sécurité :
- *   - Auth requis
- *   - Premium uniquement (vérif côté SQL via is_premium dans la RPC)
- *   - Participation à la room (vérif côté SQL)
+ *   - Auth requis (non-anonyme)
+ *   - Premium uniquement
+ *   - Doit être participant
  *   - Idempotent : retourne le verdict existant si déjà calculé
  */
 export async function POST(req: Request) {
-  let body: { roomId?: string; locale?: string };
+  let body: { roomId?: string; resultId?: string; locale?: string };
   try {
     body = await req.json();
   } catch {
@@ -28,8 +33,12 @@ export async function POST(req: Request) {
   }
 
   const roomId = body.roomId?.trim();
-  if (!roomId) {
-    return NextResponse.json({ error: "missing_room_id" }, { status: 400 });
+  const resultId = body.resultId?.trim();
+  if (!roomId && !resultId) {
+    return NextResponse.json(
+      { error: "missing_room_or_result_id" },
+      { status: 400 }
+    );
   }
   const locale = body.locale === "en" ? "en" : "fr";
 
@@ -41,30 +50,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
 
-  // 1) Charge la room et vérifie phase + game_type côté serveur
-  type RoomRow = {
-    id: string;
-    phase: string;
-    game_type: string;
-    config: Record<string, unknown> | null;
-  };
-  const { data: room, error: roomErr } = await supabase
-    .from("game_rooms")
-    .select("id, phase, game_type, config")
-    .eq("id", roomId)
-    .maybeSingle<RoomRow>();
-
-  if (roomErr || !room) {
-    return NextResponse.json({ error: "room_not_found" }, { status: 404 });
-  }
-  if (room.game_type !== "outbid") {
-    return NextResponse.json({ error: "wrong_game_type" }, { status: 400 });
-  }
-  if (room.phase !== "result") {
-    return NextResponse.json({ error: "not_in_result" }, { status: 400 });
-  }
-
-  // 2) Vérifie premium côté Next pour court-circuiter avant l'appel OpenAI
+  // Vérifie premium côté Next pour court-circuiter avant l'appel OpenAI
   type ProfileRow = { subscription_status: string | null };
   const { data: profile } = await supabase
     .from("profiles")
@@ -78,43 +64,108 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "not_premium" }, { status: 403 });
   }
 
-  // 3) Si Navi a déjà tranché → renvoie l'existant sans rappeler OpenAI
-  const cfg = (room.config ?? {}) as Record<string, unknown>;
-  const outbid = (cfg.outbid ?? {}) as Record<string, unknown>;
-  const existingNavi = outbid.navi as
-    | { verdict: string; locale: string; authorName: string; createdAt: string }
-    | null
-    | undefined;
+  // Sources de données harmonisées pour les deux modes
+  type ExistingNavi = {
+    verdict: string;
+    locale?: string;
+    authorName?: string;
+    createdAt?: string;
+  };
+  let teamA: string[] = [];
+  let teamB: string[] = [];
+  let nameA = "Player A";
+  let nameB = "Player B";
+  let existingNavi: ExistingNavi | null = null;
+
+  if (resultId) {
+    // ─── Mode feed (rétroactif sur game_results) ──────────────────────────
+    type ResultRow = {
+      id: string;
+      game_type: string;
+      is_shared: boolean;
+      result_data: Record<string, unknown> | null;
+    };
+    const { data: result, error: rErr } = await supabase
+      .from("game_results")
+      .select("id, game_type, is_shared, result_data")
+      .eq("id", resultId)
+      .maybeSingle<ResultRow>();
+    if (rErr || !result) {
+      return NextResponse.json({ error: "result_not_found" }, { status: 404 });
+    }
+    if (result.game_type !== "outbid") {
+      return NextResponse.json({ error: "wrong_game_type" }, { status: 400 });
+    }
+    if (!result.is_shared) {
+      return NextResponse.json({ error: "result_not_shared" }, { status: 400 });
+    }
+
+    const data = (result.result_data ?? {}) as Record<string, unknown>;
+    type FeedTeamCard = { name: string };
+    type FeedPlayer = { name?: string; team?: FeedTeamCard[] };
+    const pA = (data.playerA ?? {}) as FeedPlayer;
+    const pB = (data.playerB ?? {}) as FeedPlayer;
+    nameA = pA.name ?? "Player A";
+    nameB = pB.name ?? "Player B";
+    teamA = (pA.team ?? []).map((c) => c?.name).filter((n): n is string => !!n);
+    teamB = (pB.team ?? []).map((c) => c?.name).filter((n): n is string => !!n);
+
+    existingNavi = (data.naviVerdict as ExistingNavi | null) ?? null;
+  } else {
+    // ─── Mode live (room directement après la partie) ─────────────────────
+    type RoomRow = {
+      id: string;
+      phase: string;
+      game_type: string;
+      config: Record<string, unknown> | null;
+    };
+    const { data: room, error: roomErr } = await supabase
+      .from("game_rooms")
+      .select("id, phase, game_type, config")
+      .eq("id", roomId!)
+      .maybeSingle<RoomRow>();
+
+    if (roomErr || !room) {
+      return NextResponse.json({ error: "room_not_found" }, { status: 404 });
+    }
+    if (room.game_type !== "outbid") {
+      return NextResponse.json({ error: "wrong_game_type" }, { status: 400 });
+    }
+    if (room.phase !== "result") {
+      return NextResponse.json({ error: "not_in_result" }, { status: 400 });
+    }
+
+    const cfg = (room.config ?? {}) as Record<string, unknown>;
+    const outbid = (cfg.outbid ?? {}) as Record<string, unknown>;
+    existingNavi = (outbid.navi as ExistingNavi | null) ?? null;
+
+    type CardRef = { id: string; name: string };
+    type TeamEntry = { cardId: string; price: number };
+    type PlayerSide = { name?: string; team?: TeamEntry[] };
+
+    const cards = (outbid.cards ?? []) as CardRef[];
+    const cardNameById = new Map<string, string>();
+    cards.forEach((c) => {
+      if (c?.id && typeof c.name === "string") cardNameById.set(c.id, c.name);
+    });
+
+    const playerA = (outbid.playerA ?? {}) as PlayerSide;
+    const playerB = (outbid.playerB ?? {}) as PlayerSide;
+    const teamNames = (entries: TeamEntry[] | undefined): string[] =>
+      (entries ?? [])
+        .map((e) => cardNameById.get(e.cardId))
+        .filter((n): n is string => !!n);
+
+    teamA = teamNames(playerA.team);
+    teamB = teamNames(playerB.team);
+    nameA = playerA.name ?? "Player A";
+    nameB = playerB.name ?? "Player B";
+  }
+
+  // Si Navi a déjà tranché → renvoie l'existant sans rappeler OpenAI
   if (existingNavi && existingNavi.verdict) {
     return NextResponse.json({ ok: true, navi: existingNavi, cached: true });
   }
-
-  // 4) Récupère les noms des cartes des deux équipes pour le prompt
-  type CardRef = { id: string; name: string };
-  type TeamEntry = { cardId: string; price: number };
-  type PlayerSide = {
-    name?: string;
-    points?: number;
-    team?: TeamEntry[];
-  };
-
-  const cards = (outbid.cards ?? []) as CardRef[];
-  const cardNameById = new Map<string, string>();
-  cards.forEach((c) => {
-    if (c?.id && typeof c.name === "string") cardNameById.set(c.id, c.name);
-  });
-
-  const playerA = (outbid.playerA ?? {}) as PlayerSide;
-  const playerB = (outbid.playerB ?? {}) as PlayerSide;
-  const teamNames = (entries: TeamEntry[] | undefined): string[] =>
-    (entries ?? [])
-      .map((e) => cardNameById.get(e.cardId))
-      .filter((n): n is string => !!n);
-
-  const teamA = teamNames(playerA.team);
-  const teamB = teamNames(playerB.team);
-  const nameA = playerA.name ?? "Player A";
-  const nameB = playerB.name ?? "Player B";
 
   if (teamA.length === 0 && teamB.length === 0) {
     return NextResponse.json({ error: "empty_teams" }, { status: 400 });
@@ -147,15 +198,18 @@ export async function POST(req: Request) {
     );
   }
 
-  // 7) Persiste le verdict via la RPC (premium + participation revérifiés)
-  const { data: saved, error: saveErr } = await supabase.rpc(
-    "outbid_save_navi_verdict",
-    {
-      p_room_id: roomId,
-      p_verdict: llm.text,
-      p_locale: locale,
-    }
-  );
+  // Persiste le verdict via la bonne RPC selon le mode
+  const { data: saved, error: saveErr } = resultId
+    ? await supabase.rpc("outbid_save_navi_verdict_for_result", {
+        p_result_id: resultId,
+        p_verdict: llm.text,
+        p_locale: locale,
+      })
+    : await supabase.rpc("outbid_save_navi_verdict", {
+        p_room_id: roomId!,
+        p_verdict: llm.text,
+        p_locale: locale,
+      });
 
   if (saveErr) {
     console.error("[navi] save error:", saveErr);
@@ -164,7 +218,7 @@ export async function POST(req: Request) {
       ? 403
       : msg.includes("not_participant")
         ? 403
-        : msg.includes("not_in_result")
+        : msg.includes("not_in_result") || msg.includes("result_not_shared")
           ? 400
           : 500;
     return NextResponse.json({ error: msg }, { status });

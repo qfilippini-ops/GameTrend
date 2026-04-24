@@ -18,14 +18,31 @@ interface ChatCompletionResponse {
     message?: { content?: string | null };
     finish_reason?: string;
   }>;
-  error?: { message?: string };
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    completion_tokens_details?: { reasoning_tokens?: number };
+  };
+  error?: { message?: string; code?: string; type?: string };
 }
 
 export interface CallLLMOptions {
   model?: string;
   messages: ChatMessage[];
-  /** Tokens max à générer. Défaut 600 (suffisant pour un verdict court). */
+  /**
+   * Budget total de tokens en sortie. Pour les modèles de reasoning
+   * (gpt-5-*, o1-*) ce budget est partagé entre les tokens de réflexion
+   * INVISIBLES et le texte final. Mettre large (≥ 1500) pour éviter
+   * d'épuiser le budget en reasoning et finir avec un message vide.
+   */
   maxTokens?: number;
+  /**
+   * Effort de raisonnement. Pour notre cas (verdict court d'arbitre),
+   * "minimal" est largement suffisant et évite le burn de tokens.
+   * Ignoré silencieusement par les modèles non-reasoning.
+   */
+  reasoningEffort?: "minimal" | "low" | "medium" | "high";
   /** Timeout réseau en ms. Défaut 25 s. */
   timeoutMs?: number;
 }
@@ -33,6 +50,11 @@ export interface CallLLMOptions {
 export type CallLLMResult =
   | { ok: true; text: string; model: string }
   | { ok: false; error: string };
+
+function isReasoningModel(model: string): boolean {
+  // Familles connues de modèles de reasoning : gpt-5-*, o1-*, o3-*
+  return /^(gpt-5|o1|o3)/i.test(model);
+}
 
 /**
  * Appelle un modèle OpenAI compatible Chat Completions et retourne le
@@ -45,8 +67,20 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
   }
 
   const model = opts.model ?? process.env.NAVI_MODEL?.trim() ?? "gpt-5-nano";
-  const maxTokens = opts.maxTokens ?? 600;
+  const reasoning = isReasoningModel(model);
+  // Pour les reasoning models, il faut du marge : reasoning peut prendre
+  // des centaines de tokens avant que le texte final apparaisse.
+  const maxTokens = opts.maxTokens ?? (reasoning ? 2000 : 600);
   const timeoutMs = opts.timeoutMs ?? 25_000;
+
+  const body: Record<string, unknown> = {
+    model,
+    messages: opts.messages,
+    max_completion_tokens: maxTokens,
+  };
+  if (reasoning) {
+    body.reasoning_effort = opts.reasoningEffort ?? "minimal";
+  }
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -58,26 +92,38 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model,
-        messages: opts.messages,
-        max_completion_tokens: maxTokens,
-      }),
+      body: JSON.stringify(body),
       signal: ctrl.signal,
     });
 
+    const json = (await res.json().catch(() => null)) as
+      | ChatCompletionResponse
+      | null;
+
     if (!res.ok) {
-      const errBody = (await res.json().catch(() => null)) as
-        | ChatCompletionResponse
-        | null;
-      const msg = errBody?.error?.message ?? `http_${res.status}`;
-      return { ok: false, error: msg };
+      const msg = json?.error?.message ?? `http_${res.status}`;
+      const code = json?.error?.code ?? "unknown";
+      console.error("[callLLM] openai_error", res.status, code, msg);
+      return { ok: false, error: `${code}: ${msg}` };
     }
 
-    const json = (await res.json()) as ChatCompletionResponse;
-    const text = json.choices?.[0]?.message?.content?.trim();
+    const choice = json?.choices?.[0];
+    const text = choice?.message?.content?.trim();
     if (!text) {
-      return { ok: false, error: "empty_response" };
+      const finish = choice?.finish_reason ?? "unknown";
+      const reasoningTokens =
+        json?.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+      const completion = json?.usage?.completion_tokens ?? 0;
+      console.error(
+        "[callLLM] empty_response finish=%s completion=%d reasoning=%d",
+        finish,
+        completion,
+        reasoningTokens
+      );
+      return {
+        ok: false,
+        error: `empty_response (finish=${finish}, reasoning_tokens=${reasoningTokens})`,
+      };
     }
     return { ok: true, text, model };
   } catch (e) {

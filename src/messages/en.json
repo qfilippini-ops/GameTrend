@@ -1446,6 +1446,7 @@
           "loading": "Navi is deliberating…",
           "verdictTitle": "Navi's verdict, the AI referee",
           "requestedBy": "Requested by {name}",
+          "notRequestedYet": "No verdict for this game yet",
           "error": "Error: {msg}",
           "upsellTitle": "Navi is Premium-only",
           "upsellBody": "Let an AI referee pick a winner in one click at the end of every Outbid duel. Verdict shared on the feed and pushed to both players.",

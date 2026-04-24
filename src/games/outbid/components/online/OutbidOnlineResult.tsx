@@ -546,9 +546,10 @@ function NaviPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ roomId, locale }),
       });
-      const json = (await res.json()) as { error?: string };
+      const json = (await res.json()) as { error?: string; detail?: string };
       if (!res.ok) {
-        setError(json.error ?? "unknown_error");
+        const detail = json.detail ? ` — ${json.detail}` : "";
+        setError(`${json.error ?? "unknown_error"}${detail}`);
       }
       // En cas de succès le verdict arrive via Realtime sur game_rooms
     } catch (e) {

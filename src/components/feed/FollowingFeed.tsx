@@ -12,6 +12,7 @@ import CreatorBadge from "@/components/premium/CreatorBadge";
 import AdSlot from "@/components/ads/AdSlot";
 import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
 import { GAMES_REGISTRY } from "@/games/registry";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const PAGE_SIZE = 10;
 
@@ -87,6 +88,7 @@ export default function FollowingFeed() {
   const tTime = useTranslations("time");
   const locale = useLocale();
   const { user, loading: authLoading } = useAuth();
+  const { isPremium } = useSubscription();
   const cache = useFeedCache();
 
   // État local hydraté depuis le cache si présent.
@@ -444,7 +446,7 @@ export default function FollowingFeed() {
             {item.type === "preset" ? (
               <PresetFeedCard item={item} data={item.data as PresetPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
             ) : (
-              <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
+              <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} currentUserId={user?.id ?? null} isPremium={isPremium} />
             )}
           </motion.div>
           {/* Ad inline tous les 8 items pour les non-premium */}
@@ -539,7 +541,7 @@ interface NaviVerdictPayload {
   locale?: string;
 }
 
-function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
+function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, isPremium }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string; currentUserId: string | null; isPremium: boolean }) {
   const { game_type, preset_id, preset_name, result_data } = data;
   const rd = (result_data ?? {}) as Record<string, unknown>;
   const champion = rd.champion as { name: string; imageUrl?: string | null } | undefined;
@@ -570,18 +572,14 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   const gameName = gameMeta?.name ?? game_type;
   const gameIcon = gameMeta?.icon ?? "🎮";
 
+  // Outbid : pas de titre redondant, l'aperçu visuel + bandeau participants
+  // se suffisent à eux-mêmes.
   const titleSuffix =
     isGhost ? `${tGames("ghostword.result.victory")} ${winnerLabel ?? "?"}` :
     isDyp ? `${tGames("dyp.play.champion")} : ${champion?.name ?? "?"}` :
     isBlindRank && blindrankTop3 && blindrankTop3[0] ?
       tGames("blindrank.feed.topShare", { name: blindrankTop3[0].name }) :
-    isOutbid && outbidPlayerA && outbidPlayerB ?
-      tGames("outbid.feed.summary", {
-        a: outbidPlayerA.name,
-        ap: (100000 - outbidPlayerA.points).toLocaleString("fr-FR"),
-        b: outbidPlayerB.name,
-        bp: (100000 - outbidPlayerB.points).toLocaleString("fr-FR"),
-      }) :
+    isOutbid ? null :
     t("actions.sharedResult");
 
   const inner = (
@@ -608,7 +606,9 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
       )}
 
       <div className="px-3 py-3">
-        <p className="text-white font-display font-bold text-sm leading-tight">{titleSuffix}</p>
+        {titleSuffix && (
+          <p className="text-white font-display font-bold text-sm leading-tight">{titleSuffix}</p>
+        )}
         {preset_name && (
           <p className="text-surface-500 text-xs mt-0.5">{tGames("ghostword.result.withPreset", { name: preset_name })}</p>
         )}
@@ -673,9 +673,17 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
           </div>
         )}
 
-        {/* Avis de Navi (accordéon plié par défaut) */}
-        {isOutbid && naviVerdict && (
-          <NaviAccordion verdict={naviVerdict} t={tNavi} />
+        {/* Avis de Navi : toujours visible pour Outbid (verdict ou bouton) */}
+        {isOutbid && (
+          <NaviSection
+            verdict={naviVerdict}
+            resultId={data.id}
+            participants={participants}
+            currentUserId={currentUserId}
+            isPremium={isPremium}
+            locale={locale}
+            t={tNavi}
+          />
         )}
 
         {/* Aperçu classement Blind Rank */}
@@ -739,67 +747,266 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   );
 }
 
-// ─── Accordéon Navi (plié par défaut) ────────────────────────────────────
-function NaviAccordion({
+// ─── Section Navi (toujours visible pour Outbid) ──────────────────────────
+// Affiche soit le verdict de Navi (accordéon plié par défaut), soit un
+// bouton « Départager avec Navi » pour les participants premium qui
+// peuvent demander un verdict rétroactivement. Pour les non-premium, le
+// bouton ouvre une modal d'upsell. Pour les non-participants sans verdict,
+// on affiche juste un placeholder discret.
+function NaviSection({
   verdict,
+  resultId,
+  participants,
+  currentUserId,
+  isPremium,
+  locale,
   t,
 }: {
-  verdict: NaviVerdictPayload;
+  verdict: NaviVerdictPayload | null;
+  resultId: string;
+  participants: ParticipantRef[] | null;
+  currentUserId: string | null;
+  isPremium: boolean;
+  locale: string;
   t: ReturnType<typeof useTranslations>;
 }) {
+  const router = useRouter();
+  const [localVerdict, setLocalVerdict] = useState<NaviVerdictPayload | null>(
+    verdict
+  );
   const [open, setOpen] = useState(false);
-  return (
-    <div
-      className="mt-3 rounded-xl border border-violet-700/40 bg-gradient-to-br from-violet-950/50 via-surface-900/50 to-surface-950 overflow-hidden"
-      style={{ boxShadow: "0 0 18px rgba(139,92,246,0.15)" }}
-    >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className="w-full px-3 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-violet-900/20 transition-colors"
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showUpsell, setShowUpsell] = useState(false);
+
+  // Si la prop change (refetch du feed), on resync.
+  useEffect(() => {
+    setLocalVerdict(verdict);
+  }, [verdict]);
+
+  const isParticipant = !!(
+    currentUserId &&
+    participants?.some((p) => p.user_id === currentUserId)
+  );
+
+  async function requestVerdict(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading) return;
+    if (!isPremium) {
+      setShowUpsell(true);
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/games/outbid/navi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resultId, locale }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        navi?: NaviVerdictPayload;
+        error?: string;
+        detail?: string;
+      };
+      if (!res.ok) {
+        const detail = json.detail ? ` — ${json.detail}` : "";
+        setError(`${json.error ?? "unknown_error"}${detail}`);
+      } else if (json.navi) {
+        setLocalVerdict(json.navi);
+        setOpen(true);
+      }
+    } catch (err) {
+      setError(String((err as Error).message ?? err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ── Cas 1 : verdict disponible → accordéon ─────────────────────────────
+  if (localVerdict) {
+    return (
+      <div
+        className="mt-3 rounded-xl border border-violet-700/40 bg-gradient-to-br from-violet-950/50 via-surface-900/50 to-surface-950 overflow-hidden"
+        style={{ boxShadow: "0 0 18px rgba(139,92,246,0.15)" }}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+          className="w-full px-3 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-violet-900/20 transition-colors"
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base shrink-0">🤖</span>
+            <div className="min-w-0">
+              <p className="text-violet-200 text-xs font-bold truncate">
+                {t("verdictTitle")}
+              </p>
+              <p className="text-violet-400/70 text-[10px] truncate">
+                {t("requestedBy", { name: localVerdict.authorName })}
+              </p>
+            </div>
+          </div>
+          <motion.span
+            animate={{ rotate: open ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-violet-300 text-sm shrink-0"
+            aria-hidden
+          >
+            ▾
+          </motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              className="overflow-hidden"
+            >
+              <div className="px-3 pb-3 pt-1 border-t border-violet-800/40">
+                <p className="text-violet-100 text-xs whitespace-pre-line leading-relaxed">
+                  {localVerdict.verdict}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ── Cas 2 : pas de verdict, l'utilisateur n'est pas participant ───────
+  // On reste discret : un en-tête neutre signale juste l'option Navi.
+  if (!isParticipant) {
+    return (
+      <div
+        className="mt-3 rounded-xl border border-violet-800/30 bg-violet-950/15 px-3 py-2.5"
+        style={{ boxShadow: "0 0 14px rgba(139,92,246,0.08)" }}
       >
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-base shrink-0">🤖</span>
+          <span className="text-base shrink-0 opacity-60">🤖</span>
           <div className="min-w-0">
-            <p className="text-violet-200 text-xs font-bold truncate">
+            <p className="text-violet-200/80 text-xs font-bold truncate">
               {t("verdictTitle")}
             </p>
-            <p className="text-violet-400/70 text-[10px] truncate">
-              {t("requestedBy", { name: verdict.authorName })}
+            <p className="text-violet-400/60 text-[10px] truncate">
+              {t("notRequestedYet")}
             </p>
           </div>
         </div>
-        <motion.span
-          animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="text-violet-300 text-sm shrink-0"
-          aria-hidden
+      </div>
+    );
+  }
+
+  // ── Cas 3 : participant, pas de verdict → bouton (premium ou upsell) ──
+  return (
+    <>
+      <div
+        className="mt-3 rounded-xl border border-violet-700/40 bg-violet-950/20 p-2.5"
+        style={{ boxShadow: "0 0 18px rgba(139,92,246,0.12)" }}
+      >
+        <div className="flex items-center gap-2 mb-2 min-w-0">
+          <span className="text-sm shrink-0">🤖</span>
+          <p className="text-violet-200 text-xs font-bold truncate">
+            {t("verdictTitle")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={requestVerdict}
+          disabled={loading}
+          className="w-full py-2.5 px-3 rounded-lg font-display font-bold text-xs bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-92 transition-all disabled:opacity-60 flex items-center justify-center gap-1.5"
+          style={{ boxShadow: "0 0 16px rgba(139,92,246,0.3)" }}
         >
-          ▾
-        </motion.span>
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
+          {loading ? (
+            <>
+              <span className="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <span>{t("loading")}</span>
+            </>
+          ) : (
+            <>
+              <span>{t("button")}</span>
+              {!isPremium && <span className="text-[10px] opacity-90">🔒</span>}
+            </>
+          )}
+        </button>
+        {!isPremium && (
+          <p className="text-violet-300/80 text-[10px] text-center mt-1.5">
+            {t("premiumHint")}
+          </p>
+        )}
+        {error && (
+          <p className="text-rose-400 text-[10px] text-center mt-1.5 font-mono break-all">
+            {t("error", { msg: error })}
+          </p>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {showUpsell && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22 }}
-            className="overflow-hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowUpsell(false);
+            }}
           >
-            <div className="px-3 pb-3 pt-1 border-t border-violet-800/40">
-              <p className="text-violet-100 text-xs whitespace-pre-line leading-relaxed">
-                {verdict.verdict}
-              </p>
-            </div>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl border border-violet-700/50 bg-gradient-to-b from-violet-950/90 to-surface-950 p-6 space-y-4"
+              style={{ boxShadow: "0 0 60px rgba(139,92,246,0.4)" }}
+            >
+              <div className="text-center space-y-2">
+                <div className="text-4xl">🤖</div>
+                <h3 className="text-white font-display font-black text-lg">
+                  {t("upsellTitle")}
+                </h3>
+                <p className="text-surface-300 text-sm">{t("upsellBody")}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowUpsell(false);
+                  }}
+                  className="py-2.5 rounded-xl border border-surface-700/50 bg-surface-800/60 text-surface-200 text-sm font-bold hover:border-surface-500/60 transition-colors"
+                >
+                  {t("upsellCancel")}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowUpsell(false);
+                    router.push("/premium");
+                  }}
+                  className="py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white text-sm font-bold hover:opacity-92 transition-opacity"
+                >
+                  {t("upsellCta")}
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
 

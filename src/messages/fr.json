@@ -1446,6 +1446,7 @@
           "loading": "Navi délibère…",
           "verdictTitle": "L'avis de Navi, l'arbitre IA",
           "requestedBy": "Demandé par {name}",
+          "notRequestedYet": "Aucun verdict pour cette partie",
           "error": "Erreur : {msg}",
           "upsellTitle": "Navi est réservé aux Premium",
           "upsellBody": "Faites trancher un arbitre IA en un clic à la fin de chaque duel Outbid. Verdict partagé sur le feed et notifié aux deux joueurs.",
