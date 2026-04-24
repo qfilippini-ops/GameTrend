@@ -38,11 +38,20 @@ export interface CallLLMOptions {
    */
   maxTokens?: number;
   /**
-   * Effort de raisonnement. Pour notre cas (verdict court d'arbitre),
-   * "minimal" est largement suffisant et évite le burn de tokens.
+   * Effort de raisonnement. Valeurs supportées varient selon le modèle :
+   *   - gpt-5-* : minimal | low | medium | high
+   *   - gpt-5.4-* (et plus récents) : none | low | medium | high | xhigh
+   * Default = "low" : valide partout, et donne une qualité bien
+   * supérieure à "minimal"/"none" pour un coût modéré en reasoning tokens.
    * Ignoré silencieusement par les modèles non-reasoning.
    */
-  reasoningEffort?: "minimal" | "low" | "medium" | "high";
+  reasoningEffort?:
+    | "none"
+    | "minimal"
+    | "low"
+    | "medium"
+    | "high"
+    | "xhigh";
   /** Timeout réseau en ms. Défaut 25 s. */
   timeoutMs?: number;
 }
@@ -79,7 +88,9 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
     max_completion_tokens: maxTokens,
   };
   if (reasoning) {
-    body.reasoning_effort = opts.reasoningEffort ?? "minimal";
+    // "low" est valide sur tous les modèles reasoning (gpt-5, gpt-5.4, o1, o3).
+    // Évite l'erreur unsupported_value sur gpt-5.4-* qui ne connaît plus "minimal".
+    body.reasoning_effort = opts.reasoningEffort ?? "low";
   }
 
   const ctrl = new AbortController();
