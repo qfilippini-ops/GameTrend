@@ -230,6 +230,11 @@ Règles : choisis 3 noms de stats qui collent vraiment au concept détecté (les
   // une ligne d'impact par carte. Pour 2 équipes de 11 cartes max, on
   // prévoit large (le budget couvre aussi les reasoning tokens internes).
   const llm = await callLLM({
+    // Override le modèle par défaut (env NAVI_MODEL) pour ce test.
+    // gpt-5.4-nano est plus cher (~3x) mais nettement plus pertinent
+    // sur le contenu d'arbitrage. Retirer la ligne `model:` pour
+    // revenir à la variable d'environnement.
+    model: "gpt-5.4-nano",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
