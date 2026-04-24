@@ -18,6 +18,7 @@ import { vibrate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
 import ShareResultButton from "@/components/social/ShareResultButton";
+import { NaviMarkdown } from "@/components/ui/NaviMarkdown";
 import { OUTBID_STARTING_POINTS } from "@/games/outbid/online-config";
 import { shareGameResult } from "@/app/actions/gameResults";
 import type { OnlineRoom, ReplayVote, RoomPlayer } from "@/types/rooms";
@@ -676,9 +677,7 @@ function NaviPanel({
               className="overflow-hidden"
             >
               <div className="px-4 pb-4 pt-1 border-t border-violet-800/40">
-                <p className="text-violet-100 text-sm whitespace-pre-line leading-relaxed">
-                  {navi.verdict}
-                </p>
+                <NaviMarkdown content={navi.verdict} className="text-sm" />
               </div>
             </motion.div>
           )}

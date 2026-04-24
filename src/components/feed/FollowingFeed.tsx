@@ -13,6 +13,7 @@ import AdSlot from "@/components/ads/AdSlot";
 import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheContext";
 import { GAMES_REGISTRY } from "@/games/registry";
 import { useSubscription } from "@/hooks/useSubscription";
+import { NaviMarkdown } from "@/components/ui/NaviMarkdown";
 
 const PAGE_SIZE = 10;
 
@@ -871,9 +872,7 @@ function NaviSection({
               className="overflow-hidden"
             >
               <div className="px-3 pb-3 pt-1 border-t border-violet-800/40">
-                <p className="text-violet-100 text-xs whitespace-pre-line leading-relaxed">
-                  {localVerdict.verdict}
-                </p>
+                <NaviMarkdown content={localVerdict.verdict} className="text-xs" />
               </div>
             </motion.div>
           )}

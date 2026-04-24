@@ -184,10 +184,14 @@ export async function POST(req: Request) {
     locale === "en"
       ? `You are Navi, a friendly AI referee. Two teams of cards face each other, decide who wins.
 
-Be sharp, be specific, be fun. End with a line "Winner: <team name>".`
+Be sharp, specific, fun. Stay concise overall (around 120-180 words), but feel free to nuance when a card or matchup truly deserves it.
+
+You can use light markdown (bold, lists). End with a line "**Winner: <team name>**".`
       : `Tu es Navi, un arbitre IA sympa. Deux équipes de cartes s'affrontent, désigne qui gagne.
 
-Sois pertinent, précis, fun. Termine par une ligne « Vainqueur : <nom de l'équipe> ».`;
+Sois pertinent, précis, fun. Reste concis dans l'ensemble (autour de 120-180 mots), mais n'hésite pas à nuancer quand une carte ou un duel le mérite vraiment.
+
+Tu peux utiliser un peu de markdown (gras, listes). Termine par une ligne « **Vainqueur : <nom de l'équipe>** ».`;
 
   // 6) Appel OpenAI
   // Plus de tokens car la sortie inclut désormais une mini-fiche stats +
@@ -199,9 +203,9 @@ Sois pertinent, précis, fun. Termine par une ligne « Vainqueur : <nom de l'éq
     // sur le contenu d'arbitrage. Retirer la ligne `model:` pour
     // revenir à la variable d'environnement.
     model: "gpt-5.4-nano",
-    // medium > low pour que le modèle comprenne bien le format strict
-    // (placeholders à remplacer, pas à recopier littéralement).
-    reasoningEffort: "medium",
+    // low suffit maintenant que le format est libre (pas de template
+    // strict à respecter). Réduit la facture reasoning d'env. 2-3x.
+    reasoningEffort: "low",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
