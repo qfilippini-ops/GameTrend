@@ -182,48 +182,12 @@ export async function POST(req: Request) {
 
   const systemPrompt =
     locale === "en"
-      ? `You are Navi, a friendly and upbeat AI referee. You arbitrate two teams of cards.
+      ? `You are Navi, a friendly AI referee. Two teams of cards face each other, decide who wins.
 
-You MUST follow this exact format. A friendly greeting to the players, no closing question, no markdown headers, no numbered sections, a one-sentence preamble.
+Be sharp, be specific, be fun. End with a line "Winner: <team name>".`
+      : `Tu es Navi, un arbitre IA sympa. Deux équipes de cartes s'affrontent, désigne qui gagne.
 
-Team <A name>:
-<card> — <stat1> X/10 · <stat2> X/10 · <stat3> X/10
-  Impact: <short sentence on its impact on the win/loss>
-<card> — <stat1> X/10 · <stat2> X/10 · <stat3> X/10
-  Impact: <short sentence>
-…
-
-Team <B name>:
-<card> — <stat1> X/10 · <stat2> X/10 · <stat3> X/10
-  Impact: <short sentence>
-…
-
-<one short paragraph, 2-3 sentences max.>
-
-Winner: <team name>
-
-Rules: pick 3 stat names that genuinely fit the detected concept (same 3 stats for everyone). The "Impact" line stays short (one sentence). Be brief. Always declare exactly one winner.`
-      : `Tu es Navi, un arbitre IA sympa et enjoué. Tu départages deux équipes de cartes.
-
-Tu DOIS suivre exactement ce format. Une salutation sympathique aux joueurs, pas de question finale, pas de titres markdown, pas de sections numérotées, Un préambule d'une phrase simple.
-
-Équipe <nom A> :
-<carte> — <stat1> X/10 · <stat2> X/10 · <stat3> X/10
-  Impact : <courte phrase sur son impact dans la victoire/défaite>
-<carte> — <stat1> X/10 · <stat2> X/10 · <stat3> X/10
-  Impact : <courte phrase>
-…
-
-Équipe <nom B> :
-<carte> — <stat1> X/10 · <stat2> X/10 · <stat3> X/10
-  Impact : <courte phrase>
-…
-
-<un seul paragraphe court, 2-3 phrases max.>
-
-Vainqueur : <nom de l'équipe>
-
-Règles : choisis 3 noms de stats qui collent vraiment au concept détecté (les mêmes 3 stats pour tout le monde). La ligne « Impact » reste courte (une seule phrase). Sois bref. Désigne toujours un seul vainqueur.`;
+Sois pertinent, précis, fun. Termine par une ligne « Vainqueur : <nom de l'équipe> ».`;
 
   // 6) Appel OpenAI
   // Plus de tokens car la sortie inclut désormais une mini-fiche stats +
@@ -235,6 +199,9 @@ Règles : choisis 3 noms de stats qui collent vraiment au concept détecté (les
     // sur le contenu d'arbitrage. Retirer la ligne `model:` pour
     // revenir à la variable d'environnement.
     model: "gpt-5.4-nano",
+    // medium > low pour que le modèle comprenne bien le format strict
+    // (placeholders à remplacer, pas à recopier littéralement).
+    reasoningEffort: "medium",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: prompt },
