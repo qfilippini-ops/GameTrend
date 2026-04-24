@@ -621,57 +621,10 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, 
 
         {/* Aperçu duel Outbid : 2 mini-équipes côte à côte */}
         {isOutbid && outbidPlayerA && outbidPlayerB && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {[outbidPlayerA, outbidPlayerB].map((p) => (
-              <div
-                key={p.name}
-                className="rounded-xl border border-amber-700/25 bg-amber-950/15 overflow-hidden"
-              >
-                <div className="px-2 py-1.5 border-b border-amber-800/30 flex items-baseline justify-between">
-                  <span className="text-amber-300 text-[11px] font-bold truncate">
-                    {p.name}
-                  </span>
-                  <span className="text-surface-500 text-[9px] font-mono shrink-0 ml-1">
-                    {p.team.length} · {(100000 - p.points).toLocaleString("fr-FR")}pts
-                  </span>
-                </div>
-                <div className="p-1.5 grid grid-cols-3 gap-1">
-                  {p.team.slice(0, 3).map((c, i) => (
-                    <div
-                      key={`${c.name}-${i}`}
-                      className="relative aspect-[3/4] rounded-md overflow-hidden ring-1 ring-amber-700/30"
-                      title={`${c.name} — ${c.price}pts`}
-                    >
-                      {c.imageUrl ? (
-                        <Image
-                          src={c.imageUrl}
-                          alt={c.name}
-                          fill
-                          sizes="60px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
-                      )}
-                    </div>
-                  ))}
-                  {Array.from({
-                    length: Math.max(0, 3 - p.team.length),
-                  }).map((_, i) => (
-                    <div
-                      key={`empty-${i}`}
-                      className="aspect-[3/4] rounded-md bg-surface-800/40"
-                    />
-                  ))}
-                </div>
-                {p.team.length > 3 && (
-                  <p className="px-2 py-1 text-[9px] text-amber-500/70 text-center bg-amber-950/30 border-t border-amber-700/20">
-                    +{p.team.length - 3}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
+          <OutbidTeamsPreview
+            playerA={outbidPlayerA}
+            playerB={outbidPlayerB}
+          />
         )}
 
         {/* Avis de Navi : toujours visible pour Outbid (verdict ou bouton) */}
@@ -744,6 +697,104 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, 
       className="rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden scroll-mt-24"
     >
       {inner}
+    </div>
+  );
+}
+
+// ─── Aperçu équipes Outbid (avec dépliage) ────────────────────────────────
+// Affiche les 2 équipes du duel Outbid en grille compacte. Par défaut on
+// montre les 3 premières cartes pour garder l'aperçu léger ; un bouton
+// "+N voir tout / réduire" déplie le reste pour les équipes 4-11 cartes.
+// Les deux équipes se déplient en même temps (état partagé) pour rester
+// visuellement symétriques.
+function OutbidTeamsPreview({
+  playerA,
+  playerB,
+}: {
+  playerA: OutbidPlayerSnapshot;
+  playerB: OutbidPlayerSnapshot;
+}) {
+  const tFeed = useTranslations("games.outbid.feed");
+  const [expanded, setExpanded] = useState(false);
+  // Nombre de cartes du plus gros des deux côtés. Si aucun joueur n'a
+  // plus de 3 cartes, le bouton n'a pas lieu d'exister.
+  const maxTeamSize = Math.max(playerA.team.length, playerB.team.length);
+  const hasMore = maxTeamSize > 3;
+
+  return (
+    <div className="mt-3">
+      <div className="grid grid-cols-2 gap-2">
+        {[playerA, playerB].map((p) => {
+          const visibleCards = expanded ? p.team : p.team.slice(0, 3);
+          // On garde toujours une grille à 3 colonnes pour l'alignement
+          // visuel, et on remplit avec des cellules vides si besoin.
+          // Quand on déplie, on n'affiche pas de cellules vides (pas
+          // de remplissage artificiel).
+          const fillerCount = expanded ? 0 : Math.max(0, 3 - p.team.length);
+          return (
+            <div
+              key={p.name}
+              className="rounded-xl border border-amber-700/25 bg-amber-950/15 overflow-hidden"
+            >
+              <div className="px-2 py-1.5 border-b border-amber-800/30 flex items-baseline justify-between">
+                <span className="text-amber-300 text-[11px] font-bold truncate">
+                  {p.name}
+                </span>
+                <span className="text-surface-500 text-[9px] font-mono shrink-0 ml-1">
+                  {p.team.length} · {(100000 - p.points).toLocaleString("fr-FR")}pts
+                </span>
+              </div>
+              <div className="p-1.5 grid grid-cols-3 gap-1">
+                {visibleCards.map((c, i) => (
+                  <div
+                    key={`${c.name}-${i}`}
+                    className="relative aspect-[3/4] rounded-md overflow-hidden ring-1 ring-amber-700/30"
+                    title={`${c.name} — ${c.price}pts`}
+                  >
+                    {c.imageUrl ? (
+                      <Image
+                        src={c.imageUrl}
+                        alt={c.name}
+                        fill
+                        sizes="60px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-amber-900/60 to-surface-900" />
+                    )}
+                  </div>
+                ))}
+                {Array.from({ length: fillerCount }).map((_, i) => (
+                  <div
+                    key={`empty-${i}`}
+                    className="aspect-[3/4] rounded-md bg-surface-800/40"
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-amber-300 bg-amber-950/20 border border-amber-700/30 hover:bg-amber-900/30 hover:border-amber-600/50 transition-colors flex items-center justify-center gap-1.5"
+        >
+          {expanded ? (
+            <>
+              <span>▴</span>
+              <span>{tFeed("collapseTeams")}</span>
+            </>
+          ) : (
+            <>
+              <span>▾</span>
+              <span>{tFeed("expandTeams", { count: maxTeamSize })}</span>
+            </>
+          )}
+        </button>
+      )}
     </div>
   );
 }

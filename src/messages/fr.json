@@ -1256,7 +1256,9 @@
     "outbid": {
       "feed": {
         "summary": "🪙 Outbid · {a} ({ap}pts) vs {b} ({bp}pts)",
-        "teamPreview": "{count} cartes pour {points} pts dépensés"
+        "teamPreview": "{count} cartes pour {points} pts dépensés",
+        "expandTeams": "Voir les {count} cartes",
+        "collapseTeams": "Réduire"
       },
       "lobby": {
         "rulesTitle": "Comment jouer",
