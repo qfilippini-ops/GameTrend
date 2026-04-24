@@ -108,6 +108,46 @@ export default function FollowingFeed() {
     itemsRef.current = items;
   }, [items]);
 
+  // ─── Deep-link via hash (#result-{id}) ─────────────────────────────────────
+  // Permet aux notifications "Outbid partage" d'amener l'utilisateur
+  // directement sur la card concernée. Scroll + flash de surbrillance.
+  // On observe `items` (card potentiellement pas encore rendue) ET on
+  // écoute `hashchange` (navigation depuis la page feed elle-même).
+  const lastHandledHashRef = useRef<string>("");
+
+  const handleHash = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "");
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (!el) return;
+    if (lastHandledHashRef.current === hash) return;
+    lastHandledHashRef.current = hash;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add(
+      "ring-2",
+      "ring-violet-400/80",
+      "transition-shadow",
+      "duration-700"
+    );
+    setTimeout(() => {
+      el.classList.remove("ring-2", "ring-violet-400/80");
+    }, 2200);
+  }, []);
+
+  useEffect(() => {
+    handleHash();
+  }, [items, handleHash]);
+
+  useEffect(() => {
+    const onHash = () => {
+      lastHandledHashRef.current = "";
+      handleHash();
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [handleHash]);
+
   // ─── Fetch primitif ────────────────────────────────────────────────────────
   const fetchFeed = useCallback(
     async (beforeAt: string | null): Promise<RpcRow[]> => {
@@ -493,6 +533,11 @@ interface OutbidPlayerSnapshot {
   points: number;
   team: OutbidTeamCard[];
 }
+interface NaviVerdictPayload {
+  verdict: string;
+  authorName: string;
+  locale?: string;
+}
 
 function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
   const { game_type, preset_id, preset_name, result_data } = data;
@@ -504,6 +549,7 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
   const participants = (rd.participants as ParticipantRef[] | undefined) ?? null;
   const isOnline = rd.online === true;
   const tGames = useTranslations("games");
+  const tNavi = useTranslations("games.outbid.online.navi");
 
   const isBlindRank = game_type === "blindrank";
   const isGhost = game_type === "ghostword";
@@ -515,6 +561,9 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
     : null;
   const outbidPlayerB = isOutbid
     ? (rd.playerB as OutbidPlayerSnapshot | undefined) ?? null
+    : null;
+  const naviVerdict = isOutbid
+    ? (rd.naviVerdict as NaviVerdictPayload | null | undefined) ?? null
     : null;
 
   const gameMeta = GAMES_REGISTRY.find((g) => g.id === game_type);
@@ -624,6 +673,11 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
           </div>
         )}
 
+        {/* Avis de Navi (accordéon plié par défaut) */}
+        {isOutbid && naviVerdict && (
+          <NaviAccordion verdict={naviVerdict} t={tNavi} />
+        )}
+
         {/* Aperçu classement Blind Rank */}
         {isBlindRank && blindrankTop3 && blindrankTop3.length > 0 && (
           <div className="mt-3 rounded-xl border border-cyan-700/25 bg-cyan-950/20 overflow-hidden">
@@ -658,19 +712,93 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedI
     </>
   );
 
+  // L'id permet le deep-link `/feed#result-{id}` depuis les notifications.
+  // L'attribut data-feed-anchor sert à appliquer le highlight transitoire.
+  const anchorId = item.key;
+
   if (preset_id) {
     return (
       <Link
+        id={anchorId}
+        data-feed-anchor={anchorId}
         href={`/presets/${preset_id}`}
-        className="block rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors"
+        className="block rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors scroll-mt-24"
       >
         {inner}
       </Link>
     );
   }
   return (
-    <div className="rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden">
+    <div
+      id={anchorId}
+      data-feed-anchor={anchorId}
+      className="rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden scroll-mt-24"
+    >
       {inner}
+    </div>
+  );
+}
+
+// ─── Accordéon Navi (plié par défaut) ────────────────────────────────────
+function NaviAccordion({
+  verdict,
+  t,
+}: {
+  verdict: NaviVerdictPayload;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className="mt-3 rounded-xl border border-violet-700/40 bg-gradient-to-br from-violet-950/50 via-surface-900/50 to-surface-950 overflow-hidden"
+      style={{ boxShadow: "0 0 18px rgba(139,92,246,0.15)" }}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="w-full px-3 py-2.5 flex items-center justify-between gap-3 text-left hover:bg-violet-900/20 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-base shrink-0">🤖</span>
+          <div className="min-w-0">
+            <p className="text-violet-200 text-xs font-bold truncate">
+              {t("verdictTitle")}
+            </p>
+            <p className="text-violet-400/70 text-[10px] truncate">
+              {t("requestedBy", { name: verdict.authorName })}
+            </p>
+          </div>
+        </div>
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+          className="text-violet-300 text-sm shrink-0"
+          aria-hidden
+        >
+          ▾
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 pt-1 border-t border-violet-800/40">
+              <p className="text-violet-100 text-xs whitespace-pre-line leading-relaxed">
+                {verdict.verdict}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

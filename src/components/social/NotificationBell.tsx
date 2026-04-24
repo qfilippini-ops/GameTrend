@@ -208,6 +208,33 @@ export default function NotificationBell() {
                                   name: notif.from_profile?.username ?? t("anonymous"),
                                 })}
                               </p>
+                            ) : notif.type === "outbid_navi_shared" ? (
+                              (() => {
+                                const resultId =
+                                  (notif.payload as { result_id?: string } | null | undefined)
+                                    ?.result_id ?? null;
+                                const href = resultId
+                                  ? `/feed#result-${resultId}`
+                                  : `/profile/${notif.from_user_id}`;
+                                return (
+                                  <Link
+                                    href={href}
+                                    onClick={() => {
+                                      setOpen(false);
+                                      void markRead(notif.id);
+                                    }}
+                                    className="block group"
+                                  >
+                                    <p className="text-white text-sm leading-snug">
+                                      <span className="mr-1">🤖</span>
+                                      <span className="font-medium group-hover:text-violet-300 transition-colors">
+                                        {notif.from_profile?.username ?? t("anonymous")}
+                                      </span>{" "}
+                                      {t("outbidNaviShared")}
+                                    </p>
+                                  </Link>
+                                );
+                              })()
                             ) : (
                               <p className="text-white text-sm leading-snug">
                                 <span className="font-medium">

@@ -1439,6 +1439,18 @@
           "waitingChoice": "(waiting for the other player)",
           "replayLabel": "Want to replay",
           "shareText": "Outbid: {a} vs {b} — My duel on GameTrend!"
+        },
+        "navi": {
+          "button": "Settle it with Navi, the AI referee",
+          "premiumHint": "Premium subscribers only",
+          "loading": "Navi is deliberating…",
+          "verdictTitle": "Navi's verdict, the AI referee",
+          "requestedBy": "Requested by {name}",
+          "error": "Error: {msg}",
+          "upsellTitle": "Navi is Premium-only",
+          "upsellBody": "Let an AI referee pick a winner in one click at the end of every Outbid duel. Verdict shared on the feed and pushed to both players.",
+          "upsellCancel": "Later",
+          "upsellCta": "Discover Premium"
         }
       }
     }
@@ -1480,6 +1492,7 @@
     "presetCommented": "{name} commented on your preset \"{preset}\"",
     "newFollower": "{name} is now following you",
     "newReferral": "{name} signed up thanks to you",
+    "outbidNaviShared": "just shared your Outbid duel with Navi's verdict 🤖",
     "minutesAgo": "{n} min ago",
     "hoursAgo": "{n} h ago",
     "daysAgo": "{n} d ago",

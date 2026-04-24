@@ -11,10 +11,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
-import { useTranslations } from "next-intl";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { useLocale, useTranslations } from "next-intl";
 import { vibrate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 import ShareResultButton from "@/components/social/ShareResultButton";
 import { OUTBID_STARTING_POINTS } from "@/games/outbid/online-config";
 import type { OnlineRoom, ReplayVote, RoomPlayer } from "@/types/rooms";
@@ -69,6 +71,14 @@ interface OutbidPlayerFinal {
   team: Array<{ cardId: string; price: number }>;
 }
 
+interface NaviVerdict {
+  verdict: string;
+  locale: string;
+  authorId: string;
+  authorName: string;
+  createdAt: string;
+}
+
 interface OutbidFinalState {
   presetId: string | null;
   teamSize: number;
@@ -77,6 +87,7 @@ interface OutbidFinalState {
   playerB: OutbidPlayerFinal;
   finished: boolean;
   autoFill: boolean;
+  navi?: NaviVerdict | null;
 }
 
 interface Props {
@@ -108,6 +119,9 @@ export default function OutbidOnlineResult({
   playerAvatars,
 }: Props) {
   const t = useTranslations("games.outbid.online.result");
+  const tNavi = useTranslations("games.outbid.online.navi");
+  const locale = useLocale();
+  const { isPremium } = useSubscription();
   const state = readState(room);
   const [voting, setVoting] = useState(false);
 
@@ -180,6 +194,13 @@ export default function OutbidOnlineResult({
       avatar_url: playerAvatars?.[p.display_name] ?? null,
     })),
     online: true,
+    naviVerdict: state.navi
+      ? {
+          verdict: state.navi.verdict,
+          authorName: state.navi.authorName,
+          locale: state.navi.locale,
+        }
+      : null,
   };
 
   return (
@@ -238,6 +259,15 @@ export default function OutbidOnlineResult({
             t={t}
           />
         </div>
+
+        {/* Navi — Arbitre IA (premium) */}
+        <NaviPanel
+          roomId={room.id}
+          navi={state.navi ?? null}
+          isPremium={isPremium}
+          locale={locale}
+          t={tNavi}
+        />
 
         {/* Replay zone */}
         <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 p-4 space-y-3">
@@ -473,5 +503,202 @@ function TeamColumn({
         </span>
       </div>
     </motion.div>
+  );
+}
+
+// ── Sous-composant : Navi (arbitre IA premium) ────────────────────────────
+// - Si le verdict existe déjà : accordéon plié de base
+// - Sinon : bouton "Départager avec Navi"
+//   - non-premium → modal upsell vers /pricing
+//   - premium → POST /api/games/outbid/navi (idempotent)
+//   Le verdict apparaît automatiquement via Realtime sur game_rooms.config.
+function NaviPanel({
+  roomId,
+  navi,
+  isPremium,
+  locale,
+  t,
+}: {
+  roomId: string;
+  navi: NaviVerdict | null;
+  isPremium: boolean;
+  locale: string;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [showUpsell, setShowUpsell] = useState(false);
+
+  async function requestVerdict() {
+    if (loading) return;
+    if (!isPremium) {
+      vibrate(40);
+      setShowUpsell(true);
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    vibrate(30);
+    try {
+      const res = await fetch("/api/games/outbid/navi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomId, locale }),
+      });
+      const json = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        setError(json.error ?? "unknown_error");
+      }
+      // En cas de succès le verdict arrive via Realtime sur game_rooms
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Cas 1 : verdict déjà disponible → accordéon
+  if (navi) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl border border-violet-700/40 bg-gradient-to-br from-violet-950/40 via-surface-900/60 to-surface-950 overflow-hidden"
+        style={{ boxShadow: "0 0 28px rgba(139,92,246,0.18)" }}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            vibrate(20);
+            setExpanded((v) => !v);
+          }}
+          className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-violet-900/20 transition-colors"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="text-xl shrink-0">🤖</span>
+            <div className="min-w-0">
+              <p className="text-violet-200 text-sm font-display font-bold truncate">
+                {t("verdictTitle")}
+              </p>
+              <p className="text-violet-400/70 text-[10px] truncate">
+                {t("requestedBy", { name: navi.authorName })}
+              </p>
+            </div>
+          </div>
+          <motion.span
+            animate={{ rotate: expanded ? 180 : 0 }}
+            transition={{ duration: 0.2 }}
+            className="text-violet-300 text-lg shrink-0"
+            aria-hidden
+          >
+            ▾
+          </motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 pt-1 border-t border-violet-800/40">
+                <p className="text-violet-100 text-sm whitespace-pre-line leading-relaxed">
+                  {navi.verdict}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  }
+
+  // Cas 2 : pas encore de verdict → bouton + éventuelle modal upsell
+  return (
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl border border-violet-700/40 bg-violet-950/20 p-3"
+      >
+        <button
+          type="button"
+          onClick={requestVerdict}
+          disabled={loading}
+          className="w-full py-3 px-4 rounded-xl font-display font-bold text-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:opacity-92 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          style={{ boxShadow: "0 0 22px rgba(139,92,246,0.35)" }}
+        >
+          {loading ? (
+            <>
+              <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              <span>{t("loading")}</span>
+            </>
+          ) : (
+            <>
+              <span className="text-base">🤖</span>
+              <span>{t("button")}</span>
+              {!isPremium && <span className="text-[10px] opacity-90">🔒</span>}
+            </>
+          )}
+        </button>
+        {!isPremium && (
+          <p className="text-violet-300/80 text-[10px] text-center mt-2">
+            {t("premiumHint")}
+          </p>
+        )}
+        {error && (
+          <p className="text-rose-400 text-[10px] text-center mt-2 font-mono">
+            {t("error", { msg: error })}
+          </p>
+        )}
+      </motion.div>
+
+      <AnimatePresence>
+        {showUpsell && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowUpsell(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm rounded-2xl border border-violet-700/50 bg-gradient-to-b from-violet-950/90 to-surface-950 p-6 space-y-4"
+              style={{ boxShadow: "0 0 60px rgba(139,92,246,0.4)" }}
+            >
+              <div className="text-center space-y-2">
+                <div className="text-4xl">🤖</div>
+                <h3 className="text-white font-display font-black text-lg">
+                  {t("upsellTitle")}
+                </h3>
+                <p className="text-surface-300 text-sm">{t("upsellBody")}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUpsell(false)}
+                  className="py-2.5 rounded-xl text-sm font-bold border border-surface-700 bg-surface-900 text-surface-300 hover:bg-surface-800 transition-colors"
+                >
+                  {t("upsellCancel")}
+                </button>
+                <Link
+                  href={`/${locale}/premium`}
+                  className="py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white text-center hover:opacity-92 transition-opacity"
+                >
+                  {t("upsellCta")}
+                </Link>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

@@ -7,7 +7,12 @@ export interface FriendshipState {
   isRequester?: boolean;
 }
 
-export type NotificationType = "friend_request" | "friend_accepted" | "new_referral";
+export type NotificationType =
+  | "friend_request"
+  | "friend_accepted"
+  | "new_referral"
+  | "subscription_started"
+  | "outbid_navi_shared";
 
 export interface Notification {
   id: string;
@@ -16,6 +21,8 @@ export interface Notification {
   from_user_id: string;
   read_at: string | null;
   created_at: string;
+  /** Payload générique (deep-link, ids contextuels). Vide par défaut. */
+  payload?: Record<string, unknown> | null;
   /** Profil de l'expéditeur, jointuré côté client */
   from_profile?: {
     username: string | null;

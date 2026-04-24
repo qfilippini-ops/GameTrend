@@ -77,6 +77,7 @@ export async function shareGameResult(
       return { error: "Non connecté — résultat non partagé" };
     }
 
+    let resultId: string;
     if (existingId) {
       const { data, error } = await supabase
         .from("game_results")
@@ -93,27 +94,41 @@ export async function shareGameResult(
         console.error("[shareGameResult update]", error);
         return { error: error.message };
       }
-      return { id: data!.id as string };
+      resultId = data!.id as string;
+    } else {
+      const { data, error } = await supabase
+        .from("game_results")
+        .insert({
+          user_id: user.id,
+          game_type: input.gameType,
+          preset_id: input.presetId ?? null,
+          preset_name: input.presetName ?? null,
+          result_data: input.resultData,
+          is_shared: true,
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        console.error("[shareGameResult insert]", error);
+        return { error: error.message };
+      }
+      resultId = data!.id as string;
     }
 
-    const { data, error } = await supabase
-      .from("game_results")
-      .insert({
-        user_id: user.id,
-        game_type: input.gameType,
-        preset_id: input.presetId ?? null,
-        preset_name: input.presetName ?? null,
-        result_data: input.resultData,
-        is_shared: true,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      console.error("[shareGameResult insert]", error);
-      return { error: error.message };
+    // Notifications post-partage (best-effort, non bloquant) : pour Outbid
+    // on prévient l'autre participant que la partie vient d'être partagée
+    // (avec ou sans verdict de Navi). RPC SECURITY DEFINER, idempotente.
+    if (input.gameType === "outbid") {
+      const { error: notifyErr } = await supabase.rpc("notify_outbid_share", {
+        p_result_id: resultId,
+      });
+      if (notifyErr) {
+        console.error("[shareGameResult notify]", notifyErr);
+      }
     }
-    return { id: data!.id as string };
+
+    return { id: resultId };
   } catch (e) {
     console.error("[shareGameResult] exception:", e);
     return { error: String(e) };

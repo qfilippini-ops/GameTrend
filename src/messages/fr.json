@@ -1439,6 +1439,18 @@
           "waitingChoice": "(en attente de l'autre)",
           "replayLabel": "Veulent rejouer",
           "shareText": "Outbid : {a} vs {b} — Mon duel sur GameTrend !"
+        },
+        "navi": {
+          "button": "Départager avec Navi, l'arbitre IA",
+          "premiumHint": "Réservé aux abonnés Premium",
+          "loading": "Navi délibère…",
+          "verdictTitle": "L'avis de Navi, l'arbitre IA",
+          "requestedBy": "Demandé par {name}",
+          "error": "Erreur : {msg}",
+          "upsellTitle": "Navi est réservé aux Premium",
+          "upsellBody": "Faites trancher un arbitre IA en un clic à la fin de chaque duel Outbid. Verdict partagé sur le feed et notifié aux deux joueurs.",
+          "upsellCancel": "Plus tard",
+          "upsellCta": "Découvrir Premium"
         }
       }
     }
@@ -1480,6 +1492,7 @@
     "presetCommented": "{name} a commenté ton preset « {preset} »",
     "newFollower": "{name} te suit maintenant",
     "newReferral": "{name} s'est inscrit grâce à toi",
+    "outbidNaviShared": "vient de partager votre duel Outbid avec l'avis de Navi 🤖",
     "minutesAgo": "il y a {n} min",
     "hoursAgo": "il y a {n} h",
     "daysAgo": "il y a {n} j",
