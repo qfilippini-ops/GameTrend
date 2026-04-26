@@ -6,7 +6,7 @@ import { useRouter } from "@/i18n/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
-import { leaveAllOtherRooms } from "@/app/actions/rooms";
+import { safeJoinRoom } from "@/games/online/lib/safeJoinRoom";
 
 import RoomWaiting from "@/games/ghostword/components/online/RoomWaiting";
 import OnlineReveal from "@/games/ghostword/components/online/OnlineReveal";
@@ -130,33 +130,26 @@ function JoinScreen({
   }, []);
 
   async function doJoin(
-    knownUser: { id: string },
+    _knownUser: { id: string },
     knownName: string,
   ) {
     const n = knownName.trim();
     if (!n) return;
 
-    const { data: room } = await supabase.from("game_rooms").select("phase").eq("id", code).maybeSingle();
-    if (!room) { setError(t("errRoomNotFound")); setAutoJoining(false); setLoading(false); return; }
-    if (room.phase !== "lobby") { setError(t("errAlreadyStarted")); setAutoJoining(false); setLoading(false); return; }
-
-    const { data: alreadyIn } = await supabase.from("room_players").select("display_name")
-      .eq("room_id", code).eq("user_id", knownUser.id).maybeSingle();
-    if (alreadyIn) { onJoined(alreadyIn.display_name); return; }
-
-    await leaveAllOtherRooms(code);
-
-    const { data: taken } = await supabase.from("room_players").select("display_name")
-      .eq("room_id", code).eq("display_name", n).maybeSingle();
-    if (taken) { setError(t("errNickTaken")); setAutoJoining(false); setLoading(false); return; }
-
-    const { count } = await supabase.from("room_players").select("*", { count: "exact", head: true }).eq("room_id", code);
-    const { error: insertErr } = await supabase.from("room_players").insert({
-      room_id: code, user_id: knownUser.id, display_name: n, is_host: false, join_order: count ?? 1,
+    const res = await safeJoinRoom(supabase, code, n, {
+      errRoomNotFound: t("errRoomNotFound"),
+      errAlreadyStarted: t("errAlreadyStarted"),
+      errNickTaken: t("errNickTaken"),
+      errLobbyFull: t("errLobbyFull"),
     });
-    if (insertErr) { setError(insertErr.message); setAutoJoining(false); setLoading(false); return; }
+    if (!res.ok) {
+      setError(res.error ?? "");
+      setAutoJoining(false);
+      setLoading(false);
+      return;
+    }
 
-    onJoined(n);
+    onJoined(res.displayName ?? n);
   }
 
   async function handleJoin() {

@@ -81,6 +81,8 @@ export async function createOutbidRoom(
 
     const code = generateCode();
 
+    // Outbid est strictement 1v1 : capacité = 2 indépendamment du statut
+    // premium du host. Le trigger SQL accepte (2 ≤ cap).
     const { error: roomErr } = await supabase.from("game_rooms").insert({
       id: code,
       host_id: user.id,
@@ -94,6 +96,7 @@ export async function createOutbidRoom(
         },
       },
       is_private: options.isPrivate ?? true,
+      max_players: 2,
     });
     if (roomErr) {
       console.error("[createOutbidRoom] insert game_rooms:", roomErr);

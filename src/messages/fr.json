@@ -30,7 +30,15 @@
     "host": "Hôte",
     "player": "Joueur",
     "and": "et",
-    "or": "ou"
+    "or": "ou",
+    "lobbyCapacity": {
+      "title": "Capacité du salon",
+      "value": "Jusqu'à {count} joueurs",
+      "freeBadge": "Gratuit",
+      "premiumBadge": "Premium",
+      "upsell": "Passe Premium pour aller jusqu'à {max} joueurs",
+      "upsellCta": "Découvrir Premium"
+    }
   },
   "languages": {
     "label": "Langue",
@@ -842,6 +850,7 @@
         "errEnterNick": "Entre ton pseudo",
         "errInvalidCode": "Code invalide (6 caractères)",
         "errNickTaken": "Ce pseudo est déjà pris dans ce salon",
+        "errLobbyFull": "Salon complet",
         "errRoomNotFound": "Salon introuvable — vérifie le code",
         "errAlreadyStarted": "La partie a déjà commencé",
         "errServer": "Erreur serveur — vérifie la console",
@@ -862,6 +871,7 @@
           "errRoomNotFoundDetail": "Salon introuvable ({reason})",
           "errAlreadyStarted": "La partie a déjà commencé",
           "errNickTaken": "Ce pseudo est déjà pris dans ce salon",
+          "errLobbyFull": "Salon complet",
           "errEnterNick": "Entre ton pseudo",
           "errAuth": "Connexion impossible : {message}",
           "errRoomNotFound": "Salon introuvable",
@@ -1077,6 +1087,7 @@
           "errAlreadyStarted": "La partie a déjà commencé",
           "errWrongGame": "Ce salon n'est pas un salon DYP",
           "errNickTaken": "Ce pseudo est déjà pris dans le salon",
+          "errLobbyFull": "Salon complet",
           "anonHint": "Tu joues en mode anonyme.",
           "loginCta": "Connecte-toi",
           "loginSuffix": "pour sauvegarder ton profil."
@@ -1089,6 +1100,7 @@
           "errEnterNick": "Entre un pseudo",
           "errAuth": "Auth: {message}",
           "errNickTaken": "Pseudo déjà pris",
+          "errLobbyFull": "Salon complet",
           "errServer": "Erreur serveur",
           "leave": "Quitter",
           "menu": "Menu",
@@ -1257,6 +1269,7 @@
           "errAlreadyStarted": "La partie a déjà commencé",
           "errWrongGame": "Ce salon n'est pas un salon Blind Rank",
           "errNickTaken": "Ce pseudo est déjà pris dans le salon",
+          "errLobbyFull": "Salon complet",
           "anonHint": "Tu joues en mode anonyme.",
           "loginCta": "Connecte-toi",
           "loginSuffix": "pour sauvegarder ton profil."
@@ -1269,6 +1282,7 @@
           "errEnterNick": "Entre un pseudo",
           "errAuth": "Auth: {message}",
           "errNickTaken": "Pseudo déjà pris",
+          "errLobbyFull": "Salon complet",
           "errServer": "Erreur serveur",
           "leave": "Quitter",
           "menu": "Menu",
@@ -1423,6 +1437,7 @@
           "errEnterNick": "Entre un pseudo",
           "errAuth": "Auth: {message}",
           "errNickTaken": "Pseudo déjà pris",
+          "errLobbyFull": "Salon complet",
           "errServer": "Erreur serveur",
           "leave": "Quitter",
           "menu": "Menu",
@@ -1910,6 +1925,10 @@
         "presetLimit": {
           "title": "Presets illimités",
           "description": "Tu as atteint la limite de 5 presets gratuits. Crée-en autant que tu veux avec Premium."
+        },
+        "lobbyCapacity": {
+          "title": "Lobby jusqu'à 16 joueurs",
+          "description": "Tes salons gratuits sont limités à 4 joueurs. Avec Premium, accueille jusqu'à 16 joueurs dans tes parties en ligne."
         },
         "profileLink": {
           "title": "Lien externe sur ton profil",

@@ -9,7 +9,7 @@ import BlindRankRoomSettings, {
 } from "@/games/blindrank/components/online/BlindRankRoomSettings";
 import { createBlindRankRoom } from "@/app/actions/blindrank-rooms";
 import { BLINDRANK_TOUR_DEFAULT_SECONDS } from "@/games/blindrank/online-config";
-import { leaveAllOtherRooms } from "@/app/actions/rooms";
+import { safeJoinRoom } from "@/games/online/lib/safeJoinRoom";
 
 function BlindRankOnlineLobbyContent() {
   const t = useTranslations("games.blindrank.online.lobby");
@@ -92,49 +92,20 @@ function BlindRankOnlineLobbyContent() {
 
           const { data: room } = await supabase
             .from("game_rooms")
-            .select("phase, game_type")
+            .select("game_type")
             .eq("id", code)
             .maybeSingle();
           if (!room) return { error: tShell("errRoomNotFound") };
           if (room.game_type !== "blindrank")
             return { error: tShell("errWrongGame") };
-          if (room.phase !== "lobby")
-            return { error: tShell("errAlreadyStarted") };
 
-          const { data: alreadyIn } = await supabase
-            .from("room_players")
-            .select("display_name")
-            .eq("room_id", code)
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (!alreadyIn) {
-            await leaveAllOtherRooms(code);
-            const { data: taken } = await supabase
-              .from("room_players")
-              .select("display_name")
-              .eq("room_id", code)
-              .eq("display_name", displayName)
-              .maybeSingle();
-            if (taken) return { error: tShell("errNickTaken") };
-
-            const { count } = await supabase
-              .from("room_players")
-              .select("*", { count: "exact", head: true })
-              .eq("room_id", code);
-
-            const { error: insertErr } = await supabase
-              .from("room_players")
-              .insert({
-                room_id: code,
-                user_id: user.id,
-                display_name: displayName,
-                is_host: false,
-                join_order: count ?? 1,
-              });
-            if (insertErr) return { error: insertErr.message };
-          }
-
+          const res = await safeJoinRoom(supabase, code, displayName, {
+            errRoomNotFound: tShell("errRoomNotFound"),
+            errAlreadyStarted: tShell("errAlreadyStarted"),
+            errNickTaken: tShell("errNickTaken"),
+            errLobbyFull: tShell("errLobbyFull"),
+          });
+          if (!res.ok) return { error: res.error ?? tShell("errServer") };
           return { code };
         } catch (e) {
           console.error(e);

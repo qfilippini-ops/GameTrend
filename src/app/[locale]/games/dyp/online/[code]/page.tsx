@@ -24,6 +24,7 @@ export default function DypOnlineRoomPage() {
       errRoomNotFound: tShared("errRoomNotFound"),
       errAlreadyStarted: tShared("errAlreadyStarted"),
       errNickTaken: tShared("errNickTaken"),
+      errLobbyFull: tShared("errLobbyFull"),
       errAuth: (msg: string) => tShared("errAuth", { message: msg }),
     },
     buttons: {

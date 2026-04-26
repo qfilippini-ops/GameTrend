@@ -3,6 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getAdapter } from "@/games/registry";
+import { lobbyCapacityFor } from "@/lib/premium/lobbyCapacity";
 
 // ── Génération du code court ──────────────────────────────────
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // pas I/O/0/1
@@ -64,7 +65,15 @@ export async function createRoom(options: {
 
     const code = generateCode();
 
-    // Insérer le salon
+    // Capacité selon le statut premium du host (4 free / 16 premium).
+    // Le trigger SQL valide aussi côté BDD : on ne peut pas tricher.
+    const { data: profileForCap } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    const maxPlayers = lobbyCapacityFor(profileForCap?.subscription_status);
+
     const { error: roomErr } = await supabase.from("game_rooms").insert({
       id: code,
       host_id: user.id,
@@ -76,6 +85,7 @@ export async function createRoom(options: {
       discussion_turns_per_round: options.discussionTurns,
       speaker_duration_seconds: options.speakerDuration,
       is_private: options.isPrivate ?? true,
+      max_players: maxPlayers,
     });
     if (roomErr) {
       console.error("[createRoom] game_rooms insert:", roomErr);
@@ -112,62 +122,40 @@ export async function createRoom(options: {
 }
 
 // ── Rejoindre un salon ────────────────────────────────────────
+// Wrapper autour de la RPC SQL `safe_join_room` qui garantit atomiquement :
+//   1. l'éviction des autres lobbies (1 user = 1 lobby)
+//   2. la vérification de capacité (4 free / 16 premium)
+//   3. l'unicité du pseudo
+//   4. la phase 'lobby'
+//
+// Cette server action n'est plus utilisée par les pages online (qui appellent
+// directement `safeJoinRoom` côté client), mais est conservée pour
+// rétro-compatibilité d'éventuels appelants externes.
 export async function joinRoom(
   code: string,
   displayName: string
 ): Promise<{ success: true; myName: string } | { error: string }> {
   const supabase = createClient();
-
-  // L'auth anonyme est gérée côté client avant d'appeler cette action
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Non authentifié — recharge la page" };
 
-  const roomId = code.toUpperCase().trim();
-
-  // Vérifier que la room existe et est en lobby
-  const { data: room } = await supabase
-    .from("game_rooms")
-    .select("phase")
-    .eq("id", roomId)
-    .maybeSingle();
-  if (!room) return { error: "Salon introuvable — vérifie le code" };
-  if (room.phase !== "lobby") return { error: "La partie a déjà commencé" };
-
-  // Déjà dans la room ? (reconnexion)
-  const { data: alreadyIn } = await supabase
-    .from("room_players")
-    .select("display_name")
-    .eq("room_id", roomId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (alreadyIn) return { success: true, myName: alreadyIn.display_name };
-
-  // Pseudo déjà pris ?
-  const { data: taken } = await supabase
-    .from("room_players")
-    .select("display_name")
-    .eq("room_id", roomId)
-    .eq("display_name", displayName)
-    .maybeSingle();
-  if (taken) return { error: "Ce pseudo est déjà pris dans ce salon" };
-
-  const { count } = await supabase
-    .from("room_players")
-    .select("*", { count: "exact", head: true })
-    .eq("room_id", roomId);
-
-  const { error } = await supabase.from("room_players").insert({
-    room_id: roomId,
-    user_id: user.id,
-    display_name: displayName,
-    is_host: false,
-    join_order: count ?? 1,
+  const { data, error } = await supabase.rpc("safe_join_room", {
+    p_room_id: code.toUpperCase().trim(),
+    p_display_name: displayName,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    const m = error.message || "";
+    if (m.includes("room_not_found")) return { error: "Salon introuvable — vérifie le code" };
+    if (m.includes("game_already_started")) return { error: "La partie a déjà commencé" };
+    if (m.includes("display_name_taken")) return { error: "Ce pseudo est déjà pris dans ce salon" };
+    if (m.includes("lobby_full")) return { error: "Salon complet" };
+    return { error: error.message };
+  }
 
-  return { success: true, myName: displayName };
+  const payload = data as { display_name?: string } | null;
+  return { success: true, myName: payload?.display_name ?? displayName };
 }
 
 // ── Lancer la partie (host) ───────────────────────────────────

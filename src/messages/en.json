@@ -30,7 +30,15 @@
     "host": "Host",
     "player": "Player",
     "and": "and",
-    "or": "or"
+    "or": "or",
+    "lobbyCapacity": {
+      "title": "Lobby capacity",
+      "value": "Up to {count} players",
+      "freeBadge": "Free",
+      "premiumBadge": "Premium",
+      "upsell": "Go Premium to host up to {max} players",
+      "upsellCta": "Get Premium"
+    }
   },
   "languages": {
     "label": "Language",
@@ -842,6 +850,7 @@
         "errEnterNick": "Enter your nickname",
         "errInvalidCode": "Invalid code (6 characters)",
         "errNickTaken": "This nickname is already taken in this room",
+        "errLobbyFull": "Room full",
         "errRoomNotFound": "Room not found — check the code",
         "errAlreadyStarted": "The game has already started",
         "errServer": "Server error — check the console",
@@ -862,6 +871,7 @@
           "errRoomNotFoundDetail": "Room not found ({reason})",
           "errAlreadyStarted": "The game has already started",
           "errNickTaken": "This nickname is already taken in this room",
+          "errLobbyFull": "Room full",
           "errEnterNick": "Enter your nickname",
           "errAuth": "Sign in failed: {message}",
           "errRoomNotFound": "Room not found",
@@ -1077,6 +1087,7 @@
           "errAlreadyStarted": "Game already started",
           "errWrongGame": "This room is not a DYP room",
           "errNickTaken": "This nickname is already taken in the room",
+          "errLobbyFull": "Room full",
           "anonHint": "You're playing anonymously.",
           "loginCta": "Sign in",
           "loginSuffix": "to save your profile."
@@ -1089,6 +1100,7 @@
           "errEnterNick": "Enter a nickname",
           "errAuth": "Auth: {message}",
           "errNickTaken": "Nickname already taken",
+          "errLobbyFull": "Room full",
           "errServer": "Server error",
           "leave": "Leave",
           "menu": "Menu",
@@ -1257,6 +1269,7 @@
           "errAlreadyStarted": "Game already started",
           "errWrongGame": "This room is not a Blind Rank room",
           "errNickTaken": "This nickname is already taken in the room",
+          "errLobbyFull": "Room full",
           "anonHint": "You're playing anonymously.",
           "loginCta": "Sign in",
           "loginSuffix": "to save your profile."
@@ -1269,6 +1282,7 @@
           "errEnterNick": "Enter a nickname",
           "errAuth": "Auth: {message}",
           "errNickTaken": "Nickname already taken",
+          "errLobbyFull": "Room full",
           "errServer": "Server error",
           "leave": "Leave",
           "menu": "Menu",
@@ -1423,6 +1437,7 @@
           "errEnterNick": "Enter a nickname",
           "errAuth": "Auth: {message}",
           "errNickTaken": "Nickname already taken",
+          "errLobbyFull": "Room full",
           "errServer": "Server error",
           "leave": "Leave",
           "menu": "Menu",
@@ -1910,6 +1925,10 @@
         "presetLimit": {
           "title": "Unlimited presets",
           "description": "You've hit the 5 free presets limit. Create as many as you want with Premium."
+        },
+        "lobbyCapacity": {
+          "title": "Lobbies up to 16 players",
+          "description": "Free lobbies are capped at 4 players. With Premium, host up to 16 players in your online games."
         },
         "profileLink": {
           "title": "External profile link",

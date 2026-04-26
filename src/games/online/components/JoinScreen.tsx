@@ -13,7 +13,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { leaveAllOtherRooms } from "@/app/actions/rooms";
+import { safeJoinRoom } from "@/games/online/lib/safeJoinRoom";
 
 export interface JoinScreenLabels {
   salon: string;
@@ -26,6 +26,7 @@ export interface JoinScreenLabels {
   errRoomNotFound: string;
   errAlreadyStarted: string;
   errNickTaken: string;
+  errLobbyFull: string;
   errAuth: (message: string) => string;
 }
 
@@ -59,73 +60,25 @@ export default function JoinScreen({ code, labels, onJoined }: JoinScreenProps) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function doJoin(knownUser: { id: string }, knownName: string) {
+  async function doJoin(_knownUser: { id: string }, knownName: string) {
     const n = knownName.trim();
     if (!n) return;
 
-    const { data: room } = await supabase
-      .from("game_rooms")
-      .select("phase")
-      .eq("id", code)
-      .maybeSingle();
-    if (!room) {
-      setError(labels.errRoomNotFound);
-      setAutoJoining(false);
-      setLoading(false);
-      return;
-    }
-    if (room.phase !== "lobby") {
-      setError(labels.errAlreadyStarted);
-      setAutoJoining(false);
-      setLoading(false);
-      return;
-    }
-
-    const { data: alreadyIn } = await supabase
-      .from("room_players")
-      .select("display_name")
-      .eq("room_id", code)
-      .eq("user_id", knownUser.id)
-      .maybeSingle();
-    if (alreadyIn) {
-      onJoined(alreadyIn.display_name);
-      return;
-    }
-
-    await leaveAllOtherRooms(code);
-
-    const { data: taken } = await supabase
-      .from("room_players")
-      .select("display_name")
-      .eq("room_id", code)
-      .eq("display_name", n)
-      .maybeSingle();
-    if (taken) {
-      setError(labels.errNickTaken);
-      setAutoJoining(false);
-      setLoading(false);
-      return;
-    }
-
-    const { count } = await supabase
-      .from("room_players")
-      .select("*", { count: "exact", head: true })
-      .eq("room_id", code);
-    const { error: insertErr } = await supabase.from("room_players").insert({
-      room_id: code,
-      user_id: knownUser.id,
-      display_name: n,
-      is_host: false,
-      join_order: count ?? 1,
+    const res = await safeJoinRoom(supabase, code, n, {
+      errRoomNotFound: labels.errRoomNotFound,
+      errAlreadyStarted: labels.errAlreadyStarted,
+      errNickTaken: labels.errNickTaken,
+      errLobbyFull: labels.errLobbyFull,
     });
-    if (insertErr) {
-      setError(insertErr.message);
+
+    if (!res.ok) {
+      setError(res.error ?? "");
       setAutoJoining(false);
       setLoading(false);
       return;
     }
 
-    onJoined(n);
+    onJoined(res.displayName ?? n);
   }
 
   async function handleJoin() {

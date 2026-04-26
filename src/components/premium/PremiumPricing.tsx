@@ -18,6 +18,7 @@ type Plan = "monthly" | "yearly" | "lifetime";
 const FEATURES: { key: string; icon: string }[] = [
   { key: "noAds", icon: "🚫" },
   { key: "presetLimit", icon: "♾️" },
+  { key: "lobbyCapacity", icon: "👥" },
   { key: "profileLink", icon: "🔗" },
   { key: "bannerAccent", icon: "🎨" },
   { key: "creatorBadge", icon: "★" },

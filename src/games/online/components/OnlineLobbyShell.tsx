@@ -19,8 +19,14 @@
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import Header from "@/components/layout/Header";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  lobbyCapacityFor,
+  isPremiumStatus,
+  PREMIUM_LOBBY_CAPACITY,
+} from "@/lib/premium/lobbyCapacity";
 
 export interface OnlineLobbyShellLabels {
   lobbyTitle: string;
@@ -87,6 +93,7 @@ export default function OnlineLobbyShell({
   onNavigateToRoom,
 }: OnlineLobbyShellProps) {
   const { user, profile } = useAuth();
+  const tCap = useTranslations("common.lobbyCapacity");
 
   const [tab, setTab] = useState<"create" | "join">("create");
   const [displayName, setDisplayName] = useState("");
@@ -97,6 +104,12 @@ export default function OnlineLobbyShell({
 
   const isFullAccount = !!user && !user.is_anonymous && !!profile?.username;
   const effectiveName = isFullAccount ? profile!.username! : displayName.trim();
+  // Capacité du lobby créé : 4 si freemium, 16 si premium. La logique est
+  // miroir du SQL (compute_max_players). Affichage purement informatif —
+  // l'arbitre reste les triggers BDD.
+  const subStatus = profile?.subscription_status ?? null;
+  const isPremium = isPremiumStatus(subStatus);
+  const capacity = lobbyCapacityFor(subStatus);
 
   async function handleCreate() {
     if (!effectiveName) {
@@ -234,6 +247,47 @@ export default function OnlineLobbyShell({
 
         {/* Settings spécifiques au jeu (mode create) */}
         {tab === "create" && renderCreateSettings && renderCreateSettings({ isPrivate })}
+
+        {/* Capacité du salon (4 free / 16 premium). Affiché en mode create
+            uniquement, pour donner envie aux freemium de passer Premium. */}
+        {tab === "create" && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-surface-700/40 bg-surface-900/50 p-4 space-y-2"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-white font-display font-bold text-sm">
+                  {tCap("title")}
+                </p>
+                <p className="text-surface-500 text-xs mt-0.5">
+                  {tCap("value", { count: capacity })}
+                </p>
+              </div>
+              {isPremium ? (
+                <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/30 font-bold shrink-0">
+                  {tCap("premiumBadge")}
+                </span>
+              ) : (
+                <span className="text-[10px] uppercase tracking-wider px-2 py-1 rounded-lg bg-surface-800/60 text-surface-400 border border-surface-700/40 font-bold shrink-0">
+                  {tCap("freeBadge")}
+                </span>
+              )}
+            </div>
+            {!isPremium && (
+              <Link
+                href="/premium"
+                className="block rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200 hover:bg-amber-500/20 transition-colors"
+              >
+                <span className="font-bold">
+                  {tCap("upsell", { max: PREMIUM_LOBBY_CAPACITY })}
+                </span>{" "}
+                <span className="text-amber-300/80">→ {tCap("upsellCta")}</span>
+              </Link>
+            )}
+          </motion.div>
+        )}
 
         {/* Visibilité du salon */}
         {tab === "create" && (

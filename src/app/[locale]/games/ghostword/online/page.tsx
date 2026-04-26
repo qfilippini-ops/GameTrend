@@ -6,7 +6,8 @@ import { useRouter, Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import Header from "@/components/layout/Header";
-import { createRoom, leaveAllOtherRooms } from "@/app/actions/rooms";
+import { createRoom } from "@/app/actions/rooms";
+import { safeJoinRoom } from "@/games/online/lib/safeJoinRoom";
 import { useAuth } from "@/hooks/useAuth";
 
 function OnlineLobbyContent() {
@@ -100,46 +101,16 @@ function OnlineLobbyContent() {
         }
       }
 
-      // Vérifier la room
-      const { data: room } = await supabase
-        .from("game_rooms")
-        .select("phase")
-        .eq("id", code)
-        .maybeSingle();
-      if (!room) { setError(t("errRoomNotFound")); setLoading(false); return; }
-      if (room.phase !== "lobby") { setError(t("errAlreadyStarted")); setLoading(false); return; }
-
-      // Reconnexion ?
-      const { data: alreadyIn } = await supabase
-        .from("room_players")
-        .select("display_name")
-        .eq("room_id", code)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!alreadyIn) {
-        // Quitter les autres lobbies côté serveur (session cookie garantie)
-        await leaveAllOtherRooms(code);
-        // Pseudo pris ?
-        const { data: taken } = await supabase
-          .from("room_players")
-          .select("display_name")
-          .eq("room_id", code)
-          .eq("display_name", name)
-          .maybeSingle();
-        if (taken) { setError(t("errNickTaken")); setLoading(false); return; }
-
-        const { count } = await supabase
-          .from("room_players")
-          .select("*", { count: "exact", head: true })
-          .eq("room_id", code);
-        const { error: insertErr } = await supabase.from("room_players").insert({
-          room_id: code,
-          user_id: user.id,
-          display_name: name,
-          is_host: false,
-          join_order: count ?? 1,
-        });
-        if (insertErr) { setError(insertErr.message); setLoading(false); return; }
+      const res = await safeJoinRoom(supabase, code, name, {
+        errRoomNotFound: t("errRoomNotFound"),
+        errAlreadyStarted: t("errAlreadyStarted"),
+        errNickTaken: t("errNickTaken"),
+        errLobbyFull: t("errLobbyFull"),
+      });
+      if (!res.ok) {
+        setError(res.error ?? "");
+        setLoading(false);
+        return;
       }
 
       router.push(`/games/ghostword/online/${code}`);

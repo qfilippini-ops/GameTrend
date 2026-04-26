@@ -12,6 +12,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { leaveAllOtherRooms } from "@/app/actions/rooms";
+import { lobbyCapacityFor } from "@/lib/premium/lobbyCapacity";
 import {
   DEFAULT_CONFIG,
   clampRackSize,
@@ -75,6 +76,13 @@ export async function createBlindRankRoom(
 
     const code = generateCode();
 
+    const { data: profileForCap } = await supabase
+      .from("profiles")
+      .select("subscription_status")
+      .eq("id", user.id)
+      .maybeSingle();
+    const maxPlayers = lobbyCapacityFor(profileForCap?.subscription_status);
+
     const { error: roomErr } = await supabase.from("game_rooms").insert({
       id: code,
       host_id: user.id,
@@ -90,6 +98,7 @@ export async function createBlindRankRoom(
         },
       },
       is_private: options.isPrivate ?? true,
+      max_players: maxPlayers,
     });
     if (roomErr) {
       console.error("[createBlindRankRoom] insert game_rooms:", roomErr);

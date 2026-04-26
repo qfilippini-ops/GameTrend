@@ -12,7 +12,7 @@ import {
   OUTBID_TOUR_DEFAULT_SECONDS,
   OUTBID_TEAM_DEFAULT,
 } from "@/games/outbid/online-config";
-import { leaveAllOtherRooms } from "@/app/actions/rooms";
+import { safeJoinRoom } from "@/games/online/lib/safeJoinRoom";
 
 function OutbidOnlineLobbyContent() {
   const t = useTranslations("games.outbid.online.lobby");
@@ -94,55 +94,27 @@ function OutbidOnlineLobbyContent() {
             }
           }
 
+          // Pré-check game_type (safe_join_room ne contrôle pas le type
+          // de jeu, juste l'existence de la room et la phase 'lobby').
           const { data: room } = await supabase
             .from("game_rooms")
-            .select("phase, game_type")
+            .select("game_type")
             .eq("id", code)
             .maybeSingle();
           if (!room) return { error: tShell("errRoomNotFound") };
           if (room.game_type !== "outbid")
             return { error: tShell("errWrongGame") };
-          if (room.phase !== "lobby")
-            return { error: tShell("errAlreadyStarted") };
 
-          const { data: alreadyIn } = await supabase
-            .from("room_players")
-            .select("display_name")
-            .eq("room_id", code)
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (!alreadyIn) {
-            await leaveAllOtherRooms(code);
-            const { data: taken } = await supabase
-              .from("room_players")
-              .select("display_name")
-              .eq("room_id", code)
-              .eq("display_name", displayName)
-              .maybeSingle();
-            if (taken) return { error: tShell("errNickTaken") };
-
-            // Outbid : 1v1 strict, refuse au-delà de 2 joueurs
-            const { count } = await supabase
-              .from("room_players")
-              .select("*", { count: "exact", head: true })
-              .eq("room_id", code);
-            if ((count ?? 0) >= 2) {
-              return { error: tShell("errRoomFull") };
-            }
-
-            const { error: insertErr } = await supabase
-              .from("room_players")
-              .insert({
-                room_id: code,
-                user_id: user.id,
-                display_name: displayName,
-                is_host: false,
-                join_order: count ?? 1,
-              });
-            if (insertErr) return { error: insertErr.message };
-          }
-
+          // Atomic : kick autre lobby + capacité (Outbid = 2) + pseudo +
+          // insert. Pour Outbid, errLobbyFull est mappé sur errRoomFull
+          // (libellé existant "Salon complet, Outbid se joue à 2").
+          const res = await safeJoinRoom(supabase, code, displayName, {
+            errRoomNotFound: tShell("errRoomNotFound"),
+            errAlreadyStarted: tShell("errAlreadyStarted"),
+            errNickTaken: tShell("errNickTaken"),
+            errLobbyFull: tShell("errRoomFull"),
+          });
+          if (!res.ok) return { error: res.error ?? tShell("errServer") };
           return { code };
         } catch (e) {
           console.error(e);
