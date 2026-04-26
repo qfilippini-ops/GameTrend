@@ -168,6 +168,8 @@
       "title": "Roadmap",
       "kindGame": "Game",
       "kindFeature": "Feature",
+      "kindGamePlural": "Games",
+      "kindFeaturePlural": "Features",
       "badge": "Soon",
       "vote": "Upvote this idea",
       "unvote": "Remove my vote",

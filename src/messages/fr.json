@@ -168,6 +168,8 @@
       "title": "Avenir",
       "kindGame": "Jeu",
       "kindFeature": "Fonctionnalité",
+      "kindGamePlural": "Jeux",
+      "kindFeaturePlural": "Fonctionnalités",
       "badge": "Bientôt",
       "vote": "Voter pour ce projet",
       "unvote": "Retirer mon vote",

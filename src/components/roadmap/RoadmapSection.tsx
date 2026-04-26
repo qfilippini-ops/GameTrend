@@ -63,8 +63,8 @@ export function RoadmapSection() {
     };
   }, [user?.id]);
 
-  // Items triés par votes desc, types mélangés.
-  const visibleItems = useMemo(() => {
+  // Items annotés du compteur + voted, triés par votes desc puis slug.
+  const enriched = useMemo(() => {
     return ROADMAP_ITEMS.map((i) => ({
       ...i,
       count: state[i.slug]?.count ?? 0,
@@ -74,6 +74,10 @@ export function RoadmapSection() {
       return a.slug.localeCompare(b.slug);
     });
   }, [state]);
+
+  // Sections séparées par type, mais sans onglets : on les empile.
+  const games = useMemo(() => enriched.filter((i) => i.kind === "game"), [enriched]);
+  const features = useMemo(() => enriched.filter((i) => i.kind === "feature"), [enriched]);
 
   const onToggle = useCallback(
     async (slug: string) => {
@@ -106,19 +110,50 @@ export function RoadmapSection() {
         </h2>
       </div>
 
-      {/* Liste verticale, cards de hauteur uniforme par layout flex+row */}
-      <div className="space-y-2.5">
-        {visibleItems.map((item) => (
-          <RoadmapItemCard
-            key={item.slug}
-            item={item}
-            count={item.count}
-            voted={item.voted}
-            canVote={!!user && !user.is_anonymous}
-            onToggle={() => onToggle(item.slug)}
-            loading={loading}
-          />
-        ))}
+      {/* Deux groupes empilés (Jeux puis Fonctionnalités), pas d'onglets.
+          Cards de hauteur uniforme par layout flex+row. */}
+      <div className="space-y-4">
+        {games.length > 0 && (
+          <div>
+            <h3 className="text-[11px] uppercase tracking-wider text-surface-500 font-bold mb-1.5 pl-0.5">
+              {t("kindGamePlural")}
+            </h3>
+            <div className="space-y-2.5">
+              {games.map((item) => (
+                <RoadmapItemCard
+                  key={item.slug}
+                  item={item}
+                  count={item.count}
+                  voted={item.voted}
+                  canVote={!!user && !user.is_anonymous}
+                  onToggle={() => onToggle(item.slug)}
+                  loading={loading}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {features.length > 0 && (
+          <div>
+            <h3 className="text-[11px] uppercase tracking-wider text-surface-500 font-bold mb-1.5 pl-0.5">
+              {t("kindFeaturePlural")}
+            </h3>
+            <div className="space-y-2.5">
+              {features.map((item) => (
+                <RoadmapItemCard
+                  key={item.slug}
+                  item={item}
+                  count={item.count}
+                  voted={item.voted}
+                  canVote={!!user && !user.is_anonymous}
+                  onToggle={() => onToggle(item.slug)}
+                  loading={loading}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CTA Ticket */}
@@ -175,9 +210,6 @@ function RoadmapItemCard({
     });
   }
 
-  // Mini badge type (jeu/fonctionnalité), discret.
-  const kindLabel = item.kind === "game" ? tCommon("kindGame") : tCommon("kindFeature");
-
   return (
     <div
       className={`relative flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
@@ -191,14 +223,9 @@ function RoadmapItemCard({
       </div>
 
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <p className="font-display font-bold text-surface-100 text-sm leading-tight">
-            {t("title")}
-          </p>
-          <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-surface-800/70 text-surface-400 font-bold border border-surface-700/40">
-            {kindLabel}
-          </span>
-        </div>
+        <p className="font-display font-bold text-surface-100 text-sm leading-tight">
+          {t("title")}
+        </p>
         <p className="text-surface-500 text-xs mt-0.5 leading-snug line-clamp-2">
           {t("desc")}
         </p>
