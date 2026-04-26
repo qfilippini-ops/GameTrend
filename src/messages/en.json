@@ -40,6 +40,13 @@
       "upsellCta": "Get Premium",
       "infoAria": "Lobby capacity",
       "popoverMessage": "Host up to 16 players with a Premium account!"
+    },
+    "groupCapacity": {
+      "title": "Group capacity",
+      "value": "Up to {count} members",
+      "infoAria": "Group capacity",
+      "popoverMessage": "Groups up to 16 members with a Premium account!",
+      "upsellCta": "Get Premium"
     }
   },
   "languages": {
@@ -434,6 +441,16 @@
     "noFriendsHint": "Visit a player's profile to add them",
     "join": "Join",
     "manage": "Manage friends →",
+    "inviteToGroup": "Invite to my group",
+    "groupFullTooltip": "Your group is full",
+    "inviteErrors": {
+      "already_in_group": "You are already in a group.",
+      "already_member": "This friend is already in your group.",
+      "invite_pending": "An invitation is already pending.",
+      "not_friend": "You must be friends.",
+      "group_full": "Your group is full.",
+      "cannot_invite_self": "You can't invite yourself."
+    },
     "activity": {
       "offline": "Offline",
       "online": "Online",
@@ -1654,9 +1671,35 @@
     "accept": "✓ Accept",
     "decline": "Decline",
     "acceptedFriend": "accepted your friend request 🎉",
+    "groupInvite": {
+      "invites": "invited you to their group"
+    },
     "anonymous": "Player",
     "delete": "Delete",
     "viewAllFriends": "View all friends →"
+  },
+  "groups": {
+    "ariaLabel": "Group",
+    "title": "Group",
+    "loading": "Loading…",
+    "empty": "You don't have a group yet.",
+    "emptyHint": "Invite an online friend from the friends list to create one.",
+    "authPrompt": "Sign in to create a group with your friends and chat in real time.",
+    "tabChat": "Chat",
+    "tabMembers": "Members",
+    "send": "Send",
+    "placeholder": "Write a message…",
+    "noMessages": "No messages yet. Start the conversation!",
+    "leave": "Leave",
+    "leaveConfirm": "Leave this group?",
+    "kick": "Kick",
+    "kickConfirm": "Kick this member from the group?",
+    "host": "Host",
+    "lobbyShareLabel": "shared a {game} lobby",
+    "joinLobby": "Join",
+    "sysJoined": "{name} joined the group",
+    "sysLeft": "{name} left the group",
+    "sysKicked": "{name} was kicked from the group"
   },
   "legal": {
     "layoutTitle": "Legal information",
@@ -1837,6 +1880,7 @@
         "noAds": "Zero ads",
         "unlimitedPresets": "Unlimited presets",
         "lobbyCapacity": "Lobbies up to 16 players",
+        "groupCapacity": "Groups up to 16 members",
         "profileLink": "Profile link",
         "bannerAccent": "Banner + accent color",
         "creatorBadge": "Creator badge",
@@ -1934,6 +1978,10 @@
         "lobbyCapacity": {
           "title": "Host up to 16 players per lobby",
           "description": "Free lobbies are capped at 4 players. With Premium, host up to 16 players in your online games."
+        },
+        "groupCapacity": {
+          "title": "Groups up to 16 members",
+          "description": "Free groups are capped at 4 members. With Premium, your group can host up to 16 members to chat and share lobbies."
         },
         "profileLink": {
           "title": "External profile link",

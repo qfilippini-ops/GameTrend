@@ -9,6 +9,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import Avatar from "@/components/ui/Avatar";
 import { Link } from "@/i18n/navigation";
+import {
+  acceptGroupInvite,
+  declineGroupInvite,
+} from "@/app/actions/groups";
 
 export default function NotificationBell() {
   const t = useTranslations("notifications");
@@ -90,6 +94,23 @@ export default function NotificationBell() {
       p_response: response,
     });
     if (!data?.error) {
+      await markRead(notif.id);
+      refreshNotifs();
+    }
+  }
+
+  async function handleGroupInvite(
+    notif: (typeof notifications)[0],
+    response: "accept" | "decline"
+  ) {
+    const invitationId = (notif.payload as { invitation_id?: string } | null)
+      ?.invitation_id;
+    if (!invitationId) return;
+    const result =
+      response === "accept"
+        ? await acceptGroupInvite(invitationId)
+        : await declineGroupInvite(invitationId);
+    if (!("error" in result) || !result.error) {
       await markRead(notif.id);
       refreshNotifs();
     }
@@ -246,6 +267,34 @@ export default function NotificationBell() {
                                   </Link>
                                 );
                               })()
+                            ) : notif.type === "group_invite" ? (
+                              <>
+                                <p className="text-white text-sm leading-snug">
+                                  <span className="mr-1">💬</span>
+                                  <span className="font-medium">
+                                    {notif.from_profile?.username ?? t("anonymous")}
+                                  </span>{" "}
+                                  {t("groupInvite.invites")}
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  <button
+                                    onClick={() =>
+                                      handleGroupInvite(notif, "accept")
+                                    }
+                                    className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors"
+                                  >
+                                    {t("accept")}
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleGroupInvite(notif, "decline")
+                                    }
+                                    className="px-3 py-1 rounded-xl border border-surface-700/40 text-surface-400 text-xs hover:text-red-400 transition-colors"
+                                  >
+                                    {t("decline")}
+                                  </button>
+                                </div>
+                              </>
                             ) : notif.type === "post_liked" ||
                               notif.type === "post_commented" ||
                               notif.type === "comment_replied" ? (

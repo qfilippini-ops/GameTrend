@@ -3,6 +3,7 @@
 import { Link } from "@/i18n/navigation";
 import NotificationBell from "@/components/social/NotificationBell";
 import FriendsPanel from "@/components/social/FriendsPanel";
+import GroupPanel from "@/components/social/GroupPanel";
 
 interface HeaderProps {
   title?: string;
@@ -52,6 +53,7 @@ export default function Header({
 
         {/* ── Droite : actions ── */}
         <div className="flex items-center gap-1.5 shrink-0">
+          <GroupPanel />
           <FriendsPanel />
           <NotificationBell />
           {actions && actions}

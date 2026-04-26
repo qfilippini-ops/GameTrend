@@ -136,6 +136,12 @@ export async function createDypRoom(
       return { error: `Erreur ajout joueur: ${playerErr.message}` };
     }
 
+    try {
+      await supabase.rpc("share_lobby_to_group", { p_room_id: code });
+    } catch (shareErr) {
+      console.error("[createDypRoom] share_lobby_to_group:", shareErr);
+    }
+
     return { code };
   } catch (e) {
     console.error("[createDypRoom] exception:", e);

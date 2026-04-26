@@ -141,6 +141,7 @@ export default function SubscriptionSection() {
     { icon: "🚫", key: "noAds" },
     { icon: "♾️", key: "unlimitedPresets" },
     { icon: "👥", key: "lobbyCapacity" },
+    { icon: "💬", key: "groupCapacity" },
     { icon: "🔗", key: "profileLink" },
     { icon: "🎨", key: "bannerAccent" },
     { icon: "👑", key: "creatorBadge" },

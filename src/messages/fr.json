@@ -40,6 +40,13 @@
       "upsellCta": "Découvrir Premium",
       "infoAria": "Capacité du salon",
       "popoverMessage": "Accueil jusqu'à 16 joueurs avec un compte Premium !"
+    },
+    "groupCapacity": {
+      "title": "Capacité du groupe",
+      "value": "Jusqu'à {count} membres",
+      "infoAria": "Capacité du groupe",
+      "popoverMessage": "Groupes jusqu'à 16 membres avec un compte Premium !",
+      "upsellCta": "Découvrir Premium"
     }
   },
   "languages": {
@@ -434,6 +441,16 @@
     "noFriendsHint": "Visite le profil d'un joueur pour l'ajouter",
     "join": "Rejoindre",
     "manage": "Gérer mes amis →",
+    "inviteToGroup": "Inviter dans mon groupe",
+    "groupFullTooltip": "Ton groupe est plein",
+    "inviteErrors": {
+      "already_in_group": "Tu es déjà dans un groupe.",
+      "already_member": "Cet ami est déjà dans ton groupe.",
+      "invite_pending": "Une invitation est déjà en attente.",
+      "not_friend": "Vous devez être amis.",
+      "group_full": "Ton groupe est plein.",
+      "cannot_invite_self": "Tu ne peux pas t'inviter toi-même."
+    },
     "activity": {
       "offline": "Hors ligne",
       "online": "En ligne",
@@ -1654,9 +1671,35 @@
     "accept": "✓ Accepter",
     "decline": "Refuser",
     "acceptedFriend": "a accepté ta demande d'ami 🎉",
+    "groupInvite": {
+      "invites": "t'invite dans son groupe"
+    },
     "anonymous": "Joueur",
     "delete": "Supprimer",
     "viewAllFriends": "Voir tous les amis →"
+  },
+  "groups": {
+    "ariaLabel": "Groupe",
+    "title": "Groupe",
+    "loading": "Chargement…",
+    "empty": "Tu n'as pas encore de groupe.",
+    "emptyHint": "Invite un ami connecté depuis la liste des amis pour en créer un.",
+    "authPrompt": "Connecte-toi pour créer un groupe avec tes amis et discuter en temps réel.",
+    "tabChat": "Chat",
+    "tabMembers": "Membres",
+    "send": "Envoyer",
+    "placeholder": "Écris un message…",
+    "noMessages": "Aucun message pour le moment. Lance la conversation !",
+    "leave": "Quitter",
+    "leaveConfirm": "Quitter ce groupe ?",
+    "kick": "Exclure",
+    "kickConfirm": "Exclure ce membre du groupe ?",
+    "host": "Hôte",
+    "lobbyShareLabel": "a partagé un salon {game}",
+    "joinLobby": "Rejoindre",
+    "sysJoined": "{name} a rejoint le groupe",
+    "sysLeft": "{name} a quitté le groupe",
+    "sysKicked": "{name} a été exclu(e) du groupe"
   },
   "legal": {
     "layoutTitle": "Informations légales",
@@ -1837,6 +1880,7 @@
         "noAds": "Zéro publicité",
         "unlimitedPresets": "Presets illimités",
         "lobbyCapacity": "Lobbies jusqu'à 16 joueurs",
+        "groupCapacity": "Groupes jusqu'à 16 membres",
         "profileLink": "Lien dans le profil",
         "bannerAccent": "Bannière + couleur",
         "creatorBadge": "Badge Créateur",
@@ -1934,6 +1978,10 @@
         "lobbyCapacity": {
           "title": "Accueil jusqu'à 16 joueurs par lobby",
           "description": "Les salons gratuits sont limités à 4 joueurs. Avec Premium, accueille jusqu'à 16 joueurs dans tes parties en ligne."
+        },
+        "groupCapacity": {
+          "title": "Groupes jusqu'à 16 membres",
+          "description": "Les groupes gratuits sont limités à 4 membres. Avec Premium, ton groupe peut accueillir jusqu'à 16 membres pour discuter et partager les lobbies."
         },
         "profileLink": {
           "title": "Lien externe sur ton profil",

@@ -15,7 +15,8 @@ export type NotificationType =
   | "outbid_navi_shared"
   | "post_liked"
   | "post_commented"
-  | "comment_replied";
+  | "comment_replied"
+  | "group_invite";
 
 export interface Notification {
   id: string;

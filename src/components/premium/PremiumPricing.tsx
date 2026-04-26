@@ -19,6 +19,7 @@ const FEATURES: { key: string; icon: string }[] = [
   { key: "noAds", icon: "🚫" },
   { key: "presetLimit", icon: "♾️" },
   { key: "lobbyCapacity", icon: "👥" },
+  { key: "groupCapacity", icon: "💬" },
   { key: "profileLink", icon: "🔗" },
   { key: "bannerAccent", icon: "🎨" },
   { key: "creatorBadge", icon: "★" },

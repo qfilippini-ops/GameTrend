@@ -124,6 +124,12 @@ export async function createBlindRankRoom(
       return { error: `Erreur ajout joueur: ${playerErr.message}` };
     }
 
+    try {
+      await supabase.rpc("share_lobby_to_group", { p_room_id: code });
+    } catch (shareErr) {
+      console.error("[createBlindRankRoom] share_lobby_to_group:", shareErr);
+    }
+
     return { code };
   } catch (e) {
     console.error("[createBlindRankRoom] exception:", e);

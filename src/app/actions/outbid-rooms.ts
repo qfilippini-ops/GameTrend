@@ -122,6 +122,12 @@ export async function createOutbidRoom(
       return { error: `Erreur ajout joueur: ${playerErr.message}` };
     }
 
+    try {
+      await supabase.rpc("share_lobby_to_group", { p_room_id: code });
+    } catch (shareErr) {
+      console.error("[createOutbidRoom] share_lobby_to_group:", shareErr);
+    }
+
     return { code };
   } catch (e) {
     console.error("[createOutbidRoom] exception:", e);

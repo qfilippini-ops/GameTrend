@@ -7,7 +7,29 @@ import { useTranslations } from "next-intl";
 import Avatar from "@/components/ui/Avatar";
 import { useAuth } from "@/hooks/useAuth";
 import { useFriendsList } from "@/hooks/useFriendsList";
+import { useGroup } from "@/hooks/useGroup";
 import { getActivityStatus, ACTIVITY_COLORS } from "@/types/social";
+import { inviteToGroup } from "@/app/actions/groups";
+
+const KNOWN_INVITE_ERRORS = new Set([
+  "already_in_group",
+  "already_member",
+  "invite_pending",
+  "not_friend",
+  "group_full",
+  "cannot_invite_self",
+]);
+
+function translateInviteError(
+  t: ReturnType<typeof useTranslations>,
+  raw: string
+): string {
+  // Garde la traduction pour les codes connus, sinon affiche tel quel.
+  if (KNOWN_INVITE_ERRORS.has(raw)) {
+    return t(`inviteErrors.${raw}` as Parameters<typeof t>[0]);
+  }
+  return raw;
+}
 
 export default function FriendsPanel() {
   const t = useTranslations("friends");
@@ -17,10 +39,28 @@ export default function FriendsPanel() {
 
   const isConnected = !!(user && !user.is_anonymous);
   const { friends, loading } = useFriendsList(isConnected ? user!.id : null);
+  const { members: groupMembers, isFull: groupIsFull } = useGroup();
+  const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const groupMemberIds = new Set(groupMembers.map((m) => m.user_id));
 
   const onlineCount = friends.filter(
     (f) => f.is_online || !!f.room_id
   ).length;
+
+  async function handleInvite(targetId: string) {
+    setInviteError(null);
+    setInvitedIds((s) => new Set(s).add(targetId));
+    const result = await inviteToGroup(targetId);
+    if ("error" in result) {
+      setInviteError(result.error);
+      setInvitedIds((s) => {
+        const next = new Set(s);
+        next.delete(targetId);
+        return next;
+      });
+    }
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -147,12 +187,35 @@ export default function FriendsPanel() {
                               {t("join")}
                             </Link>
                           )}
+                          {status !== "offline" &&
+                            !groupMemberIds.has(f.user_id) && (
+                              <button
+                                onClick={() => handleInvite(f.user_id)}
+                                disabled={
+                                  invitedIds.has(f.user_id) || groupIsFull
+                                }
+                                title={
+                                  groupIsFull
+                                    ? t("groupFullTooltip")
+                                    : t("inviteToGroup")
+                                }
+                                aria-label={t("inviteToGroup")}
+                                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-xl bg-emerald-600/15 text-emerald-300 border border-emerald-600/30 hover:bg-emerald-600/25 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+                              >
+                                {invitedIds.has(f.user_id) ? "✓" : "+"}
+                              </button>
+                            )}
                         </div>
                       );
                     })
                   )}
                 </div>
 
+                {inviteError && (
+                  <p className="px-4 py-1.5 text-[11px] text-red-400 border-t border-surface-800/40">
+                    {translateInviteError(t, inviteError)}
+                  </p>
+                )}
                 <div className="px-4 py-2.5 border-t border-surface-800/40">
                   <Link
                     href="/friends"

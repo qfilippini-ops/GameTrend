@@ -114,6 +114,13 @@ export async function createRoom(options: {
       return { error: `Erreur ajout joueur: ${playerErr.message}` };
     }
 
+    // Best-effort : partage le lobby dans le groupe du host (no-op si pas de groupe).
+    try {
+      await supabase.rpc("share_lobby_to_group", { p_room_id: code });
+    } catch (shareErr) {
+      console.error("[createRoom] share_lobby_to_group:", shareErr);
+    }
+
     return { code };
   } catch (e) {
     console.error("[createRoom] exception:", e);
