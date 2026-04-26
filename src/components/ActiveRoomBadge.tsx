@@ -5,9 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { useActiveRoom } from "@/hooks/useActiveRoom";
 
-const GAME_PATHS: Record<string, string> = {
-  ghostword: "/games/ghostword/online",
-};
+// Liste des game_types qui ont une route online dédiée. Les jeux non listés
+// ici sont silencieusement ignorés (badge masqué) plutôt que de générer une
+// URL invalide qui afficherait une page blanche (cf. bug /games/<code>).
+const ONLINE_GAMES = new Set(["ghostword", "blindrank", "dyp", "outbid"]);
 
 export default function ActiveRoomBadge() {
   const t = useTranslations("rooms");
@@ -16,8 +17,9 @@ export default function ActiveRoomBadge() {
   const { activeRoom, loading } = useActiveRoom();
 
   if (loading || !activeRoom) return null;
+  if (!ONLINE_GAMES.has(activeRoom.game_type)) return null;
 
-  const roomPath = `${GAME_PATHS[activeRoom.game_type] ?? "/games"}/${activeRoom.id}`;
+  const roomPath = `/games/${activeRoom.game_type}/online/${activeRoom.id}`;
   if (pathname.startsWith(roomPath)) return null;
 
   const PHASE_LABELS: Record<string, string> = {

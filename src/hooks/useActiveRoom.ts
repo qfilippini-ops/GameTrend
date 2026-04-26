@@ -45,8 +45,19 @@ export function useActiveRoom() {
         .eq("id", membership.room_id)
         .maybeSingle();
 
+      // Filet de sécurité : si la room n'existe plus (cron de cleanup,
+      // suppression manuelle…) mais qu'un membership orphelin traîne,
+      // on le supprime côté client pour ne pas afficher un badge fantôme.
+      if (!room) {
+        await supabase
+          .from("room_players")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("room_id", membership.room_id);
+      }
+
       if (!cancelled) {
-        setActiveRoom(room as ActiveRoom | null);
+        setActiveRoom((room as ActiveRoom | null) ?? null);
         setLoading(false);
       }
     }
