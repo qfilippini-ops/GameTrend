@@ -18,6 +18,7 @@ import {
   togglePostCommentVote,
   type PostType,
 } from "@/app/actions/posts";
+import { COMMENT_MAX_LEN } from "@/lib/social/limits";
 
 // Section commentaires d'un post du feed.
 // - Liste les commentaires (threading 1 niveau : root → reply, pas plus)
@@ -173,27 +174,40 @@ export function PostComments({
     <div className="space-y-3">
       {/* Composer principal (commentaire racine) */}
       {currentUserId ? (
-        <div className="flex gap-2 items-start">
-          <textarea
-            value={rootDraft}
-            onChange={(e) => setRootDraft(e.target.value)}
-            placeholder={t("placeholder")}
-            maxLength={1000}
-            rows={2}
-            className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-surface-900/60 border border-surface-700/60 text-surface-100 text-sm placeholder:text-surface-500 focus:outline-none focus:border-brand-500/60 resize-none"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void submitRoot();
-            }}
-            disabled={submitting || rootDraft.trim().length === 0}
-            className="px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-bold hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+        <div className="space-y-1">
+          <div className="flex gap-2 items-start">
+            <textarea
+              value={rootDraft}
+              onChange={(e) =>
+                setRootDraft(e.target.value.slice(0, COMMENT_MAX_LEN))
+              }
+              placeholder={t("placeholder")}
+              maxLength={COMMENT_MAX_LEN}
+              rows={2}
+              className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-surface-900/60 border border-surface-700/60 text-surface-100 text-sm placeholder:text-surface-500 focus:outline-none focus:border-brand-500/60 resize-none"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void submitRoot();
+              }}
+              disabled={submitting || rootDraft.trim().length === 0}
+              className="px-3 py-2 rounded-lg bg-brand-600 text-white text-xs font-bold hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shrink-0"
+            >
+              {submitting ? "…" : t("send")}
+            </button>
+          </div>
+          <p
+            className={`text-[10px] text-right pr-1 tabular-nums ${
+              rootDraft.length >= COMMENT_MAX_LEN - 20
+                ? "text-amber-400"
+                : "text-surface-600"
+            }`}
           >
-            {submitting ? "…" : t("send")}
-          </button>
+            {rootDraft.length}/{COMMENT_MAX_LEN}
+          </p>
         </div>
       ) : (
         <p className="text-xs text-surface-500 italic px-1">{t("loginToComment")}</p>
@@ -434,28 +448,41 @@ function CommentItem({
                 transition={{ duration: 0.18 }}
                 className="overflow-hidden mt-2"
               >
-                <div className="flex gap-2 items-start">
-                  <textarea
-                    value={replyDraft}
-                    onChange={(e) => setReplyDraft(e.target.value)}
-                    placeholder={t("replyPlaceholder")}
-                    rows={2}
-                    maxLength={1000}
-                    className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-surface-900/60 border border-surface-700/60 text-surface-100 text-xs placeholder:text-surface-500 focus:outline-none focus:border-brand-500/60 resize-none"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                  <button
-                    type="button"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      const ok = await onReplySubmit(replyDraft);
-                      if (ok) setReplyDraft("");
-                    }}
-                    disabled={replyDraft.trim().length === 0}
-                    className="px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-bold hover:bg-brand-500 disabled:opacity-50 transition-colors shrink-0"
+                <div className="space-y-1">
+                  <div className="flex gap-2 items-start">
+                    <textarea
+                      value={replyDraft}
+                      onChange={(e) =>
+                        setReplyDraft(e.target.value.slice(0, COMMENT_MAX_LEN))
+                      }
+                      placeholder={t("replyPlaceholder")}
+                      rows={2}
+                      maxLength={COMMENT_MAX_LEN}
+                      className="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-surface-900/60 border border-surface-700/60 text-surface-100 text-xs placeholder:text-surface-500 focus:outline-none focus:border-brand-500/60 resize-none"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const ok = await onReplySubmit(replyDraft);
+                        if (ok) setReplyDraft("");
+                      }}
+                      disabled={replyDraft.trim().length === 0}
+                      className="px-2.5 py-1.5 rounded-lg bg-brand-600 text-white text-[11px] font-bold hover:bg-brand-500 disabled:opacity-50 transition-colors shrink-0"
+                    >
+                      {t("send")}
+                    </button>
+                  </div>
+                  <p
+                    className={`text-[10px] text-right pr-1 tabular-nums ${
+                      replyDraft.length >= COMMENT_MAX_LEN - 20
+                        ? "text-amber-400"
+                        : "text-surface-600"
+                    }`}
                   >
-                    {t("send")}
-                  </button>
+                    {replyDraft.length}/{COMMENT_MAX_LEN}
+                  </p>
                 </div>
               </motion.div>
             )}

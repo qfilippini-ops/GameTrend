@@ -4,14 +4,15 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { deleteMyPost, type PostType } from "@/app/actions/posts";
-import { createClient } from "@/lib/supabase/client";
 
 // Menu contextuel "⋯" affiché sur les publications du feed pour leur auteur.
-// Supporte deux types de "publications" :
-//   - "result" : un game_results partagé → RPC delete_my_post
-//   - "preset" : un preset public → suppression directe via Supabase
-//     (assets storage non nettoyés ici, on accepte le résiduel ; pour un
-//     nettoyage complet utiliser DeletePresetButton sur la page preset).
+// Les deux types de publications passent désormais par le RPC delete_my_post,
+// qui :
+//   - 'result' : nettoie post_reactions / post_comments / notifs liées
+//   - 'preset' : idem + supprime la ligne presets (cascade SQL pour
+//     preset_likes/preset_comments). Les assets storage (covers / images)
+//     ne sont PAS nettoyés ici — pour un nettoyage complet d'un preset,
+//     utiliser DeletePresetButton sur la page preset.
 
 type DeleteKind = "result" | "preset";
 
@@ -50,26 +51,9 @@ export function DeletePostMenu({
 
   function handleDelete() {
     startTransition(async () => {
-      let ok = false;
-      let errMsg: string | null = null;
-
-      if (kind === "result") {
-        const res = await deleteMyPost("result" as PostType, postId);
-        ok = res.ok;
-        errMsg = res.error ?? null;
-      } else {
-        // preset : suppression directe via RLS (auth.uid() === author_id)
-        const supabase = createClient();
-        const { error: delErr } = await supabase
-          .from("presets")
-          .delete()
-          .eq("id", postId);
-        ok = !delErr;
-        errMsg = delErr?.message ?? null;
-      }
-
-      if (!ok) {
-        setError(errMsg ?? t("errDelete"));
+      const res = await deleteMyPost(kind as PostType, postId);
+      if (!res.ok) {
+        setError(res.error ?? t("errDelete"));
         return;
       }
       setConfirming(false);

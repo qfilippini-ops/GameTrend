@@ -7,10 +7,13 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { COMMENT_MAX_LEN } from "@/lib/social/limits";
 
-// Type des "posts" supportés. On ne supporte que 'result' pour le moment ;
-// les presets gardent leur propre système (preset_likes / preset_comments).
-export type PostType = "result";
+// Type des "posts" supportés. Désormais 'result' ET 'preset'.
+// (Note : les presets ont aussi un système legacy de favoris via preset_likes
+// — c'est INDÉPENDANT des réactions/commentaires "social v3" basés sur
+// post_reactions / post_comments.)
+export type PostType = "result" | "preset";
 
 // ── Réactions ────────────────────────────────────────────────────────────
 
@@ -81,7 +84,7 @@ export async function createPostComment(
   try {
     const trimmed = body.trim();
     if (trimmed.length === 0) return { ok: false, error: "empty_body" };
-    if (trimmed.length > 1000) return { ok: false, error: "body_too_long" };
+    if (trimmed.length > COMMENT_MAX_LEN) return { ok: false, error: "body_too_long" };
 
     const supabase = createClient();
     const {

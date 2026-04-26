@@ -1512,7 +1512,14 @@
     "shareResult": "📤 Share result",
     "visibilityHint": "✓ Visible on your profile and to your followers",
     "loginHint": "Sign in to make your results visible on your profile",
-    "defaultText": "Come play with me on GameTrend!"
+    "defaultText": "Come play with me on GameTrend!",
+    "publishOnFeed": "📡 Post on feed",
+    "publishingOnFeed": "Publishing…",
+    "publishedOnFeed": "✓ On feed",
+    "shareLink": "🔗 Share link",
+    "shareLinkSharing": "Sharing…",
+    "shareLinkDone": "✓ Link shared",
+    "loginToFeedHint": "Sign in to publish on your feed."
   },
   "rooms": {
     "active": "Active game",

@@ -13,7 +13,7 @@ import {
 interface ShareResultButtonProps {
   /**
    * Données complètes du résultat. Le `resultData` n'est envoyé en BDD
-   * que si l'utilisateur clique sur "Partager".
+   * que si l'utilisateur clique sur "Partager sur le feed".
    */
   result: SaveGameResultInput;
   /** Texte personnalisé pour la Web Share API (sinon généré automatiquement) */
@@ -22,20 +22,30 @@ interface ShareResultButtonProps {
   shareUrl?: string;
 }
 
+// Refonte 2026-04 : on sépare deux actions distinctes
+//   1. "Partager sur le feed" : push BDD complet (is_shared = true) →
+//      apparaît dans les feeds suivis et sur le profil de l'auteur.
+//   2. "Partager le lien" : Web Share API / clipboard, pour partager
+//      l'URL vers d'autres apps / réseaux. Ne touche PAS au feed.
+//
+// Les deux boutons sont indépendants. L'un peut être réalisé sans
+// l'autre. Le bouton "feed" disparaît (ou devient "déjà publié") une
+// fois la publication effectuée.
 export default function ShareResultButton({ result, shareText, shareUrl }: ShareResultButtonProps) {
   const t = useTranslations("share");
   const { user } = useAuth();
+
   // ID de la ligne `game_results` créée en mode minimal (sans result_data).
-  // Permet d'updater la même ligne si l'utilisateur partage ensuite, plutôt
+  // Permet d'updater la même ligne si l'utilisateur publie ensuite, plutôt
   // que d'en créer une nouvelle.
   const [trackedId, setTrackedId] = useState<string | null>(null);
-  const [shareStatus, setShareStatus] = useState<"idle" | "sharing" | "shared">("idle");
+  const [feedStatus, setFeedStatus] = useState<"idle" | "publishing" | "done">("idle");
+  const [linkStatus, setLinkStatus] = useState<"idle" | "sharing" | "done">("idle");
   const trackedRef = useRef(false);
 
-  const isLoggedIn = user && !user.is_anonymous;
+  const isLoggedIn = !!user && !user.is_anonymous;
 
-  // Sauvegarde MINIMALE au mount (pour les stats du profil) — silencieuse,
-  // pas de message à l'utilisateur. Aucun result_data envoyé.
+  // Sauvegarde MINIMALE au mount (stats du profil) — silencieuse.
   useEffect(() => {
     if (trackedRef.current || !isLoggedIn || !result.presetId) return;
     trackedRef.current = true;
@@ -44,9 +54,21 @@ export default function ShareResultButton({ result, shareText, shareUrl }: Share
     });
   }, [isLoggedIn, result.gameType, result.presetId]);
 
-  async function handleShare() {
-    if (shareStatus === "sharing") return;
-    setShareStatus("sharing");
+  async function handlePublishOnFeed() {
+    if (feedStatus !== "idle" || !isLoggedIn) return;
+    setFeedStatus("publishing");
+    const res = await shareGameResult(result, trackedId);
+    if ("error" in res) {
+      console.error("[ShareResultButton] publish", res.error);
+      setFeedStatus("idle");
+      return;
+    }
+    setFeedStatus("done");
+  }
+
+  async function handleShareLink() {
+    if (linkStatus === "sharing") return;
+    setLinkStatus("sharing");
 
     const url = shareUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
     const text = shareText ?? t("defaultText");
@@ -69,43 +91,52 @@ export default function ShareResultButton({ result, shareText, shareUrl }: Share
     }
 
     if (!didShare) {
-      setShareStatus("idle");
+      setLinkStatus("idle");
       return;
     }
-
-    // Partage effectif → on enrichit la ligne en BDD avec result_data
-    // complet et on passe is_shared = true (visible dans le feed).
-    if (isLoggedIn) {
-      await shareGameResult(result, trackedId);
-    }
-    setShareStatus("shared");
+    setLinkStatus("done");
   }
 
   return (
     <div className="space-y-2">
-      <motion.button
-        whileTap={{ scale: 0.97 }}
-        onClick={handleShare}
-        disabled={shareStatus === "sharing"}
-        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-surface-800/60 hover:bg-surface-700/60 text-white font-semibold border border-surface-700/40 transition-colors text-sm disabled:opacity-60"
-      >
-        {shareStatus === "shared" ? (
-          <>{t("shared")}</>
-        ) : shareStatus === "sharing" ? (
-          <>{t("sharing")}</>
-        ) : (
-          <>{t("shareResult")}</>
-        )}
-      </motion.button>
+      <div className="grid grid-cols-2 gap-2">
+        {/* ── 1. Publier sur le feed (BDD) ─────────────────────────── */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={handlePublishOnFeed}
+          disabled={!isLoggedIn || feedStatus !== "idle"}
+          className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-brand-700/40 hover:bg-brand-600/50 text-white font-semibold border border-brand-600/40 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {feedStatus === "done"
+            ? t("publishedOnFeed")
+            : feedStatus === "publishing"
+              ? t("publishingOnFeed")
+              : t("publishOnFeed")}
+        </motion.button>
 
-      {shareStatus === "shared" && isLoggedIn && (
+        {/* ── 2. Partager le lien (Web Share API / clipboard) ──────── */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={handleShareLink}
+          disabled={linkStatus === "sharing"}
+          className="flex items-center justify-center gap-2 py-3 rounded-2xl bg-surface-800/60 hover:bg-surface-700/60 text-white font-semibold border border-surface-700/40 transition-colors text-sm disabled:opacity-60"
+        >
+          {linkStatus === "done"
+            ? t("shareLinkDone")
+            : linkStatus === "sharing"
+              ? t("shareLinkSharing")
+              : t("shareLink")}
+        </motion.button>
+      </div>
+
+      {feedStatus === "done" && (
         <p className="text-[11px] text-emerald-500/80 text-center">
           {t("visibilityHint")}
         </p>
       )}
       {!isLoggedIn && (
         <p className="text-[11px] text-surface-600 text-center">
-          {t("loginHint")}
+          {t("loginToFeedHint")}
         </p>
       )}
     </div>

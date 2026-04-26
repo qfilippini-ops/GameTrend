@@ -1512,7 +1512,14 @@
     "shareResult": "📤 Partager le résultat",
     "visibilityHint": "✓ Visible sur ton profil et chez tes abonnés",
     "loginHint": "Connecte-toi pour rendre tes résultats visibles sur ton profil",
-    "defaultText": "Viens jouer avec moi sur GameTrend !"
+    "defaultText": "Viens jouer avec moi sur GameTrend !",
+    "publishOnFeed": "📡 Partager sur le feed",
+    "publishingOnFeed": "Publication…",
+    "publishedOnFeed": "✓ Sur le feed",
+    "shareLink": "🔗 Partager le lien",
+    "shareLinkSharing": "Partage…",
+    "shareLinkDone": "✓ Lien partagé",
+    "loginToFeedHint": "Connecte-toi pour publier sur ton feed."
   },
   "rooms": {
     "active": "Partie en cours",

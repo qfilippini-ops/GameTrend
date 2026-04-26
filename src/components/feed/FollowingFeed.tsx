@@ -28,6 +28,11 @@ export interface PresetPayload {
   game_type: string;
   cover_url: string | null;
   play_count: number;
+  // Compteurs sociaux (post_reactions / post_comments — INDÉPENDANTS des
+  // favoris preset_likes). Peuvent être absents pour les anciens payloads.
+  like_count?: number;
+  dislike_count?: number;
+  comment_count?: number;
 }
 
 export interface ResultPayload {
@@ -591,8 +596,16 @@ export type TimeT = ReturnType<typeof useTranslations<"time">>;
 
 export function PresetFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, onDeleted }: { item: FeedItem; data: PresetPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string; currentUserId: string | null; onDeleted: () => void }) {
   const isMine = currentUserId === item.author.id;
+  const [commentCount, setCommentCount] = useState<number>(data.comment_count ?? 0);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const anchorId = item.key;
+
   return (
-    <div className="relative rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors">
+    <div
+      id={anchorId}
+      data-feed-anchor={anchorId}
+      className="rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors scroll-mt-24"
+    >
       <FeedHeader
         author={item.author}
         action={t("actions.publishedPreset")}
@@ -625,6 +638,55 @@ export function PresetFeedCard({ item, data, t, tTime, tCommon, locale, currentU
           </div>
         </div>
       </Link>
+
+      {/* ─── Footer social : réactions + commentaires ──────────────────── */}
+      <div className="px-3 py-2 border-t border-surface-800/40 flex items-center gap-2 flex-wrap">
+        <PostReactions
+          postType="preset"
+          postId={data.id}
+          initialLikeCount={data.like_count ?? 0}
+          initialDislikeCount={data.dislike_count ?? 0}
+          initialUserReaction={null}
+          canReact={!!currentUserId}
+          size="sm"
+        />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCommentsOpen((v) => !v);
+          }}
+          className="ml-auto inline-flex items-center gap-1.5 text-xs font-bold py-1 px-2.5 rounded-full bg-surface-900/40 border border-surface-700/60 text-surface-300 hover:bg-surface-800/60 hover:text-brand-200 transition-colors"
+          aria-expanded={commentsOpen}
+        >
+          <span aria-hidden>💬</span>
+          <span className="font-mono tabular-nums">{commentCount}</span>
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {commentsOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden border-t border-surface-800/40"
+          >
+            <div className="p-3">
+              <PostComments
+                postType="preset"
+                postId={data.id}
+                currentUserId={currentUserId}
+                postAuthorId={item.author.id}
+                onCountChange={(delta) =>
+                  setCommentCount((c) => Math.max(0, c + delta))
+                }
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
