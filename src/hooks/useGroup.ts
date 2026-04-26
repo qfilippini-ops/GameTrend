@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -149,6 +149,9 @@ export function useGroup(): UseGroupReturn {
   const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [pendingInvites, setPendingInvites] = useState<GroupInvitation[]>([]);
   const [loading, setLoading] = useState(true);
+  // Drapeau "premier fetch terminé" : on ne réactive plus le spinner ensuite,
+  // pour éviter le flash "Chargement..." sur chaque update realtime du chat.
+  const hasLoadedRef = useRef(false);
 
   const myUserId = user?.id ?? null;
 
@@ -159,10 +162,11 @@ export function useGroup(): UseGroupReturn {
       setMessages([]);
       setPendingInvites([]);
       setLoading(false);
+      hasLoadedRef.current = true;
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     const { data: membership } = await supabase
       .from("group_members")
       .select("group_id")
@@ -213,6 +217,7 @@ export function useGroup(): UseGroupReturn {
       setMembers([]);
       setMessages([]);
       setLoading(false);
+      hasLoadedRef.current = true;
       return;
     }
 
@@ -256,6 +261,7 @@ export function useGroup(): UseGroupReturn {
     setMembers(enrichedMembers);
     setMessages((msgs as GroupMessage[]) ?? []);
     setLoading(false);
+    hasLoadedRef.current = true;
   }, [myUserId, supabase]);
 
   // Setup : charge initial + abonnement au broadcaster partagé.

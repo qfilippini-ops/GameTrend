@@ -25,7 +25,7 @@ export default function GroupInviteToasts() {
   const tg = useTranslations("notifications");
   const { user } = useAuth();
   const isConnected = !!(user && !user.is_anonymous);
-  const { pendingInvites } = useGroup();
+  const { pendingInvites, refresh } = useGroup();
 
   const [mounted, setMounted] = useState(false);
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
@@ -41,16 +41,24 @@ export default function GroupInviteToasts() {
 
   async function handle(invitationId: string, action: "accept" | "decline") {
     setBusyIds((prev) => new Set(prev).add(invitationId));
-    if (action === "accept") {
-      await acceptGroupInvite(invitationId);
-    } else {
-      await declineGroupInvite(invitationId);
+    // Hide visuellement immédiatement (sans attendre l'event Realtime)
+    setDismissedIds((prev) => new Set(prev).add(invitationId));
+    try {
+      if (action === "accept") {
+        await acceptGroupInvite(invitationId);
+      } else {
+        await declineGroupInvite(invitationId);
+      }
+      // Refetch immédiat pour afficher le groupe rejoint sans attendre
+      // le tick Realtime (qui peut arriver avec un léger délai).
+      await refresh();
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(invitationId);
+        return next;
+      });
     }
-    setBusyIds((prev) => {
-      const next = new Set(prev);
-      next.delete(invitationId);
-      return next;
-    });
   }
 
   function dismiss(invitationId: string) {

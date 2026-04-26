@@ -687,24 +687,49 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_uid       uuid := auth.uid();
-  v_group     uuid;
-  v_game_type text;
-  v_host_id   uuid;
-  v_is_priv   boolean;
-  v_username  text;
+  v_uid          uuid := auth.uid();
+  v_group        uuid;
+  v_game_type    text;
+  v_host_id      uuid;
+  v_is_priv      boolean;
+  v_config       jsonb;
+  v_username     text;
+  v_avatar_url   text;
+  v_preset_ids   uuid[];
+  v_preset_names text[];
 BEGIN
   IF v_uid IS NULL THEN RETURN; END IF;
 
   SELECT group_id INTO v_group FROM public.group_members WHERE user_id = v_uid;
   IF v_group IS NULL THEN RETURN; END IF;
 
-  SELECT game_type, host_id, COALESCE(is_private, true)
-    INTO v_game_type, v_host_id, v_is_priv
+  SELECT game_type, host_id, COALESCE(is_private, true), COALESCE(config, '{}'::jsonb)
+    INTO v_game_type, v_host_id, v_is_priv, v_config
   FROM public.game_rooms WHERE id = p_room_id;
   IF NOT FOUND OR v_host_id <> v_uid THEN RETURN; END IF;
 
-  SELECT username INTO v_username FROM public.profiles WHERE id = v_uid;
+  SELECT username, avatar_url
+    INTO v_username, v_avatar_url
+  FROM public.profiles WHERE id = v_uid;
+
+  -- Extrait jusqu'à 3 noms de presets utilisés (config.presetIds est un JSON array d'UUIDs)
+  BEGIN
+    SELECT ARRAY(SELECT jsonb_array_elements_text(v_config->'presetIds')::uuid)
+      INTO v_preset_ids;
+  EXCEPTION WHEN OTHERS THEN
+    v_preset_ids := ARRAY[]::uuid[];
+  END;
+
+  IF v_preset_ids IS NOT NULL AND array_length(v_preset_ids, 1) > 0 THEN
+    SELECT ARRAY(
+      SELECT name FROM public.presets
+       WHERE id = ANY(v_preset_ids)
+       ORDER BY array_position(v_preset_ids, id)
+       LIMIT 3
+    ) INTO v_preset_names;
+  ELSE
+    v_preset_names := ARRAY[]::text[];
+  END IF;
 
   INSERT INTO public.group_messages(group_id, user_id, type, content, payload)
     VALUES (
@@ -713,11 +738,13 @@ BEGIN
       'lobby_share',
       'lobby_shared',
       jsonb_build_object(
-        'code',       p_room_id,
-        'game_type',  v_game_type,
-        'is_private', v_is_priv,
-        'host_id',    v_uid,
-        'host_name',  COALESCE(v_username, '')
+        'code',         p_room_id,
+        'game_type',    v_game_type,
+        'is_private',   v_is_priv,
+        'host_id',      v_uid,
+        'host_name',    COALESCE(v_username, ''),
+        'host_avatar',  v_avatar_url,
+        'preset_names', to_jsonb(v_preset_names)
       )
     );
 END;
@@ -726,10 +753,17 @@ $$;
 GRANT EXECUTE ON FUNCTION public.share_lobby_to_group(text) TO authenticated;
 
 
--- ─── 6.b Realtime publication ──────────────────────────────────────────────
+-- ─── 6.b Realtime publication + REPLICA IDENTITY FULL ─────────────────────
 -- Active les events postgres_changes pour le client. Sans ça, le hook
 -- `useGroup` ne reçoit AUCUN event realtime → l'utilisateur doit recharger
 -- la page pour voir les nouveaux messages/membres.
+--
+-- REPLICA IDENTITY FULL est CRUCIAL : sans elle, Supabase Realtime ne reçoit
+-- que la primary key sur DELETE/UPDATE, donc les filtres côté client
+-- (filter: invitee_id=eq.X / group_id=eq.X) ne matchent jamais sur DELETE.
+-- Conséquence : l'acceptation d'invite (DELETE invitation) et le départ d'un
+-- membre (DELETE group_members) ne déclenchent aucun refresh → bug "il faut
+-- recharger la page".
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
@@ -751,6 +785,11 @@ BEGIN
     END;
   END IF;
 END $$;
+
+ALTER TABLE public.group_messages    REPLICA IDENTITY FULL;
+ALTER TABLE public.group_members     REPLICA IDENTITY FULL;
+ALTER TABLE public.groups            REPLICA IDENTITY FULL;
+ALTER TABLE public.group_invitations REPLICA IDENTITY FULL;
 
 
 -- ─── 7. Cron : nettoyage 1h d'inactivité + invitations expirées ────────────

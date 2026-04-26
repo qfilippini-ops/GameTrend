@@ -52,6 +52,8 @@ export interface GroupLobbyShareMessage extends GroupMessageBase {
     is_private: boolean;
     host_id: string;
     host_name: string;
+    host_avatar?: string | null;
+    preset_names?: string[];
   };
 }
 

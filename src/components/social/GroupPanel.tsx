@@ -18,6 +18,37 @@ import type { GroupMessage } from "@/types/groups";
 
 const ONLINE_GAMES = new Set(["ghostword", "blindrank", "dyp", "outbid"]);
 
+// Métadonnées d'affichage des jeux pour la carte lobby_share dans le chat
+const GAME_META: Record<
+  string,
+  { label: string; icon: string; gradient: string; ring: string }
+> = {
+  ghostword: {
+    label: "GhostWord",
+    icon: "👻",
+    gradient: "from-violet-600/30 via-violet-700/15 to-transparent",
+    ring: "ring-violet-500/40",
+  },
+  blindrank: {
+    label: "BlindRank",
+    icon: "📊",
+    gradient: "from-cyan-600/30 via-cyan-700/15 to-transparent",
+    ring: "ring-cyan-500/40",
+  },
+  dyp: {
+    label: "DYP",
+    icon: "🎯",
+    gradient: "from-amber-600/30 via-amber-700/15 to-transparent",
+    ring: "ring-amber-500/40",
+  },
+  outbid: {
+    label: "Outbid",
+    icon: "💰",
+    gradient: "from-emerald-600/30 via-emerald-700/15 to-transparent",
+    ring: "ring-emerald-500/40",
+  },
+};
+
 export default function GroupPanel() {
   const t = useTranslations("groups");
   const tNotif = useTranslations("notifications");
@@ -130,34 +161,95 @@ export default function GroupPanel() {
     }
 
     if (msg.type === "lobby_share") {
-      const payload = msg.payload as {
-        code: string;
-        game_type: string;
-        host_name: string;
+      const payload = msg.payload;
+      const meta = GAME_META[payload.game_type] ?? {
+        label: payload.game_type,
+        icon: "🎮",
+        gradient: "from-brand-600/30 via-brand-700/15 to-transparent",
+        ring: "ring-brand-500/40",
       };
       const canJoin = ONLINE_GAMES.has(payload.game_type);
       const href = canJoin
         ? `/games/${payload.game_type}/online/${payload.code}`
         : null;
+      const presets = payload.preset_names ?? [];
+
       return (
-        <div
-          key={msg.id}
-          className="my-2 mx-2 rounded-xl border border-brand-600/40 bg-brand-600/10 p-3"
-        >
-          <p className="text-[12px] text-white leading-snug">
-            <span className="mr-1">🎮</span>
-            <span className="font-medium">{payload.host_name}</span>{" "}
-            {t("lobbyShareLabel", { game: payload.game_type })}
-          </p>
-          {href && (
-            <Link
-              href={href}
-              onClick={() => setOpen(false)}
-              className="mt-2 inline-block w-full rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-bold text-center px-3 py-1.5 transition-colors"
-            >
-              {t("joinLobby")}
-            </Link>
-          )}
+        <div key={msg.id} className="my-2 mx-3">
+          <div
+            className={`relative overflow-hidden rounded-2xl bg-surface-800/80 ring-1 ${meta.ring} shadow-lg`}
+          >
+            {/* Halo dégradé du jeu */}
+            <div
+              className={`absolute inset-0 bg-gradient-to-br ${meta.gradient} pointer-events-none`}
+              aria-hidden
+            />
+
+            <div className="relative p-3">
+              {/* Header : host + badge jeu */}
+              <div className="flex items-center gap-2.5">
+                <Avatar
+                  src={payload.host_avatar ?? null}
+                  name={payload.host_name}
+                  size="sm"
+                  className="rounded-xl shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-[13px] font-semibold leading-tight truncate">
+                    {payload.host_name}
+                  </p>
+                  <p className="text-surface-400 text-[10px] leading-tight">
+                    {t("lobbyShareInvited")}
+                  </p>
+                </div>
+                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-900/70 border border-surface-700/40 text-[10px] font-bold text-white">
+                  <span>{meta.icon}</span>
+                  <span>{meta.label}</span>
+                </span>
+              </div>
+
+              {/* Presets */}
+              {presets.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {presets.map((name, i) => (
+                    <span
+                      key={`${name}-${i}`}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-900/60 border border-surface-700/40 text-[10px] text-surface-200 max-w-[140px] truncate"
+                      title={name}
+                    >
+                      <span className="text-[8px] opacity-60">🎴</span>
+                      <span className="truncate">{name}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Footer : visibilité + code + bouton rejoindre */}
+              <div className="mt-3 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 text-[10px] text-surface-400">
+                  <span>{payload.is_private ? "🔒" : "🌐"}</span>
+                  <span>
+                    {payload.is_private
+                      ? t("lobbyPrivate")
+                      : t("lobbyPublic")}
+                  </span>
+                </span>
+                <span className="text-[10px] font-mono text-surface-500 tracking-wide">
+                  #{payload.code}
+                </span>
+                {href && (
+                  <Link
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className="ml-auto inline-flex items-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-bold px-3 py-1.5 transition-colors shadow-md"
+                  >
+                    {t("joinLobby")}
+                    <span aria-hidden>→</span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
