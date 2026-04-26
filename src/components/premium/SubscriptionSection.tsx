@@ -140,6 +140,7 @@ export default function SubscriptionSection() {
   const benefits = [
     { icon: "🚫", key: "noAds" },
     { icon: "♾️", key: "unlimitedPresets" },
+    { icon: "👥", key: "lobbyCapacity" },
     { icon: "🔗", key: "profileLink" },
     { icon: "🎨", key: "bannerAccent" },
     { icon: "👑", key: "creatorBadge" },

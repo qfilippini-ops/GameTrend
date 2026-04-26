@@ -904,6 +904,8 @@
           "timerPerPlayer": "⏱ Timer per player",
           "saving": "Saving…",
           "apply": "✓ Apply",
+          "playersCapSuffix": "/ {cap}",
+          "minPlayersHint": "{min} players minimum",
           "waitingForPlayers": "Waiting for at least 3 players ({count}/3)…",
           "starting": "Starting…",
           "launch": "Start · {count} players 🚀",
@@ -1832,6 +1834,7 @@
       "benefits": {
         "noAds": "Zero ads",
         "unlimitedPresets": "Unlimited presets",
+        "lobbyCapacity": "Lobbies up to 16 players",
         "profileLink": "Profile link",
         "bannerAccent": "Banner + accent color",
         "creatorBadge": "Creator badge",

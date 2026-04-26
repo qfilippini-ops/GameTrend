@@ -41,7 +41,13 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
   const [hostUserId, setHostUserId] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
 
-  const canStart = players.length >= 3;
+  const GHOSTWORD_MIN_PLAYERS = 3;
+  // Capacité effective : ghostword se joue jusqu'à room.max_players (4 free
+  // / 16 premium, défini par compute_max_players côté SQL). Fallback 16 par
+  // sécurité pour les rooms historiques sans la colonne.
+  const lobbyCapacity = room.max_players ?? 16;
+  const canStart =
+    players.length >= GHOSTWORD_MIN_PLAYERS && players.length <= lobbyCapacity;
   const inviteUrl =
     typeof window !== "undefined" ? `${window.location.origin}/join/${room.id}` : `/join/${room.id}`;
 
@@ -174,7 +180,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
           <div className="px-4 py-3 border-b border-surface-800/50 flex items-center justify-between">
             <p className="text-white font-display font-bold text-sm">{t("players")}</p>
             <span className="text-surface-600 text-xs font-mono">
-              {players.length} <span className="text-surface-800">· min 3</span>
+              {players.length} <span className="text-surface-800">{t("playersCapSuffix", { cap: lobbyCapacity })}</span>
             </span>
           </div>
           <div className="divide-y divide-surface-800/30">
@@ -341,7 +347,7 @@ export default function RoomWaiting({ room, players, myName, isHost, onlineNames
         {/* Attente */}
         {!canStart && (
           <p className="text-center text-surface-700 text-sm">
-            {t("waitingForPlayers", { count: players.length })}
+            {t("minPlayersHint", { min: GHOSTWORD_MIN_PLAYERS })}
           </p>
         )}
 
