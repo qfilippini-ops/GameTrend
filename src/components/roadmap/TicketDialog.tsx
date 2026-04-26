@@ -1,28 +1,43 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@/hooks/useAuth";
 import { Link } from "@/i18n/navigation";
 import { createTicket, type TicketType } from "@/app/actions/tickets";
 import {
+  TICKET_ALLOWED_IMAGE_TYPES,
   TICKET_BODY_MAX,
   TICKET_BODY_MIN,
+  TICKET_MAX_ATTACHMENTS,
   TICKET_TITLE_MAX,
   TICKET_TITLE_MIN,
 } from "@/lib/support/limits";
+import { compressImage } from "@/lib/compressImage";
+import { createClient } from "@/lib/supabase/client";
 
 interface TicketDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
+// Pièce jointe locale en cours d'édition. Une fois uploadée, on retient le
+// path Supabase (relatif au bucket privé) + une URL signée pour preview.
+interface PendingAttachment {
+  id: string;            // identifiant local (clé React)
+  path: string;          // chemin dans le bucket "ticket-attachments"
+  previewUrl: string;    // URL signée (15 min) pour la preview locale
+  uploading: boolean;    // pendant la compression / l'upload
+  error?: string;        // message d'erreur affiché sous la vignette
+}
+
+const ATTACH_BUCKET = "ticket-attachments";
+
 // Modale de soumission de ticket. Trois types : bug / idée / autre.
-// Validation côté front (longueurs) ET côté serveur (RPC create_ticket
-// + CHECK SQL). Pas de liste publique des tickets : c'est privé à
-// l'auteur (RLS) et l'admin (service_role). Une fois soumis, on affiche
-// un état "envoyé" et on ferme après 1.5s.
+// Validation côté front (longueurs, MIME) ET côté serveur (RPC create_ticket
+// + CHECK SQL + filtrage des paths). Les images sont compressées en WebP
+// (≤ 0.5 MB) et uploadées immédiatement, on ne stocke en base que le path.
 export function TicketDialog({ open, onClose }: TicketDialogProps) {
   const t = useTranslations("home.roadmap.ticket");
   const { user } = useAuth();
@@ -34,16 +49,25 @@ export function TicketDialog({ open, onClose }: TicketDialogProps) {
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // sessionId : prefixe stable pour l'upload des fichiers d'un même
+  // brouillon. Permet, en cas d'annulation, de cleanup d'un coup tout le
+  // dossier (non implémenté côté client, on laisse l'admin purger).
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
 
-  // Reset à chaque ouverture pour éviter un état résiduel après un envoi.
+  function resetState() {
+    setType("bug");
+    setTitle("");
+    setBody("");
+    setError(null);
+    setSent(false);
+    setAttachments([]);
+    sessionIdRef.current = crypto.randomUUID();
+  }
+
   useEffect(() => {
-    if (open) {
-      setType("bug");
-      setTitle("");
-      setBody("");
-      setError(null);
-      setSent(false);
-    }
+    if (open) resetState();
   }, [open]);
 
   // ESC pour fermer
@@ -55,6 +79,106 @@ export function TicketDialog({ open, onClose }: TicketDialogProps) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose, pending]);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || !user) return;
+    const remaining = TICKET_MAX_ATTACHMENTS - attachments.length;
+    if (remaining <= 0) {
+      setError(t("errTooManyAttachments"));
+      return;
+    }
+    const list = Array.from(files).slice(0, remaining);
+    if (list.length === 0) return;
+
+    setError(null);
+    const supabase = createClient();
+
+    for (const raw of list) {
+      // Validation MIME basique. La compression convertit en WebP, ce qui
+      // est aussi dans la liste des types autorisés du bucket.
+      if (
+        !(TICKET_ALLOWED_IMAGE_TYPES as readonly string[]).includes(raw.type)
+      ) {
+        setError(t("errInvalidImageType"));
+        continue;
+      }
+
+      const localId = crypto.randomUUID();
+      setAttachments((prev) => [
+        ...prev,
+        {
+          id: localId,
+          path: "",
+          previewUrl: URL.createObjectURL(raw),
+          uploading: true,
+        },
+      ]);
+
+      try {
+        // moderate: false → on évite les faux positifs NSFW sur des
+        // screenshots d'UI / d'erreurs.
+        const compressed = await compressImage(raw, {
+          maxWidthOrHeight: 1600,
+          maxSizeMB: 0.5,
+          quality: 0.85,
+          moderate: false,
+        });
+
+        const path = `${user.id}/${sessionIdRef.current}/${localId}.webp`;
+        const { error: uploadError } = await supabase.storage
+          .from(ATTACH_BUCKET)
+          .upload(path, compressed, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: compressed.type || "image/webp",
+          });
+        if (uploadError) throw uploadError;
+
+        const { data: signed } = await supabase.storage
+          .from(ATTACH_BUCKET)
+          .createSignedUrl(path, 60 * 15);
+
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === localId
+              ? {
+                  ...a,
+                  path,
+                  previewUrl: signed?.signedUrl ?? a.previewUrl,
+                  uploading: false,
+                }
+              : a
+          )
+        );
+      } catch (e) {
+        console.error("[TicketDialog] upload", e);
+        setAttachments((prev) =>
+          prev.map((a) =>
+            a.id === localId
+              ? { ...a, uploading: false, error: t("errUpload") }
+              : a
+          )
+        );
+      }
+    }
+
+    // Reset l'input pour permettre de re-sélectionner le même fichier
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function removeAttachment(id: string) {
+    const target = attachments.find((a) => a.id === id);
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+    if (target?.path) {
+      try {
+        const supabase = createClient();
+        await supabase.storage.from(ATTACH_BUCKET).remove([target.path]);
+      } catch (e) {
+        // Best-effort : si le delete échoue, l'admin pourra purger.
+        console.warn("[TicketDialog] remove attachment", e);
+      }
+    }
+  }
 
   function submit() {
     setError(null);
@@ -74,8 +198,16 @@ export function TicketDialog({ open, onClose }: TicketDialogProps) {
       setError(t("errInvalidBody"));
       return;
     }
+    if (attachments.some((a) => a.uploading)) {
+      setError(t("errStillUploading"));
+      return;
+    }
+    const paths = attachments
+      .filter((a) => a.path && !a.error)
+      .map((a) => a.path);
+
     startTransition(async () => {
-      const res = await createTicket(type, trimmedTitle, trimmedBody);
+      const res = await createTicket(type, trimmedTitle, trimmedBody, paths);
       if (!res.ok) {
         setError(t("errSubmit"));
         return;
@@ -94,6 +226,8 @@ export function TicketDialog({ open, onClose }: TicketDialogProps) {
     { value: "idea", emoji: "💡" },
     { value: "other", emoji: "💬" },
   ];
+
+  const remainingSlots = TICKET_MAX_ATTACHMENTS - attachments.length;
 
   return (
     <AnimatePresence>
@@ -227,6 +361,99 @@ export function TicketDialog({ open, onClose }: TicketDialogProps) {
                 </p>
               </div>
 
+              {/* ── Attachments ──────────────────────────────── */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] uppercase tracking-wider text-surface-500 font-bold">
+                    {t("attachmentsLabel")}
+                  </label>
+                  <span className="text-[10px] text-surface-600 tabular-nums">
+                    {attachments.length}/{TICKET_MAX_ATTACHMENTS}
+                  </span>
+                </div>
+
+                {attachments.length > 0 && (
+                  <div className="grid grid-cols-3 gap-1.5 mb-2">
+                    {attachments.map((a) => (
+                      <div
+                        key={a.id}
+                        className="relative aspect-square rounded-lg overflow-hidden border border-surface-700/60 bg-surface-950/60"
+                      >
+                        {/* preview */}
+                        {a.previewUrl && (
+                          // On utilise <img> brute : les URLs signées Supabase
+                          // ne sont pas dans la liste des domaines next/image.
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={a.previewUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        {a.uploading && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <div className="w-5 h-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                          </div>
+                        )}
+                        {a.error && (
+                          <div className="absolute inset-0 bg-rose-950/80 flex items-center justify-center text-[9px] text-rose-200 text-center px-1">
+                            {a.error}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeAttachment(a.id)}
+                          aria-label={t("removeAttachment")}
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs leading-none flex items-center justify-center hover:bg-rose-600/90 transition-colors"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={(TICKET_ALLOWED_IMAGE_TYPES as readonly string[]).join(",")}
+                  multiple
+                  onChange={(e) => {
+                    void handleFiles(e.target.files);
+                  }}
+                  className="hidden"
+                  disabled={pending || remainingSlots <= 0}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending || remainingSlots <= 0}
+                  className="w-full px-3 py-2 rounded-lg border border-dashed border-surface-700/60 text-surface-400 text-xs hover:border-brand-500/40 hover:text-brand-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  {remainingSlots > 0
+                    ? t("addImage")
+                    : t("attachmentsLimit")}
+                </button>
+                <p className="text-[10px] text-surface-600 mt-1">
+                  {t("attachmentsHint")}
+                </p>
+              </div>
+
               {error && (
                 <p className="text-rose-400 text-xs">{error}</p>
               )}
@@ -246,7 +473,8 @@ export function TicketDialog({ open, onClose }: TicketDialogProps) {
                   disabled={
                     pending ||
                     title.trim().length < TICKET_TITLE_MIN ||
-                    body.trim().length < TICKET_BODY_MIN
+                    body.trim().length < TICKET_BODY_MIN ||
+                    attachments.some((a) => a.uploading)
                   }
                   className="px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 hover:bg-brand-500 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >

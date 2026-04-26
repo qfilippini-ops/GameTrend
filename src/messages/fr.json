@@ -166,8 +166,8 @@
     },
     "roadmap": {
       "title": "Avenir",
-      "tabGames": "Jeux",
-      "tabFeatures": "Fonctionnalités",
+      "kindGame": "Jeu",
+      "kindFeature": "Fonctionnalité",
       "badge": "Bientôt",
       "vote": "Voter pour ce projet",
       "unvote": "Retirer mon vote",
@@ -216,7 +216,16 @@
         "sentDetail": "Merci, on revient vers toi si besoin.",
         "errInvalidTitle": "Le titre doit faire entre 3 et 120 caractères.",
         "errInvalidBody": "La description doit faire entre 10 et 2000 caractères.",
-        "errSubmit": "Envoi impossible, réessaie."
+        "errSubmit": "Envoi impossible, réessaie.",
+        "attachmentsLabel": "Captures d'écran",
+        "attachmentsHint": "JPG, PNG, GIF ou WebP. Max 5 images, compressées automatiquement.",
+        "attachmentsLimit": "Limite atteinte (5 images)",
+        "addImage": "Ajouter une image",
+        "removeAttachment": "Supprimer cette image",
+        "errInvalidImageType": "Format non supporté. Utilise JPG, PNG, GIF ou WebP.",
+        "errUpload": "Upload échoué",
+        "errStillUploading": "Patiente, des images sont en cours d'envoi…",
+        "errTooManyAttachments": "Maximum 5 images par ticket."
       }
     }
   },

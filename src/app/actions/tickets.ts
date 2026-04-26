@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   TICKET_BODY_MAX,
   TICKET_BODY_MIN,
+  TICKET_MAX_ATTACHMENTS,
   TICKET_TITLE_MAX,
   TICKET_TITLE_MIN,
 } from "@/lib/support/limits";
@@ -26,7 +27,8 @@ export interface CreateTicketResult {
 export async function createTicket(
   type: TicketType,
   title: string,
-  body: string
+  body: string,
+  attachments: string[] = []
 ): Promise<CreateTicketResult> {
   try {
     const trimmedTitle = title.trim();
@@ -46,6 +48,9 @@ export async function createTicket(
     ) {
       return { ok: false, error: "invalid_body" };
     }
+    if (!Array.isArray(attachments) || attachments.length > TICKET_MAX_ATTACHMENTS) {
+      return { ok: false, error: "too_many_attachments" };
+    }
 
     const supabase = createClient();
     const {
@@ -55,10 +60,21 @@ export async function createTicket(
       return { ok: false, error: "unauthenticated" };
     }
 
+    // Garde-fou : on n'accepte que des paths qui démarrent par <user_id>/
+    // (cohérent avec la policy storage). Les autres sont silencieusement
+    // filtrés pour éviter qu'un client compromis ne référence des fichiers
+    // d'autres users.
+    const safeAttachments = attachments
+      .filter(
+        (p) => typeof p === "string" && p.length > 0 && p.length <= 500 && p.startsWith(`${user.id}/`)
+      )
+      .slice(0, TICKET_MAX_ATTACHMENTS);
+
     const { data, error } = await supabase.rpc("create_ticket", {
       p_type: type,
       p_title: trimmedTitle,
       p_body: trimmedBody,
+      p_attachments: safeAttachments,
     });
     if (error) {
       console.error("[createTicket]", error);

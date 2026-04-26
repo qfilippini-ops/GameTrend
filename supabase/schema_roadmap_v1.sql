@@ -31,6 +31,12 @@ CREATE TABLE IF NOT EXISTS public.roadmap_votes (
 
 ALTER TABLE public.roadmap_votes ENABLE ROW LEVEL SECURITY;
 
+-- Drop pour rester idempotent (re-runs du script). PostgreSQL n'a pas de
+-- "CREATE POLICY IF NOT EXISTS".
+DROP POLICY IF EXISTS "Roadmap votes visibles par tous" ON public.roadmap_votes;
+DROP POLICY IF EXISTS "Roadmap voter si connecté"      ON public.roadmap_votes;
+DROP POLICY IF EXISTS "Roadmap retirer son vote"       ON public.roadmap_votes;
+
 CREATE POLICY "Roadmap votes visibles par tous" ON public.roadmap_votes
   FOR SELECT USING (true);
 CREATE POLICY "Roadmap voter si connecté" ON public.roadmap_votes
@@ -43,18 +49,31 @@ CREATE INDEX IF NOT EXISTS roadmap_votes_slug_idx
 
 
 -- ─── 2. Tickets support ──────────────────────────────────────────────────
+-- attachments : tableau de chemins relatifs dans le bucket privé
+-- 'ticket-attachments'. L'admin génère des signed URLs pour les visualiser.
+-- Limite 5 pièces jointes par ticket pour borner le stockage.
 CREATE TABLE IF NOT EXISTS public.support_tickets (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
-  type       text NOT NULL CHECK (type IN ('bug', 'idea', 'other')),
-  title      text NOT NULL CHECK (char_length(title) BETWEEN 3 AND 120),
-  body       text NOT NULL CHECK (char_length(body) BETWEEN 10 AND 2000),
-  status     text NOT NULL DEFAULT 'open'
-                 CHECK (status IN ('open','planned','in_progress','done','closed')),
-  created_at timestamptz NOT NULL DEFAULT now()
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  type        text NOT NULL CHECK (type IN ('bug', 'idea', 'other')),
+  title       text NOT NULL CHECK (char_length(title) BETWEEN 3 AND 120),
+  body        text NOT NULL CHECK (char_length(body) BETWEEN 10 AND 2000),
+  attachments text[] NOT NULL DEFAULT '{}'
+                  CHECK (cardinality(attachments) <= 5),
+  status      text NOT NULL DEFAULT 'open'
+                  CHECK (status IN ('open','planned','in_progress','done','closed')),
+  created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Si la table existait déjà sans la colonne (déploiement v1 précédent),
+-- on l'ajoute en migration safe.
+ALTER TABLE public.support_tickets
+  ADD COLUMN IF NOT EXISTS attachments text[] NOT NULL DEFAULT '{}';
+
 ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Voir ses propres tickets"     ON public.support_tickets;
+DROP POLICY IF EXISTS "Créer un ticket si connecté" ON public.support_tickets;
 
 -- Tickets : privés à l'auteur. L'admin lit via service_role (hors RLS).
 CREATE POLICY "Voir ses propres tickets" ON public.support_tickets
@@ -159,10 +178,17 @@ GRANT EXECUTE ON FUNCTION public.toggle_roadmap_vote(text) TO authenticated;
 
 -- ─── 5. RPC : create_ticket ──────────────────────────────────────────────
 -- Validation centralisée + retour de l'id créé.
+-- p_attachments : tableau de chemins relatifs dans le bucket privé
+-- 'ticket-attachments' (les fichiers ont été uploadés en amont par le
+-- client). On vérifie juste la cardinalité, le contenu/MIME est validé par
+-- les policies du bucket.
+DROP FUNCTION IF EXISTS public.create_ticket(text, text, text);
+
 CREATE OR REPLACE FUNCTION public.create_ticket(
-  p_type  text,
-  p_title text,
-  p_body  text
+  p_type        text,
+  p_title       text,
+  p_body        text,
+  p_attachments text[] DEFAULT '{}'
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -174,6 +200,7 @@ DECLARE
   new_id uuid;
   trimmed_title text;
   trimmed_body text;
+  cleaned_attachments text[];
 BEGIN
   IF uid IS NULL THEN
     RAISE EXCEPTION 'unauthenticated';
@@ -190,12 +217,63 @@ BEGIN
     RAISE EXCEPTION 'invalid_body';
   END IF;
 
-  INSERT INTO public.support_tickets(user_id, type, title, body)
-  VALUES (uid, p_type, trimmed_title, trimmed_body)
+  cleaned_attachments := COALESCE(p_attachments, '{}');
+  IF cardinality(cleaned_attachments) > 5 THEN
+    RAISE EXCEPTION 'too_many_attachments';
+  END IF;
+
+  INSERT INTO public.support_tickets(user_id, type, title, body, attachments)
+  VALUES (uid, p_type, trimmed_title, trimmed_body, cleaned_attachments)
   RETURNING id INTO new_id;
 
   RETURN jsonb_build_object('ok', true, 'id', new_id);
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.create_ticket(text, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_ticket(text, text, text, text[]) TO authenticated;
+
+
+-- ─── 6. Storage bucket : ticket-attachments ──────────────────────────────
+-- Bucket privé pour les screenshots de tickets. Les fichiers sont rangés
+-- sous `<user_id>/<ticket_uuid_or_temp>/<filename>.webp`.
+-- Le client compresse les images en WebP (≤ 0.5 MB) avant upload, donc
+-- pas de limite de taille extrême ici.
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'ticket-attachments',
+  'ticket-attachments',
+  false,
+  1048576, -- 1 MB hard cap (largement assez après compression WebP)
+  ARRAY['image/webp', 'image/jpeg', 'image/png', 'image/gif']
+)
+ON CONFLICT (id) DO UPDATE
+  SET public             = EXCLUDED.public,
+      file_size_limit    = EXCLUDED.file_size_limit,
+      allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+-- Policies : un user peut uploader / lire / supprimer SES propres fichiers.
+-- L'admin (service_role) bypass RLS automatiquement pour la modération.
+DROP POLICY IF EXISTS "ticket-attachments insert own"   ON storage.objects;
+DROP POLICY IF EXISTS "ticket-attachments select own"   ON storage.objects;
+DROP POLICY IF EXISTS "ticket-attachments delete own"   ON storage.objects;
+
+CREATE POLICY "ticket-attachments insert own" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    bucket_id = 'ticket-attachments'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "ticket-attachments select own" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (
+    bucket_id = 'ticket-attachments'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+CREATE POLICY "ticket-attachments delete own" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (
+    bucket_id = 'ticket-attachments'
+    AND auth.uid()::text = (storage.foldername(name))[1]
+  );

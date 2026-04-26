@@ -166,8 +166,8 @@
     },
     "roadmap": {
       "title": "Roadmap",
-      "tabGames": "Games",
-      "tabFeatures": "Features",
+      "kindGame": "Game",
+      "kindFeature": "Feature",
       "badge": "Soon",
       "vote": "Upvote this idea",
       "unvote": "Remove my vote",
@@ -216,7 +216,16 @@
         "sentDetail": "Thanks — we'll get back to you if needed.",
         "errInvalidTitle": "Title must be 3–120 characters.",
         "errInvalidBody": "Description must be 10–2000 characters.",
-        "errSubmit": "Couldn't send, please retry."
+        "errSubmit": "Couldn't send, please retry.",
+        "attachmentsLabel": "Screenshots",
+        "attachmentsHint": "JPG, PNG, GIF or WebP. Up to 5 images, compressed automatically.",
+        "attachmentsLimit": "Limit reached (5 images)",
+        "addImage": "Add an image",
+        "removeAttachment": "Remove this image",
+        "errInvalidImageType": "Unsupported format. Use JPG, PNG, GIF or WebP.",
+        "errUpload": "Upload failed",
+        "errStillUploading": "Hold on, images are still uploading…",
+        "errTooManyAttachments": "Maximum 5 images per ticket."
       }
     }
   },
