@@ -275,33 +275,53 @@ ALTER TABLE public.group_members     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_messages    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.group_invitations ENABLE ROW LEVEL SECURITY;
 
+-- ⚠️ Helper SECURITY DEFINER pour CONTOURNER RLS dans les sous-SELECTs des
+-- policies. Sans ça, "group_id IN (SELECT … FROM group_members WHERE …)"
+-- sur la table group_members elle-même provoque une RÉCURSION RLS infinie
+-- (erreur 500 côté API Supabase).
+CREATE OR REPLACE FUNCTION public.is_group_member(p_group_id uuid, p_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = p_group_id AND user_id = p_user_id
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_group_member(uuid, uuid) TO authenticated;
+
 -- groups : visible aux membres uniquement
 DROP POLICY IF EXISTS "groups_members_read" ON public.groups;
 CREATE POLICY "groups_members_read" ON public.groups
-  FOR SELECT USING (
-    id IN (SELECT group_id FROM public.group_members WHERE user_id = auth.uid())
-  );
+  FOR SELECT USING (public.is_group_member(id, auth.uid()));
 
--- group_members : visible aux membres du même groupe
+-- group_members : on autorise toujours l'utilisateur à voir SES propres rows
+-- (sans appel récursif), puis ses pairs via le helper SECURITY DEFINER.
 DROP POLICY IF EXISTS "group_members_read" ON public.group_members;
-CREATE POLICY "group_members_read" ON public.group_members
-  FOR SELECT USING (
-    group_id IN (SELECT group_id FROM public.group_members WHERE user_id = auth.uid())
-  );
+DROP POLICY IF EXISTS "group_members_self_read" ON public.group_members;
+CREATE POLICY "group_members_self_read" ON public.group_members
+  FOR SELECT USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "group_members_peers_read" ON public.group_members;
+CREATE POLICY "group_members_peers_read" ON public.group_members
+  FOR SELECT USING (public.is_group_member(group_id, auth.uid()));
 
 -- group_messages : lecture/insert pour membres
 DROP POLICY IF EXISTS "group_messages_read" ON public.group_messages;
 CREATE POLICY "group_messages_read" ON public.group_messages
-  FOR SELECT USING (
-    group_id IN (SELECT group_id FROM public.group_members WHERE user_id = auth.uid())
-  );
+  FOR SELECT USING (public.is_group_member(group_id, auth.uid()));
 
 DROP POLICY IF EXISTS "group_messages_insert" ON public.group_messages;
 CREATE POLICY "group_messages_insert" ON public.group_messages
   FOR INSERT WITH CHECK (
     -- text : self-authored uniquement, dans son groupe
-    (type = 'text' AND user_id = auth.uid()
-     AND group_id IN (SELECT group_id FROM public.group_members WHERE user_id = auth.uid()))
+    type = 'text'
+    AND user_id = auth.uid()
+    AND public.is_group_member(group_id, auth.uid())
   );
 
 -- group_invitations : visible à l'invité ou aux membres du groupe
@@ -309,7 +329,7 @@ DROP POLICY IF EXISTS "group_invitations_read" ON public.group_invitations;
 CREATE POLICY "group_invitations_read" ON public.group_invitations
   FOR SELECT USING (
     invitee_id = auth.uid()
-    OR group_id IN (SELECT group_id FROM public.group_members WHERE user_id = auth.uid())
+    OR public.is_group_member(group_id, auth.uid())
   );
 
 

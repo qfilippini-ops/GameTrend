@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -10,6 +10,106 @@ import type {
   GroupMessage,
   GroupInvitation,
 } from "@/types/groups";
+
+// ────────────────────────────────────────────────────────────────────────────
+// Canaux Realtime partagés module-level
+// ────────────────────────────────────────────────────────────────────────────
+// `useGroup` est typiquement instancié dans Header (GroupPanel + FriendsPanel).
+// Si chaque hook crée son propre channel avec le même name, Supabase Realtime
+// râle ("cannot add postgres_changes callbacks after subscribe()"). On partage
+// donc un seul couple de canaux par utilisateur courant et on broadcaste le
+// refresh aux instances locales via un Set de subscribers.
+// ────────────────────────────────────────────────────────────────────────────
+
+let sharedGroupChannel: RealtimeChannel | null = null;
+let sharedGroupChannelGroupId: string | null = null;
+
+let sharedInviteChannel: RealtimeChannel | null = null;
+let sharedInviteChannelUserId: string | null = null;
+
+const refreshSubscribers = new Set<() => void>();
+
+function broadcastRefresh() {
+  refreshSubscribers.forEach((cb) => {
+    try {
+      cb();
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+function ensureGroupChannel(groupId: string | null) {
+  const supabase = createClient();
+  if (sharedGroupChannel && sharedGroupChannelGroupId === groupId) return;
+  if (sharedGroupChannel) {
+    supabase.removeChannel(sharedGroupChannel);
+    sharedGroupChannel = null;
+    sharedGroupChannelGroupId = null;
+  }
+  if (!groupId) return;
+
+  sharedGroupChannelGroupId = groupId;
+  sharedGroupChannel = supabase
+    .channel(`group:${groupId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "group_messages",
+        filter: `group_id=eq.${groupId}`,
+      },
+      broadcastRefresh
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "group_members",
+        filter: `group_id=eq.${groupId}`,
+      },
+      broadcastRefresh
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "groups",
+        filter: `id=eq.${groupId}`,
+      },
+      broadcastRefresh
+    )
+    .subscribe();
+}
+
+function ensureInviteChannel(userId: string | null) {
+  const supabase = createClient();
+  if (sharedInviteChannel && sharedInviteChannelUserId === userId) return;
+  if (sharedInviteChannel) {
+    supabase.removeChannel(sharedInviteChannel);
+    sharedInviteChannel = null;
+    sharedInviteChannelUserId = null;
+  }
+  if (!userId) return;
+
+  sharedInviteChannelUserId = userId;
+  sharedInviteChannel = supabase
+    .channel(`group_invites:${userId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "group_invitations",
+        filter: `invitee_id=eq.${userId}`,
+      },
+      broadcastRefresh
+    )
+    .subscribe();
+}
 
 interface MemberProfile {
   id: string;
@@ -49,8 +149,6 @@ export function useGroup(): UseGroupReturn {
   const [messages, setMessages] = useState<GroupMessage[]>([]);
   const [pendingInvites, setPendingInvites] = useState<GroupInvitation[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const inviteChannelRef = useRef<RealtimeChannel | null>(null);
 
   const myUserId = user?.id ?? null;
 
@@ -130,97 +228,25 @@ export function useGroup(): UseGroupReturn {
     setLoading(false);
   }, [myUserId, supabase]);
 
-  // Charge initial + à chaque changement d'utilisateur
+  // Setup : charge initial + abonnement au broadcaster partagé.
   useEffect(() => {
+    refreshSubscribers.add(fetchAll);
     fetchAll();
+    return () => {
+      refreshSubscribers.delete(fetchAll);
+    };
   }, [fetchAll]);
 
-  // Realtime sur group_* (filtré par group_id) — on resouscrit quand le
-  // groupId change. Les events triggerent un refetch (simple et robuste).
+  // Met à jour les canaux partagés (group:* et group_invites:*) quand le
+  // user ou le groupe courant changent. Plusieurs instances du hook
+  // partagent ces canaux pour éviter le double-subscribe.
   useEffect(() => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-    const groupId = group?.id;
-    if (!groupId) return;
+    ensureInviteChannel(myUserId);
+  }, [myUserId]);
 
-    const channel = supabase
-      .channel(`group:${groupId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "group_messages",
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => {
-          fetchAll();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "group_members",
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => {
-          fetchAll();
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "groups",
-          filter: `id=eq.${groupId}`,
-        },
-        () => {
-          fetchAll();
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [group?.id, supabase, fetchAll]);
-
-  // Realtime sur les invitations REÇUES par le user courant
   useEffect(() => {
-    if (inviteChannelRef.current) {
-      supabase.removeChannel(inviteChannelRef.current);
-      inviteChannelRef.current = null;
-    }
-    if (!myUserId) return;
-
-    const channel = supabase
-      .channel(`group_invites:${myUserId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "group_invitations",
-          filter: `invitee_id=eq.${myUserId}`,
-        },
-        () => {
-          fetchAll();
-        }
-      )
-      .subscribe();
-    inviteChannelRef.current = channel;
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [myUserId, supabase, fetchAll]);
+    ensureGroupChannel(group?.id ?? null);
+  }, [group?.id]);
 
   const isHost = !!(group && myUserId && group.host_id === myUserId);
   const capacity = group?.max_members ?? 4;
