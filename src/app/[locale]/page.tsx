@@ -9,6 +9,7 @@ import { GAMES_REGISTRY } from "@/games/registry";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import type { Preset } from "@/types/database";
 import { SITE_URL } from "@/lib/seo/sitemap";
+import { RoadmapSection } from "@/components/roadmap/RoadmapSection";
 
 // ISR : la landing (presets populaires) est régénérée au max toutes les 5 min.
 // L'état user reste géré côté client par Header/BottomNav (hydratation),
@@ -211,31 +212,9 @@ export default async function LandingPage({
         {/* ── Ad horizontale (non-premium uniquement) ────────────────────── */}
         <AdSlot placement="feed-inline" />
 
-        {/* ── JEUX À VENIR ──────────────────────────────────────────────────── */}
-        <section>
-          <h2 className="text-base font-display font-bold text-white mb-3 flex items-center gap-2">
-            <span>🚀</span> {t("comingSoon")}
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: "🧩", name: t("soonGames.quiz"), tags: t("soonGames.quizTags") },
-              { icon: "🏷️", name: t("soonGames.auction"), tags: t("soonGames.auctionTags") },
-            ].map((game) => (
-              <div
-                key={game.name}
-                className="relative rounded-2xl border border-surface-700/30 bg-surface-900/30 p-4 overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-surface-800/10 to-transparent pointer-events-none" />
-                <div className="text-2xl mb-2 opacity-40">{game.icon}</div>
-                <p className="font-display font-bold text-surface-500 text-sm mb-0.5">{game.name}</p>
-                <p className="text-surface-700 text-xs">{game.tags}</p>
-                <span className="absolute top-2 right-2 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-950/60 text-amber-500 border border-amber-700/30 font-medium">
-                  {t("comingSoonBadge")}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* ── AVENIR (ex "Bientôt disponible") ──────────────────────────── */}
+        {/* Onglets jeux/fonctionnalités, votes, et soumission de tickets. */}
+        <RoadmapSection />
 
       </div>
     </div>

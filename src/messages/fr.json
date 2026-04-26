@@ -163,6 +163,61 @@
       "quizTags": "Culture · Fun",
       "auction": "Enchères",
       "auctionTags": "Stratégie · Social"
+    },
+    "roadmap": {
+      "title": "Avenir",
+      "tabGames": "Jeux",
+      "tabFeatures": "Fonctionnalités",
+      "badge": "Bientôt",
+      "vote": "Voter pour ce projet",
+      "unvote": "Retirer mon vote",
+      "loginToVote": "Connecte-toi pour voter",
+      "items": {
+        "quiz": {
+          "title": "Quiz Battle",
+          "desc": "Affronte tes amis sur des quiz custom (culture, séries, gaming…)."
+        },
+        "myteam": {
+          "title": "My Team",
+          "desc": "Devine de quelle équipe tu fais partie."
+        },
+        "voice": {
+          "title": "Chat vocal en lobby",
+          "desc": "Parle en direct avec tes amis pendant les parties online."
+        },
+        "tournament": {
+          "title": "Mode tournoi",
+          "desc": "Enchaîne plusieurs jeux avec un système de bracket et un classement final."
+        }
+      },
+      "ticketCtaTitle": "Une idée ? Un bug ?",
+      "ticketCtaText": "Envoie-nous un ticket, on le lit attentivement.",
+      "ticketCtaButton": "Ouvrir un ticket",
+      "ticket": {
+        "title": "Ouvrir un ticket",
+        "subtitle": "Bug, idée ou autre — on adore les retours.",
+        "close": "Fermer",
+        "loginRequired": "Connecte-toi pour ouvrir un ticket.",
+        "loginCta": "Se connecter",
+        "typeLabel": "Type",
+        "type": {
+          "bug": "Bug",
+          "idea": "Idée",
+          "other": "Autre"
+        },
+        "titleField": "Titre",
+        "titlePlaceholder": "Résume ton sujet en quelques mots…",
+        "bodyField": "Description",
+        "bodyPlaceholder": "Décris ce qui se passe ou ce que tu suggères. Plus c'est précis, mieux c'est !",
+        "submit": "Envoyer",
+        "sending": "Envoi…",
+        "cancel": "Annuler",
+        "sent": "Ticket envoyé !",
+        "sentDetail": "Merci, on revient vers toi si besoin.",
+        "errInvalidTitle": "Le titre doit faire entre 3 et 120 caractères.",
+        "errInvalidBody": "La description doit faire entre 10 et 2000 caractères.",
+        "errSubmit": "Envoi impossible, réessaie."
+      }
     }
   },
   "auth": {

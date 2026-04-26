@@ -163,6 +163,61 @@
       "quizTags": "Trivia · Fun",
       "auction": "Auctions",
       "auctionTags": "Strategy · Social"
+    },
+    "roadmap": {
+      "title": "Roadmap",
+      "tabGames": "Games",
+      "tabFeatures": "Features",
+      "badge": "Soon",
+      "vote": "Upvote this idea",
+      "unvote": "Remove my vote",
+      "loginToVote": "Sign in to vote",
+      "items": {
+        "quiz": {
+          "title": "Quiz Battle",
+          "desc": "Battle your friends on custom quizzes (trivia, shows, gaming…)."
+        },
+        "myteam": {
+          "title": "My Team",
+          "desc": "Guess which team you belong to."
+        },
+        "voice": {
+          "title": "Lobby voice chat",
+          "desc": "Talk live with your friends during online games."
+        },
+        "tournament": {
+          "title": "Tournament mode",
+          "desc": "Chain multiple games with bracket system and a final ranking."
+        }
+      },
+      "ticketCtaTitle": "Got an idea? A bug?",
+      "ticketCtaText": "Send us a ticket — we read every one.",
+      "ticketCtaButton": "Open a ticket",
+      "ticket": {
+        "title": "Open a ticket",
+        "subtitle": "Bug, idea or anything else — we love feedback.",
+        "close": "Close",
+        "loginRequired": "Sign in to open a ticket.",
+        "loginCta": "Sign in",
+        "typeLabel": "Type",
+        "type": {
+          "bug": "Bug",
+          "idea": "Idea",
+          "other": "Other"
+        },
+        "titleField": "Title",
+        "titlePlaceholder": "Sum up your topic in a few words…",
+        "bodyField": "Description",
+        "bodyPlaceholder": "Describe what's happening or what you suggest. The more specific, the better!",
+        "submit": "Send",
+        "sending": "Sending…",
+        "cancel": "Cancel",
+        "sent": "Ticket sent!",
+        "sentDetail": "Thanks — we'll get back to you if needed.",
+        "errInvalidTitle": "Title must be 3–120 characters.",
+        "errInvalidBody": "Description must be 10–2000 characters.",
+        "errSubmit": "Couldn't send, please retry."
+      }
     }
   },
   "auth": {
