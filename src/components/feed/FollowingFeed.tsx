@@ -779,7 +779,14 @@ function OutbidTeamsPreview({
       {hasMore && (
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={(e) => {
+            // La carte du feed est cliquable (lien vers le preset/post),
+            // il faut donc absolument stopper la propagation pour que le
+            // clic sur ce bouton ne déclenche pas la navigation parente.
+            e.stopPropagation();
+            e.preventDefault();
+            setExpanded((v) => !v);
+          }}
           className="mt-2 w-full py-1.5 px-3 rounded-lg text-[11px] font-bold text-amber-300 bg-amber-950/20 border border-amber-700/30 hover:bg-amber-900/30 hover:border-amber-600/50 transition-colors flex items-center justify-center gap-1.5"
         >
           {expanded ? (
