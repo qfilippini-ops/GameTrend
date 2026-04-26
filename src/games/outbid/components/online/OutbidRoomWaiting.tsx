@@ -119,7 +119,7 @@ export default function OutbidRoomWaiting({
     shareTitle: tShared("shareTitle"),
     shareText: tShared("shareText"),
     players: tShared("players"),
-    playersMinSuffix: (min: number) => tShared("playersMinSuffix", { min }),
+    playersCapSuffix: (cap: number) => tShared("playersCapSuffix", { cap }),
     host: tShared("host"),
     you: tShared("you"),
     offline: tShared("offline"),
@@ -127,8 +127,7 @@ export default function OutbidRoomWaiting({
     settings: tShared("settings"),
     close: tShared("close"),
     edit: tShared("edit"),
-    waitingForPlayers: (current: number, min: number) =>
-      tShared("waitingForPlayers", { current, min }),
+    minPlayersHint: (min: number) => tShared("minPlayersHint", { min }),
     starting: tShared("starting"),
     launch: (count: number) => t("launch", { count }),
     needPlayers: (min: number) => tShared("needPlayers", { min }),

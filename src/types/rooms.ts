@@ -23,6 +23,13 @@ export interface OnlineRoom {
   winner: string | null;
   created_at: string;
   expires_at: string;
+  /**
+   * Capacité maximale du lobby (4 par défaut pour freemium, 16 pour premium,
+   * 2 fixe pour outbid). Source de vérité côté BDD : game_rooms.max_players.
+   * Optional pour compat ascendante avec les rooms historiques.
+   */
+  max_players?: number;
+  is_private?: boolean;
 }
 
 export interface RoomPlayer {

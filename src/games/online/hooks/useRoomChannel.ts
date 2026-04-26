@@ -29,7 +29,7 @@ import type {
 } from "@/types/rooms";
 
 const ROOM_COLS =
-  "id, host_id, game_type, config, phase, reveal_index, discussion_turn, discussion_turns_per_round, current_speaker_index, speaker_started_at, speaker_duration_seconds, vote_round, tie_count, winner, created_at, expires_at";
+  "id, host_id, game_type, config, phase, reveal_index, discussion_turn, discussion_turns_per_round, current_speaker_index, speaker_started_at, speaker_duration_seconds, vote_round, tie_count, winner, created_at, expires_at, max_players, is_private";
 const PLAYER_COLS =
   "room_id, user_id, display_name, is_host, is_eliminated, is_ready, join_order, joined_at";
 const MESSAGE_COLS =

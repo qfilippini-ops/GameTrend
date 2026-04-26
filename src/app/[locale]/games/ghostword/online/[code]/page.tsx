@@ -18,7 +18,7 @@ import type { OnlineRoom, RoomPlayer, RoomMessage, RoomVote, ReplayVote } from "
 
 // ── Sets de colonnes (limite l'egress Supabase) ─────────────────
 const ROOM_COLS =
-  "id, host_id, game_type, config, phase, reveal_index, discussion_turn, discussion_turns_per_round, current_speaker_index, speaker_started_at, speaker_duration_seconds, vote_round, tie_count, winner, created_at, expires_at";
+  "id, host_id, game_type, config, phase, reveal_index, discussion_turn, discussion_turns_per_round, current_speaker_index, speaker_started_at, speaker_duration_seconds, vote_round, tie_count, winner, created_at, expires_at, max_players, is_private";
 const MESSAGE_COLS =
   "id, room_id, player_name, message, discussion_turn, vote_round, created_at";
 const VOTE_COLS = "room_id, voter_name, target_name, vote_round, created_at";

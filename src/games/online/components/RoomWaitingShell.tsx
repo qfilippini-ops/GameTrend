@@ -30,7 +30,8 @@ export interface RoomWaitingShellLabels {
   shareTitle: string;
   shareText: string;
   players: string;
-  playersMinSuffix: (min: number) => string;
+  /** Suffixe capacité du lobby, ex: "/ 4" — reçoit la capacité réelle. */
+  playersCapSuffix: (cap: number) => string;
   host: string;
   you: string;
   offline: string;
@@ -38,7 +39,8 @@ export interface RoomWaitingShellLabels {
   settings: string;
   close: string;
   edit: string;
-  waitingForPlayers: (current: number, min: number) => string;
+  /** Texte d'attente sous le CTA, ex: "3 joueurs minimum". */
+  minPlayersHint: (min: number) => string;
   starting: string;
   launch: (count: number) => string;
   needPlayers: (min: number) => string;
@@ -105,8 +107,12 @@ export default function RoomWaitingShell({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room.config]);
 
+  // Capacité effective du lobby : on privilégie la valeur stockée en BDD
+  // (room.max_players, alimentée par compute_max_players selon le statut
+  // d'abonnement de l'hôte). Fallback sur la prop maxPlayers (legacy).
+  const lobbyCapacity = room.max_players ?? maxPlayers ?? minPlayers;
   const canStart =
-    players.length >= minPlayers && (!maxPlayers || players.length <= maxPlayers);
+    players.length >= minPlayers && players.length <= lobbyCapacity;
   const inviteUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/join/${room.id}`
@@ -247,7 +253,7 @@ export default function RoomWaitingShell({
           <div className="px-4 py-3 border-b border-surface-800/50 flex items-center justify-between">
             <p className="text-white font-display font-bold text-sm">{labels.players}</p>
             <span className="text-surface-600 text-xs font-mono">
-              {players.length} <span className="text-surface-800">{labels.playersMinSuffix(minPlayers)}</span>
+              {players.length} <span className="text-surface-800">{labels.playersCapSuffix(lobbyCapacity)}</span>
             </span>
           </div>
           <div className="divide-y divide-surface-800/30">
@@ -375,7 +381,7 @@ export default function RoomWaitingShell({
         {/* Attente */}
         {!canStart && (
           <p className="text-center text-surface-700 text-sm">
-            {labels.waitingForPlayers(players.length, minPlayers)}
+            {labels.minPlayersHint(minPlayers)}
           </p>
         )}
 

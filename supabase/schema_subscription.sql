@@ -905,6 +905,19 @@ CREATE POLICY "Banners delete owner" ON storage.objects
 -- ─── 19. Notification type 'subscription_started' ───────────────────────────
 -- Ajout d'un type de notif pour célébrer la souscription côté abonné.
 
+-- Liste exhaustive et idempotente : on inclut TOUS les types connus à ce
+-- jour, y compris ceux ajoutés par les migrations ultérieures
+-- (schema_navi.sql, schema_social_v3.sql). Évite de violer le CHECK lors
+-- d'une re-exécution si des notifications de ces types existent déjà.
 ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS notifications_type_check;
 ALTER TABLE public.notifications ADD CONSTRAINT notifications_type_check
-  CHECK (type IN ('friend_request', 'friend_accepted', 'new_referral', 'subscription_started'));
+  CHECK (type IN (
+    'friend_request',
+    'friend_accepted',
+    'new_referral',
+    'subscription_started',
+    'outbid_navi_shared',
+    'post_liked',
+    'post_commented',
+    'comment_replied'
+  ));

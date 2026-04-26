@@ -364,13 +364,18 @@ SELECT cron.schedule(
 );
 
 
--- ─── 10. Fix get_explore_feed (filtrage privé/public) ──────────────────────
--- L'override dans schema_subscription.sql utilisait config->>'is_private'
--- (jamais alimenté à la création), au lieu de la colonne is_private.
--- Conséquence : tous les lobbies passaient comme publics.
+-- ─── 10. Fix get_explore_feed (filtrage privé/public + payload rooms) ─────
+-- Bugs corrigés par rapport à schema_subscription.sql :
+--   a. WHERE filtrait sur config->>'is_private' (jamais alimenté à la
+--      création) → tous les lobbies sortaient comme publics. Fix : utiliser
+--      la COLONNE r.is_private.
+--   b. Le payload `public_rooms` n'incluait ni `host_id` ni `player_count`,
+--      qui sont consommés par le composant ExploreFeed côté client. Le RPC
+--      renvoyait donc des rooms incomplètes que le client refusait.
 --
--- On reposte ici la définition correcte (signature et corps identiques à
--- celle de schema_subscription.sql, à l'exception du WHERE).
+-- Toutes les autres parties (slots boostés premium 24h, slots organiques
+-- par play_count, signature, GRANTs) sont identiques à la version v17 de
+-- schema_subscription.sql.
 CREATE OR REPLACE FUNCTION public.get_explore_feed(
   top_presets int DEFAULT 12,
   top_rooms   int DEFAULT 6
@@ -382,76 +387,102 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  trending      jsonb;
-  rooms         jsonb;
-  boost_slots   int;
-  boosted       jsonb;
-  organic       jsonb;
+  trending     jsonb;
+  rooms        jsonb;
+  boosted      jsonb;
+  organic      jsonb;
+  boost_slots  int;
 BEGIN
-  -- 1) Slots boostés (premium)
-  boost_slots := LEAST(top_presets / 3, 4);
+  boost_slots := GREATEST(1, top_presets / 3);
 
-  SELECT COALESCE(jsonb_agg(p ORDER BY random()), '[]'::jsonb)
-    INTO boosted
-    FROM (
-      SELECT
-        p.id, p.title, p.cover_url, p.play_count, p.creator_id,
-        p.created_at, p.archived,
-        jsonb_build_object(
-          'username',   pr.username,
-          'avatar_url', pr.avatar_url,
-          'subscription_status', pr.subscription_status
-        ) AS author
-      FROM public.presets p
-      LEFT JOIN public.profiles pr ON pr.id = p.creator_id
-      WHERE p.archived = false
-        AND p.created_at > now() - interval '24 hours'
-        AND pr.subscription_status IN ('trialing','active','lifetime')
-      LIMIT boost_slots
-    ) p;
+  -- 1) Slots boostés : presets publics <24h par un premium
+  SELECT COALESCE(jsonb_agg(t ORDER BY t.created_at DESC), '[]'::jsonb)
+  INTO boosted
+  FROM (
+    SELECT
+      p.id,
+      p.name,
+      p.description,
+      p.game_type,
+      p.cover_url,
+      p.play_count,
+      p.author_id,
+      p.created_at,
+      TRUE AS is_boosted,
+      jsonb_build_object(
+        'username',           pr.username,
+        'avatar_url',         pr.avatar_url,
+        'subscription_status', pr.subscription_status
+      ) AS author
+    FROM public.presets p
+    JOIN public.profiles pr ON pr.id = p.author_id
+    WHERE p.is_public = TRUE
+      AND p.archived_at IS NULL
+      AND p.created_at > now() - INTERVAL '24 hours'
+      AND pr.subscription_status IN ('trialing', 'active', 'lifetime')
+    ORDER BY p.created_at DESC
+    LIMIT boost_slots
+  ) t;
 
-  -- 2) Slots organiques par play_count
+  -- 2) Slots organiques par play_count, en excluant les déjà boostés
   SELECT COALESCE(jsonb_agg(t ORDER BY t.play_count DESC), '[]'::jsonb)
-    INTO organic
-    FROM (
-      SELECT
-        p.id, p.title, p.cover_url, p.play_count, p.creator_id,
-        p.created_at, p.archived,
-        jsonb_build_object(
-          'username',   pr.username,
-          'avatar_url', pr.avatar_url,
-          'subscription_status', pr.subscription_status
-        ) AS author
-      FROM public.presets p
-      LEFT JOIN public.profiles pr ON pr.id = p.creator_id
-      WHERE p.archived = false
-        AND NOT EXISTS (
-          SELECT 1 FROM jsonb_array_elements(boosted) b
-          WHERE (b->>'id')::uuid = p.id
-        )
-      ORDER BY p.play_count DESC
-      LIMIT (top_presets - boost_slots)
-    ) t;
+  INTO organic
+  FROM (
+    SELECT
+      p.id,
+      p.name,
+      p.description,
+      p.game_type,
+      p.cover_url,
+      p.play_count,
+      p.author_id,
+      p.created_at,
+      FALSE AS is_boosted,
+      jsonb_build_object(
+        'username',           pr.username,
+        'avatar_url',         pr.avatar_url,
+        'subscription_status', pr.subscription_status
+      ) AS author
+    FROM public.presets p
+    LEFT JOIN public.profiles pr ON pr.id = p.author_id
+    WHERE p.is_public = TRUE
+      AND p.archived_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(boosted) b
+        WHERE (b->>'id')::uuid = p.id
+      )
+    ORDER BY p.play_count DESC
+    LIMIT (top_presets - boost_slots)
+  ) t;
 
   trending := boosted || organic;
 
-  -- 3) Public rooms : utilise la COLONNE is_private (fix bug filtrage)
+  -- 3) Public rooms : COLONNE is_private + host_id + player_count (fix)
   SELECT COALESCE(jsonb_agg(r ORDER BY r.created_at DESC), '[]'::jsonb)
-    INTO rooms
-    FROM (
-      SELECT
-        r.id, r.game_type, r.phase, r.created_at,
-        jsonb_build_object(
-          'username',   pr.username,
-          'avatar_url', pr.avatar_url
-        ) AS host
-      FROM public.game_rooms r
-      LEFT JOIN public.profiles pr ON pr.id = r.host_id
-      WHERE r.phase = 'lobby'
-        AND r.is_private = false
-      ORDER BY r.created_at DESC
-      LIMIT top_rooms
-    ) r;
+  INTO rooms
+  FROM (
+    SELECT
+      r.id,
+      r.game_type,
+      r.phase,
+      r.host_id,
+      r.created_at,
+      (
+        SELECT COUNT(*)::int
+        FROM public.room_players rp
+        WHERE rp.room_id = r.id
+      ) AS player_count,
+      jsonb_build_object(
+        'username',   pr.username,
+        'avatar_url', pr.avatar_url
+      ) AS host
+    FROM public.game_rooms r
+    LEFT JOIN public.profiles pr ON pr.id = r.host_id
+    WHERE r.phase = 'lobby'
+      AND r.is_private = FALSE
+    ORDER BY r.created_at DESC
+    LIMIT top_rooms
+  ) r;
 
   RETURN jsonb_build_object(
     'trending_presets', trending,
