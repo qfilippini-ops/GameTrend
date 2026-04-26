@@ -67,4 +67,7 @@ export interface GroupInvitation {
   invitee_id: string;
   created_at: string;
   expires_at: string;
+  // Joints éventuels (pour l'affichage)
+  inviter_username?: string | null;
+  inviter_avatar?: string | null;
 }

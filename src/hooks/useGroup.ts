@@ -176,7 +176,37 @@ export function useGroup(): UseGroupReturn {
       .from("group_invitations")
       .select("*")
       .eq("invitee_id", myUserId);
-    setPendingInvites((invites as GroupInvitation[]) ?? []);
+    const inviteRows = (invites as GroupInvitation[]) ?? [];
+    if (inviteRows.length > 0) {
+      const inviterIds = Array.from(
+        new Set(inviteRows.map((i) => i.inviter_id))
+      );
+      const { data: inviterProfs } = await supabase
+        .from("profiles")
+        .select("id, username, avatar_url")
+        .in("id", inviterIds);
+      const inviterMap = new Map<
+        string,
+        { username: string | null; avatar_url: string | null }
+      >();
+      for (const p of (inviterProfs as
+        | { id: string; username: string | null; avatar_url: string | null }[]
+        | null) ?? []) {
+        inviterMap.set(p.id, {
+          username: p.username,
+          avatar_url: p.avatar_url,
+        });
+      }
+      setPendingInvites(
+        inviteRows.map((inv) => ({
+          ...inv,
+          inviter_username: inviterMap.get(inv.inviter_id)?.username ?? null,
+          inviter_avatar: inviterMap.get(inv.inviter_id)?.avatar_url ?? null,
+        }))
+      );
+    } else {
+      setPendingInvites([]);
+    }
 
     if (!groupId) {
       setGroup(null);

@@ -19,13 +19,24 @@ export default function NotificationBell() {
   const locale = useLocale();
   const { user } = useAuth();
   const {
-    notifications,
-    unreadCount,
+    notifications: rawNotifications,
+    unreadCount: rawUnreadCount,
     markAllRead,
     markRead,
     deleteNotification,
     refresh: refreshNotifs,
   } = useNotifications(user && !user.is_anonymous ? user.id : null);
+
+  // Les invitations de groupe sont gérées exclusivement par
+  // <GroupInviteToasts />, on les masque donc du bell pour éviter le doublon.
+  const notifications = rawNotifications.filter(
+    (n) => n.type !== "group_invite"
+  );
+  const unreadCount = rawNotifications.reduce(
+    (acc, n) => acc + (n.type !== "group_invite" && !n.read_at ? 1 : 0),
+    0
+  );
+  void rawUnreadCount;
 
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);

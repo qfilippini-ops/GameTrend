@@ -442,6 +442,7 @@
     "join": "Join",
     "manage": "Manage friends →",
     "inviteToGroup": "Invite to my group",
+    "alreadyInGroup": "Already in your group",
     "groupFullTooltip": "Your group is full",
     "inviteErrors": {
       "already_in_group": "You are already in a group.",
@@ -1692,6 +1693,7 @@
     "noMessages": "No messages yet. Start the conversation!",
     "leave": "Leave",
     "leaveConfirm": "Leave this group?",
+    "close": "Close",
     "kick": "Kick",
     "kickConfirm": "Kick this member from the group?",
     "host": "Host",

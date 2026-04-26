@@ -489,8 +489,13 @@ BEGIN
     VALUES (v_inv.group_id, v_uid, false)
   ON CONFLICT (group_id, user_id) DO NOTHING;
 
-  -- Supprime l'invitation
+  -- Supprime l'invitation et la notification associée (pour ne pas
+  -- la laisser traîner après acceptation).
   DELETE FROM public.group_invitations WHERE id = p_invitation_id;
+  DELETE FROM public.notifications
+    WHERE user_id = v_uid
+      AND type = 'group_invite'
+      AND payload->>'invitation_id' = p_invitation_id::text;
 
   -- Message système "X a rejoint"
   SELECT username INTO v_username FROM public.profiles WHERE id = v_uid;
@@ -530,6 +535,10 @@ BEGIN
     RAISE EXCEPTION 'not_authorized';
   END IF;
   DELETE FROM public.group_invitations WHERE id = p_invitation_id;
+  DELETE FROM public.notifications
+    WHERE user_id = v_uid
+      AND type = 'group_invite'
+      AND payload->>'invitation_id' = p_invitation_id::text;
 END;
 $$;
 
@@ -715,6 +724,33 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.share_lobby_to_group(text) TO authenticated;
+
+
+-- ─── 6.b Realtime publication ──────────────────────────────────────────────
+-- Active les events postgres_changes pour le client. Sans ça, le hook
+-- `useGroup` ne reçoit AUCUN event realtime → l'utilisateur doit recharger
+-- la page pour voir les nouveaux messages/membres.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.group_messages;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.group_members;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.groups;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.group_invitations;
+    EXCEPTION WHEN duplicate_object THEN NULL;
+    END;
+  END IF;
+END $$;
 
 
 -- ─── 7. Cron : nettoyage 1h d'inactivité + invitations expirées ────────────

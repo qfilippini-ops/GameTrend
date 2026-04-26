@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
@@ -33,20 +34,35 @@ export default function GroupPanel() {
   } = useGroup();
 
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<"chat" | "members">("chat");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    setMounted(true);
+  }, []);
+
+  // Bloque le scroll body quand le modal est ouvert
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // Échap pour fermer
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
     }
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   // Auto-scroll vers le dernier message
@@ -83,6 +99,7 @@ export default function GroupPanel() {
   async function handleLeave() {
     if (!confirm(t("leaveConfirm"))) return;
     await leaveGroup();
+    setOpen(false);
   }
 
   async function handleKick(targetId: string) {
@@ -164,7 +181,7 @@ export default function GroupPanel() {
           />
         )}
         <div
-          className={`max-w-[78%] px-2.5 py-1.5 rounded-2xl text-[12px] leading-snug break-words ${
+          className={`max-w-[78%] px-2.5 py-1.5 rounded-2xl text-[13px] leading-snug break-words ${
             isMine
               ? "bg-brand-600 text-white rounded-br-sm"
               : "bg-surface-800/80 text-surface-100 rounded-bl-sm"
@@ -182,7 +199,7 @@ export default function GroupPanel() {
   }
 
   return (
-    <div className="relative" ref={panelRef}>
+    <>
       <button
         onClick={() => setOpen((v) => !v)}
         className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-surface-800/80 border border-surface-700/50 text-surface-300 hover:text-white hover:border-brand-500/50 transition-all"
@@ -199,176 +216,210 @@ export default function GroupPanel() {
         )}
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.94, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: -8 }}
-            transition={{ type: "spring", stiffness: 350, damping: 30 }}
-            className="absolute right-0 top-12 z-[200] w-80 rounded-2xl border border-surface-700/40 bg-surface-900 shadow-2xl overflow-hidden"
-          >
-            {!isConnected ? (
-              <div className="px-5 py-6 text-center flex flex-col items-center gap-3">
-                <span className="text-3xl">💬</span>
-                <p className="text-white font-display font-bold text-sm">
-                  {t("title")}
-                </p>
-                <p className="text-surface-400 text-xs leading-relaxed">
-                  {t("authPrompt")}
-                </p>
-                <Link
-                  href="/auth/login"
+      {mounted &&
+        createPortal(
+          <AnimatePresence>
+            {open && (
+              <motion.div
+                key="group-modal"
+                className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
+              >
+                {/* Backdrop */}
+                <div
+                  className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                   onClick={() => setOpen(false)}
-                  className="mt-1 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-colors"
+                />
+
+                {/* Card */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.96, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, y: 10 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                  className="relative w-full max-w-md h-[80vh] rounded-2xl border border-surface-700/40 bg-surface-900 shadow-2xl flex flex-col overflow-hidden"
                 >
-                  {tNotif("loginCta")}
-                </Link>
-              </div>
-            ) : loading ? (
-              <div className="px-4 py-8 text-center text-surface-500 text-sm">
-                {t("loading")}
-              </div>
-            ) : !hasGroup ? (
-              <div className="px-5 py-6 text-center flex flex-col items-center gap-3">
-                <span className="text-3xl">💬</span>
-                <p className="text-white font-display font-bold text-sm">
-                  {t("title")}
-                </p>
-                <p className="text-surface-400 text-xs leading-relaxed">
-                  {t("empty")}
-                </p>
-                <p className="text-surface-500 text-[11px]">{t("emptyHint")}</p>
-              </div>
-            ) : (
-              <>
-                {/* Header : capacité + bouton quitter */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800/60">
-                  <div className="flex items-center min-w-0">
-                    <p className="text-white font-display font-bold text-sm truncate">
-                      {t("title")}
-                    </p>
-                    <span className="ml-2 text-xs text-surface-400 shrink-0">
-                      {memberCount}/{capacity}
-                    </span>
-                    <GroupCapacityInfo capacity={capacity} />
-                  </div>
-                  <button
-                    onClick={handleLeave}
-                    className="text-[11px] text-surface-400 hover:text-red-400 transition-colors"
-                  >
-                    {t("leave")}
-                  </button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex border-b border-surface-800/40">
-                  <button
-                    onClick={() => setTab("chat")}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                      tab === "chat"
-                        ? "text-white border-b-2 border-brand-500"
-                        : "text-surface-500 hover:text-surface-300"
-                    }`}
-                  >
-                    {t("tabChat")}
-                  </button>
-                  <button
-                    onClick={() => setTab("members")}
-                    className={`flex-1 py-2 text-xs font-medium transition-colors ${
-                      tab === "members"
-                        ? "text-white border-b-2 border-brand-500"
-                        : "text-surface-500 hover:text-surface-300"
-                    }`}
-                  >
-                    {t("tabMembers")}
-                  </button>
-                </div>
-
-                {tab === "chat" ? (
-                  <div className="flex flex-col h-80">
-                    <div className="flex-1 overflow-y-auto py-1">
-                      {messages.length === 0 ? (
-                        <p className="text-surface-600 text-xs text-center py-8">
-                          {t("noMessages")}
-                        </p>
-                      ) : (
-                        <>
-                          {messages.map(renderMessage)}
-                          <div ref={messagesEndRef} />
-                        </>
-                      )}
-                    </div>
-                    <form
-                      onSubmit={handleSend}
-                      className="border-t border-surface-800/40 p-2 flex gap-2"
-                    >
-                      <input
-                        type="text"
-                        value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        placeholder={t("placeholder")}
-                        maxLength={1000}
-                        className="flex-1 px-3 py-1.5 rounded-xl bg-surface-800/80 border border-surface-700/40 text-white text-xs placeholder:text-surface-600 focus:border-brand-500 focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!draft.trim() || sending}
-                        className="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-surface-800 disabled:text-surface-600 text-white text-xs font-bold transition-colors"
+                  {!isConnected ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-6">
+                      <span className="text-4xl">💬</span>
+                      <p className="text-white font-display font-bold text-base">
+                        {t("title")}
+                      </p>
+                      <p className="text-surface-400 text-sm leading-relaxed max-w-xs">
+                        {t("authPrompt")}
+                      </p>
+                      <Link
+                        href="/auth/login"
+                        onClick={() => setOpen(false)}
+                        className="mt-2 px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold transition-colors"
                       >
-                        {t("send")}
-                      </button>
-                    </form>
-                  </div>
-                ) : (
-                  <div className="max-h-80 overflow-y-auto">
-                    {members.map((m) => {
-                      const canKick = isHost && m.user_id !== myUserId;
-                      return (
-                        <div
-                          key={m.user_id}
-                          className="flex items-center gap-3 px-4 py-2.5 border-b border-surface-800/30 last:border-0 hover:bg-surface-800/20 transition-colors"
-                        >
-                          <Link
-                            href={`/profile/${m.user_id}`}
-                            onClick={() => setOpen(false)}
-                          >
-                            <Avatar
-                              src={m.avatar_url}
-                              name={m.username}
-                              size="sm"
-                              className="rounded-xl"
-                            />
-                          </Link>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white text-sm font-medium truncate">
-                              {m.username ?? "?"}
-                              {m.is_host && (
-                                <span className="ml-1.5 text-[10px] text-amber-300 font-bold">
-                                  {t("host")}
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          {canKick && (
-                            <button
-                              onClick={() => handleKick(m.user_id)}
-                              title={t("kick")}
-                              className="text-[11px] text-surface-500 hover:text-red-400 transition-colors"
-                            >
-                              ✕
-                            </button>
-                          )}
+                        {tNotif("loginCta")}
+                      </Link>
+                    </div>
+                  ) : loading ? (
+                    <div className="flex-1 flex items-center justify-center text-surface-500 text-sm">
+                      {t("loading")}
+                    </div>
+                  ) : !hasGroup ? (
+                    <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 p-6">
+                      <span className="text-4xl">💬</span>
+                      <p className="text-white font-display font-bold text-base">
+                        {t("title")}
+                      </p>
+                      <p className="text-surface-400 text-sm leading-relaxed max-w-xs">
+                        {t("empty")}
+                      </p>
+                      <p className="text-surface-500 text-xs max-w-xs">
+                        {t("emptyHint")}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-800/60 shrink-0">
+                        <div className="flex items-center min-w-0">
+                          <p className="text-white font-display font-bold text-sm truncate">
+                            {t("title")}
+                          </p>
+                          <span className="ml-2 text-xs text-surface-400 shrink-0">
+                            {memberCount}/{capacity}
+                          </span>
+                          <GroupCapacityInfo capacity={capacity} />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleLeave}
+                            className="text-[11px] text-surface-400 hover:text-red-400 transition-colors"
+                          >
+                            {t("leave")}
+                          </button>
+                          <button
+                            onClick={() => setOpen(false)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-surface-400 hover:text-white hover:bg-surface-800/60 transition-colors"
+                            aria-label={t("close")}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Tabs */}
+                      <div className="flex border-b border-surface-800/40 shrink-0">
+                        <button
+                          onClick={() => setTab("chat")}
+                          className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
+                            tab === "chat"
+                              ? "text-white border-b-2 border-brand-500"
+                              : "text-surface-500 hover:text-surface-300"
+                          }`}
+                        >
+                          {t("tabChat")}
+                        </button>
+                        <button
+                          onClick={() => setTab("members")}
+                          className={`flex-1 py-2.5 text-xs font-medium transition-colors ${
+                            tab === "members"
+                              ? "text-white border-b-2 border-brand-500"
+                              : "text-surface-500 hover:text-surface-300"
+                          }`}
+                        >
+                          {t("tabMembers")}
+                        </button>
+                      </div>
+
+                      {tab === "chat" ? (
+                        <div className="flex-1 flex flex-col min-h-0">
+                          <div
+                            ref={messagesScrollRef}
+                            className="flex-1 overflow-y-auto py-2"
+                          >
+                            {messages.length === 0 ? (
+                              <p className="text-surface-600 text-xs text-center py-12">
+                                {t("noMessages")}
+                              </p>
+                            ) : (
+                              <>
+                                {messages.map(renderMessage)}
+                                <div ref={messagesEndRef} />
+                              </>
+                            )}
+                          </div>
+                          <form
+                            onSubmit={handleSend}
+                            className="border-t border-surface-800/40 p-2 flex gap-2 shrink-0"
+                          >
+                            <input
+                              type="text"
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              placeholder={t("placeholder")}
+                              maxLength={1000}
+                              className="flex-1 px-3 py-2 rounded-xl bg-surface-800/80 border border-surface-700/40 text-white text-sm placeholder:text-surface-600 focus:border-brand-500 focus:outline-none"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!draft.trim() || sending}
+                              className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 disabled:bg-surface-800 disabled:text-surface-600 text-white text-sm font-bold transition-colors"
+                            >
+                              {t("send")}
+                            </button>
+                          </form>
+                        </div>
+                      ) : (
+                        <div className="flex-1 overflow-y-auto">
+                          {members.map((m) => {
+                            const canKick = isHost && m.user_id !== myUserId;
+                            return (
+                              <div
+                                key={m.user_id}
+                                className="flex items-center gap-3 px-4 py-3 border-b border-surface-800/30 last:border-0 hover:bg-surface-800/20 transition-colors"
+                              >
+                                <Link
+                                  href={`/profile/${m.user_id}`}
+                                  onClick={() => setOpen(false)}
+                                >
+                                  <Avatar
+                                    src={m.avatar_url}
+                                    name={m.username}
+                                    size="md"
+                                    className="rounded-xl"
+                                  />
+                                </Link>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white text-sm font-medium truncate">
+                                    {m.username ?? "?"}
+                                    {m.is_host && (
+                                      <span className="ml-1.5 text-[10px] text-amber-300 font-bold">
+                                        {t("host")}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                                {canKick && (
+                                  <button
+                                    onClick={() => handleKick(m.user_id)}
+                                    title={t("kick")}
+                                    className="text-xs px-2 py-1 rounded-lg text-surface-400 hover:text-red-400 hover:bg-red-950/30 transition-colors"
+                                  >
+                                    {t("kick")}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </motion.div>
+              </motion.div>
             )}
-          </motion.div>
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
-    </div>
+    </>
   );
 }

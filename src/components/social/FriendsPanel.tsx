@@ -187,24 +187,31 @@ export default function FriendsPanel() {
                               {t("join")}
                             </Link>
                           )}
-                          {status !== "offline" &&
-                            !groupMemberIds.has(f.user_id) && (
-                              <button
-                                onClick={() => handleInvite(f.user_id)}
-                                disabled={
-                                  invitedIds.has(f.user_id) || groupIsFull
-                                }
-                                title={
-                                  groupIsFull
-                                    ? t("groupFullTooltip")
-                                    : t("inviteToGroup")
-                                }
-                                aria-label={t("inviteToGroup")}
-                                className="shrink-0 w-7 h-7 flex items-center justify-center rounded-xl bg-emerald-600/15 text-emerald-300 border border-emerald-600/30 hover:bg-emerald-600/25 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold transition-colors"
-                              >
-                                {invitedIds.has(f.user_id) ? "✓" : "+"}
-                              </button>
-                            )}
+                          {groupMemberIds.has(f.user_id) ? (
+                            <span
+                              title={t("alreadyInGroup")}
+                              aria-label={t("alreadyInGroup")}
+                              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-xl bg-emerald-600/25 text-emerald-200 border border-emerald-500/40 text-sm font-bold"
+                            >
+                              ✓
+                            </span>
+                          ) : status !== "offline" ? (
+                            <button
+                              onClick={() => handleInvite(f.user_id)}
+                              disabled={
+                                invitedIds.has(f.user_id) || groupIsFull
+                              }
+                              title={
+                                groupIsFull
+                                  ? t("groupFullTooltip")
+                                  : t("inviteToGroup")
+                              }
+                              aria-label={t("inviteToGroup")}
+                              className="shrink-0 w-7 h-7 flex items-center justify-center rounded-xl bg-emerald-600/15 text-emerald-300 border border-emerald-600/30 hover:bg-emerald-600/25 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-bold transition-colors"
+                            >
+                              {invitedIds.has(f.user_id) ? "✓" : "+"}
+                            </button>
+                          ) : null}
                         </div>
                       );
                     })
