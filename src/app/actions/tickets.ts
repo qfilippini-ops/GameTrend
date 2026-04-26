@@ -5,7 +5,16 @@
 // les CHECK constraints). Pas de UPDATE/DELETE côté user.
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  TICKET_BODY_MAX,
+  TICKET_BODY_MIN,
+  TICKET_TITLE_MAX,
+  TICKET_TITLE_MIN,
+} from "@/lib/support/limits";
 
+// Note : les constantes de limite sont volontairement gardées dans
+// `@/lib/support/limits` (fichier non-server) car un fichier "use server"
+// ne peut exporter QUE des fonctions async. Les types le peuvent.
 export type TicketType = "bug" | "idea" | "other";
 
 export interface CreateTicketResult {
@@ -13,12 +22,6 @@ export interface CreateTicketResult {
   id?: string;
   error?: string;
 }
-
-// Limites synchronisées avec schema_roadmap_v1.sql (CHECK constraints).
-export const TICKET_TITLE_MIN = 3;
-export const TICKET_TITLE_MAX = 120;
-export const TICKET_BODY_MIN = 10;
-export const TICKET_BODY_MAX = 2000;
 
 export async function createTicket(
   type: TicketType,
