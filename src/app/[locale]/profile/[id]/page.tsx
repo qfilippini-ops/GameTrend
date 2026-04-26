@@ -269,17 +269,17 @@ export default async function PublicProfilePage({
           </div>
         </section>
 
+        {/* Stats : accordéon fermé par défaut, juste au-dessus du toggle */}
+        <StatsAccordion
+          userId={profile.id}
+          followersCount={profile.followers_count}
+        />
+
         {/* Onglets : Activité (par défaut) / Presets */}
         <ProfileTabs
           userId={profile.id}
           presets={presets}
           pinnedIds={pinnedIds}
-        />
-
-        {/* Stats : accordéon fermé par défaut, en bas de page */}
-        <StatsAccordion
-          userId={profile.id}
-          followersCount={profile.followers_count}
         />
 
         <ProfileLoginCTA />

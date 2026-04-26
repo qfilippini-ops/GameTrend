@@ -34,6 +34,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 DECLARE
   uid uuid := auth.uid();
   since_at timestamptz := NOW() - INTERVAL '30 days';
@@ -109,8 +110,8 @@ BEGIN
     -- Curseur de pagination basé sur created_at (stable, pas sur hot_score
     -- qui change avec le temps). On accepte donc un léger ré-ordonnancement
     -- entre pages : c'est le compromis classique "feed hot".
-    SELECT * FROM merged
-    WHERE before_at IS NULL OR created_at < before_at
+    SELECT * FROM merged m
+    WHERE before_at IS NULL OR m.created_at < before_at
   )
   SELECT
     f.item_type,
@@ -156,6 +157,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN;

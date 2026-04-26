@@ -231,6 +231,12 @@ export default function ProfilePage() {
           />
         )}
 
+        {/* ── Stats (accordéon fermé par défaut, juste au-dessus du toggle) */}
+        <StatsAccordion
+          userId={user.id}
+          followersCount={(displayProfile as { followers_count?: number })?.followers_count ?? 0}
+        />
+
         {/* ── Toggle Activité | Presets ──────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-surface-900/60 border border-surface-800/50">
           <button
@@ -394,12 +400,6 @@ export default function ProfilePage() {
           )}
         </motion.div>
         )}
-
-        {/* ── Stats (accordéon fermé par défaut) ──────────────────────────── */}
-        <StatsAccordion
-          userId={user.id}
-          followersCount={(displayProfile as { followers_count?: number })?.followers_count ?? 0}
-        />
 
         {/* ── Mon abonnement ── */}
         <motion.div
