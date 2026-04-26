@@ -19,6 +19,7 @@ import { useRouter, Link } from "@/i18n/navigation";
 import { vibrate } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import Avatar from "@/components/ui/Avatar";
+import LobbyCapacityInfo from "@/components/premium/LobbyCapacityInfo";
 import type { OnlineRoom, RoomPlayer } from "@/types/rooms";
 
 export interface RoomWaitingShellLabels {
@@ -252,9 +253,13 @@ export default function RoomWaitingShell({
         <div className="rounded-2xl border border-surface-700/40 bg-surface-900/50 overflow-hidden">
           <div className="px-4 py-3 border-b border-surface-800/50 flex items-center justify-between">
             <p className="text-white font-display font-bold text-sm">{labels.players}</p>
-            <span className="text-surface-600 text-xs font-mono">
-              {players.length} <span className="text-surface-800">{labels.playersCapSuffix(lobbyCapacity)}</span>
-            </span>
+            <div className="flex items-center text-surface-600 text-xs font-mono">
+              <span>
+                {players.length}{" "}
+                <span className="text-surface-800">{labels.playersCapSuffix(lobbyCapacity)}</span>
+              </span>
+              <LobbyCapacityInfo capacity={lobbyCapacity} />
+            </div>
           </div>
           <div className="divide-y divide-surface-800/30">
             <AnimatePresence>

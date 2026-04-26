@@ -37,7 +37,9 @@
       "freeBadge": "Free",
       "premiumBadge": "Premium",
       "upsell": "Go Premium to host up to {max} players",
-      "upsellCta": "Get Premium"
+      "upsellCta": "Get Premium",
+      "infoAria": "Lobby capacity",
+      "popoverMessage": "Host up to 16 players with a Premium account!"
     }
   },
   "languages": {

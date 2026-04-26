@@ -37,7 +37,9 @@
       "freeBadge": "Gratuit",
       "premiumBadge": "Premium",
       "upsell": "Passe Premium pour aller jusqu'à {max} joueurs",
-      "upsellCta": "Découvrir Premium"
+      "upsellCta": "Découvrir Premium",
+      "infoAria": "Capacité du salon",
+      "popoverMessage": "Accueil jusqu'à 16 joueurs avec un compte Premium !"
     }
   },
   "languages": {
