@@ -5,8 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { createPublicClient } from "@/lib/supabase/server";
 import Header from "@/components/layout/Header";
 import Avatar from "@/components/ui/Avatar";
-import CreatorStats from "@/components/profile/CreatorStats";
-import PresetCard from "@/components/presets/PresetCard";
+import StatsAccordion from "@/components/profile/StatsAccordion";
 import { Link } from "@/i18n/navigation";
 import type { Preset, SubscriptionStatus } from "@/types/database";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
@@ -14,6 +13,7 @@ import CreatorBadge from "@/components/premium/CreatorBadge";
 import { SITE_URL } from "@/lib/seo/sitemap";
 import ProfileSocialActions from "./_components/ProfileSocialActions";
 import ProfileLoginCTA from "./_components/ProfileLoginCTA";
+import ProfileTabs from "./_components/ProfileTabs";
 
 interface PublicProfile {
   id: string;
@@ -173,14 +173,6 @@ export default async function PublicProfilePage({
 
   const t = await getTranslations({ locale: params.locale, namespace: "profile.public" });
   const tProfile = await getTranslations({ locale: params.locale, namespace: "profile" });
-  const tStats = await getTranslations({ locale: params.locale, namespace: "profile.stats" });
-
-  const stats = profile.stats ?? {};
-  const statItems = [
-    { label: tStats("games"), value: stats.games_played ?? 0, color: "brand" as const },
-    { label: tStats("wins"), value: stats.wins ?? 0, color: "ghost" as const },
-    { label: tStats("presets"), value: presets.length, color: "brand" as const },
-  ];
 
   // ── JSON-LD Person : signal majeur pour les "knowledge graph" Google ──
   const canonicalUrl = `${SITE_URL}/${params.locale}/profile/${profile.id}`;
@@ -277,67 +269,18 @@ export default async function PublicProfilePage({
           </div>
         </section>
 
-        {/* Stats */}
-        <section className="grid grid-cols-3 gap-2">
-          {statItems.map((s) => (
-            <div
-              key={s.label}
-              className={`relative rounded-2xl border p-4 flex flex-col items-center gap-1 overflow-hidden ${
-                s.color === "brand"
-                  ? "border-brand-700/25 bg-brand-950/30"
-                  : "border-ghost-700/25 bg-ghost-950/30"
-              }`}
-            >
-              <span
-                className="text-2xl font-display font-bold leading-none"
-                style={{
-                  textShadow: s.color === "brand"
-                    ? "0 0 20px rgba(68,96,255,0.5)"
-                    : "0 0 20px rgba(217,70,239,0.5)",
-                  color: s.color === "brand" ? "#6b89ff" : "#e879f9",
-                }}
-              >
-                {s.value}
-              </span>
-              <span className="text-xs text-surface-400 font-medium">{s.label}</span>
-            </div>
-          ))}
-        </section>
+        {/* Onglets : Activité (par défaut) / Presets */}
+        <ProfileTabs
+          userId={profile.id}
+          presets={presets}
+          pinnedIds={pinnedIds}
+        />
 
-        {/* Stats créateur (uniquement si presets publics) */}
-        <CreatorStats userId={profile.id} followersCount={profile.followers_count} />
-
-        {/* Pinned presets (premium) */}
-        {pinnedIds.length > 0 && (
-          <section>
-            <h2 className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1 flex items-center gap-1.5">
-              <span>📌</span>
-              {t("pinnedPresets")}
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {pinnedIds
-                .map((pid) => presets.find((p) => p.id === pid))
-                .filter((p): p is Preset => Boolean(p))
-                .map((preset, i) => (
-                  <PresetCard key={preset.id} preset={preset} index={i} />
-                ))}
-            </div>
-          </section>
-        )}
-
-        {/* Presets publics */}
-        {presets.length > 0 && (
-          <section>
-            <h2 className="text-surface-400 text-xs uppercase tracking-widest mb-3 px-1">
-              {t("publicPresets")}
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              {presets.map((preset, i) => (
-                <PresetCard key={preset.id} preset={preset} index={i} />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Stats : accordéon fermé par défaut, en bas de page */}
+        <StatsAccordion
+          userId={profile.id}
+          followersCount={profile.followers_count}
+        />
 
         <ProfileLoginCTA />
       </article>

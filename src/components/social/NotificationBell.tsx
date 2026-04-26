@@ -246,6 +246,45 @@ export default function NotificationBell() {
                                   </Link>
                                 );
                               })()
+                            ) : notif.type === "post_liked" ||
+                              notif.type === "post_commented" ||
+                              notif.type === "comment_replied" ? (
+                              (() => {
+                                // Toutes les notifs sociales sur un post pointent vers
+                                // la même ancre dans le feed (#result-{id}).
+                                const postId =
+                                  (notif.payload as { post_id?: string } | null | undefined)
+                                    ?.post_id ?? null;
+                                const href = postId
+                                  ? `/feed#result-${postId}`
+                                  : `/profile/${notif.from_user_id}`;
+                                const labelKey =
+                                  notif.type === "post_liked"
+                                    ? "postLiked"
+                                    : notif.type === "post_commented"
+                                      ? "postCommented"
+                                      : "commentReplied";
+                                const icon =
+                                  notif.type === "post_liked" ? "👍" : "💬";
+                                return (
+                                  <Link
+                                    href={href}
+                                    onClick={() => {
+                                      setOpen(false);
+                                      void markRead(notif.id);
+                                    }}
+                                    className="block group"
+                                  >
+                                    <p className="text-white text-sm leading-snug">
+                                      <span className="mr-1">{icon}</span>
+                                      <span className="font-medium group-hover:text-brand-300 transition-colors">
+                                        {notif.from_profile?.username ?? t("anonymous")}
+                                      </span>{" "}
+                                      {t(labelKey)}
+                                    </p>
+                                  </Link>
+                                );
+                              })()
                             ) : (
                               <p className="text-white text-sm leading-snug">
                                 <span className="font-medium">

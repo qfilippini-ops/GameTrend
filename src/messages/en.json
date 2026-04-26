@@ -84,6 +84,45 @@
     "participantsLabel": "{count, plural, one {# participant} other {# participants}}",
     "onlineBadge": "Online",
     "playCount": "{count, plural, one {# play} other {# plays}}",
+    "viewPresetLink": "View preset",
+    "pullToRefresh": "Pull to refresh",
+    "releaseToRefresh": "Release to refresh",
+    "refreshing": "Refreshing…",
+    "postReactions": {
+      "likeAria": "Like this post",
+      "dislikeAria": "Dislike this post"
+    },
+    "postComments": {
+      "placeholder": "Write a comment…",
+      "replyPlaceholder": "Reply…",
+      "send": "Send",
+      "loading": "Loading…",
+      "empty": "No comments yet — be the first!",
+      "loginToComment": "Sign in to comment.",
+      "errLoad": "Failed to load comments.",
+      "errSubmit": "Failed to send.",
+      "errDelete": "Failed to delete.",
+      "anonymous": "Anonymous",
+      "authorBadge": "AUTHOR",
+      "reply": "Reply",
+      "delete": "Delete",
+      "confirmDelete": "Delete this comment?",
+      "time": {
+        "now": "just now",
+        "minAgo": "{n}m ago",
+        "hAgo": "{n}h ago",
+        "dAgo": "{n}d ago"
+      }
+    },
+    "postMenu": {
+      "openMenu": "Open menu",
+      "delete": "Delete",
+      "errDelete": "Delete failed.",
+      "confirmTitle": "Delete this post?",
+      "confirmBody": "This action is permanent. The post will be removed from the feed and the database.",
+      "cancel": "Cancel",
+      "confirmDelete": "Yes, delete"
+    },
     "explore": {
       "publicLobbies": "Public lobbies",
       "lobbiesWaiting": "{count, plural, one {# room waiting for players} other {# rooms waiting for players}}",
@@ -266,7 +305,14 @@
       "publicPresets": "Public presets",
       "pinnedPresets": "Pinned presets",
       "loginPrefix": "Sign in",
-      "loginSuffix": " to add this player as a friend."
+      "loginSuffix": " to add this player as a friend.",
+      "tabActivity": "Activity",
+      "tabPresets": "Presets ({count})",
+      "noActivityTitle": "No public activity",
+      "noActivityText": "This player hasn't shared anything yet.",
+      "noPresetsTitle": "No public presets",
+      "noPresetsText": "This player hasn't published any preset yet.",
+      "stats": "Stats"
     }
   },
   "friends": {
@@ -1501,6 +1547,9 @@
       "other": "just shared your Outbid duel with Navi's verdict 🤖",
       "self": "Navi has settled your Outbid duel 🤖"
     },
+    "postLiked": "liked your post",
+    "postCommented": "commented on your post",
+    "commentReplied": "replied to your comment",
     "minutesAgo": "{n} min ago",
     "hoursAgo": "{n} h ago",
     "daysAgo": "{n} d ago",

@@ -12,7 +12,10 @@ export type NotificationType =
   | "friend_accepted"
   | "new_referral"
   | "subscription_started"
-  | "outbid_navi_shared";
+  | "outbid_navi_shared"
+  | "post_liked"
+  | "post_commented"
+  | "comment_replied";
 
 export interface Notification {
   id: string;

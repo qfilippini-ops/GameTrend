@@ -14,10 +14,14 @@ import { useFeedCache, type FeedTabState } from "@/components/feed/FeedCacheCont
 import { GAMES_REGISTRY } from "@/games/registry";
 import { useSubscription } from "@/hooks/useSubscription";
 import { NaviMarkdown } from "@/components/ui/NaviMarkdown";
+import { PostReactions } from "@/components/feed/PostReactions";
+import { PostComments } from "@/components/feed/PostComments";
+import { DeletePostMenu } from "@/components/feed/DeletePostMenu";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 
 const PAGE_SIZE = 10;
 
-interface PresetPayload {
+export interface PresetPayload {
   id: string;
   name: string;
   description: string | null;
@@ -26,15 +30,19 @@ interface PresetPayload {
   play_count: number;
 }
 
-interface ResultPayload {
+export interface ResultPayload {
   id: string;
   game_type: string;
   preset_id: string | null;
   preset_name: string | null;
   result_data: Record<string, unknown>;
+  // Compteurs sociaux (peuvent être absents pour les anciens payloads).
+  like_count?: number;
+  dislike_count?: number;
+  comment_count?: number;
 }
 
-interface FeedItem {
+export interface FeedItem {
   type: "preset" | "result";
   /** Identifiant React unique (préfixé pour éviter collision entre tables). */
   key: string;
@@ -48,8 +56,8 @@ interface FeedItem {
   data: PresetPayload | ResultPayload;
 }
 
-/** Shape brut renvoyé par le RPC `get_following_feed`. */
-interface RpcRow {
+/** Shape brut renvoyé par les RPC feed (get_following_feed, get_user_activity_feed). */
+export interface RpcRow {
   item_type: "preset" | "result";
   item_id: string;
   created_at: string;
@@ -58,6 +66,10 @@ interface RpcRow {
   author_avatar_url: string | null;
   author_subscription_status?: string | null;
   payload: PresetPayload | ResultPayload;
+}
+
+export function rpcRowToFeedItem(r: RpcRow): FeedItem {
+  return rowToItem(r);
 }
 
 /** Métadonnées spécifiques cachées avec ce tab. */
@@ -103,6 +115,45 @@ export default function FollowingFeed() {
   const [error, setError] = useState<string | null>(null);
   /** Items détectés par le refetch silencieux mais pas encore insérés en tête. */
   const [pendingNew, setPendingNew] = useState<FeedItem[]>([]);
+  /** Keys d'items supprimés localement (filtrés au rendu, mémoire seulement). */
+  const [deletedKeys, setDeletedKeys] = useState<Set<string>>(new Set());
+
+  // Callback transmis aux cards pour retirer une publication après suppression.
+  const handleDeleted = useCallback((key: string) => {
+    setDeletedKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  }, []);
+
+  // Pull-to-refresh : recharge la première page et remplace `items`.
+  const refresh = useCallback(async () => {
+    try {
+      const rows = await fetchFeedRef.current?.(null);
+      if (!rows) return;
+      const fresh = rows.map(rowToItem);
+      setItems(fresh);
+      setHasMore(rows.length >= PAGE_SIZE);
+      setPendingNew([]);
+      setDeletedKeys(new Set());
+      cache.setState<FeedItem, FollowingMeta>("following", {
+        items: fresh,
+        lastFetchAt: Date.now(),
+        scrollY: 0,
+        hasMore: rows.length >= PAGE_SIZE,
+        lastCursor: fresh[fresh.length - 1]?.created_at ?? null,
+        meta: { followingCount: Math.max(followingCount, 1) },
+      });
+    } catch (e) {
+      console.error("[FollowingFeed] refresh", e);
+    }
+  }, [cache, followingCount]);
+
+  // useRef pour exposer fetchFeed à `refresh` sans re-créer la closure.
+  const fetchFeedRef = useRef<((before: string | null) => Promise<RpcRow[]>) | null>(null);
+
+  const ptr = usePullToRefresh({ onRefresh: refresh });
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   /** Items courants en ref pour éviter les stale closures dans les fetchs async. */
@@ -164,6 +215,10 @@ export default function FollowingFeed() {
     },
     []
   );
+  // Expose à la closure de `refresh` (pull-to-refresh).
+  useEffect(() => {
+    fetchFeedRef.current = fetchFeed;
+  }, [fetchFeed]);
 
   // ─── Persistance dans le cache ─────────────────────────────────────────────
   const persist = useCallback(
@@ -420,7 +475,33 @@ export default function FollowingFeed() {
   }
 
   return (
-    <div className="space-y-3">
+    <div
+      className="space-y-5 relative"
+      onTouchStart={ptr.bind.onTouchStart}
+      onTouchMove={ptr.bind.onTouchMove}
+      onTouchEnd={ptr.bind.onTouchEnd}
+    >
+      {/* Indicateur pull-to-refresh : monte/descend avec le pull */}
+      <motion.div
+        animate={{
+          height: ptr.refreshing ? 36 : ptr.pullPx > 0 ? Math.min(ptr.pullPx, 90) : 0,
+          opacity: ptr.refreshing || ptr.pullPx > 0 ? 1 : 0,
+        }}
+        transition={{ duration: 0.12 }}
+        className="flex items-center justify-center overflow-hidden text-xs text-brand-300 -mt-2"
+      >
+        {ptr.refreshing ? (
+          <span className="inline-flex items-center gap-2">
+            <span className="inline-block w-3.5 h-3.5 border-2 border-brand-500/40 border-t-brand-300 rounded-full animate-spin" />
+            {t("refreshing")}
+          </span>
+        ) : ptr.pullPx >= 80 ? (
+          <span>↑ {t("releaseToRefresh")}</span>
+        ) : (
+          <span>↓ {t("pullToRefresh")}</span>
+        )}
+      </motion.div>
+
       {/* Pill "N nouveaux posts" — sticky en haut, au-dessus de la liste */}
       <AnimatePresence>
         {pendingNew.length > 0 && (
@@ -437,27 +518,48 @@ export default function FollowingFeed() {
         )}
       </AnimatePresence>
 
-      {items.map((item, i) => (
-        <div key={item.key}>
-          <motion.div
-            initial={i < 3 ? { opacity: 0, y: 8 } : false}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(i * 0.03, 0.4) }}
-          >
-            {item.type === "preset" ? (
-              <PresetFeedCard item={item} data={item.data as PresetPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} />
-            ) : (
-              <ResultFeedCard item={item} data={item.data as ResultPayload} t={t} tTime={tTime} tCommon={tCommon} locale={locale} currentUserId={user?.id ?? null} isPremium={isPremium} />
+      {items
+        .filter((item) => !deletedKeys.has(item.key))
+        .map((item, i) => (
+          <div key={item.key}>
+            <motion.div
+              initial={i < 3 ? { opacity: 0, y: 8 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: Math.min(i * 0.03, 0.4) }}
+            >
+              {item.type === "preset" ? (
+                <PresetFeedCard
+                  item={item}
+                  data={item.data as PresetPayload}
+                  t={t}
+                  tTime={tTime}
+                  tCommon={tCommon}
+                  locale={locale}
+                  currentUserId={user?.id ?? null}
+                  onDeleted={() => handleDeleted(item.key)}
+                />
+              ) : (
+                <ResultFeedCard
+                  item={item}
+                  data={item.data as ResultPayload}
+                  t={t}
+                  tTime={tTime}
+                  tCommon={tCommon}
+                  locale={locale}
+                  currentUserId={user?.id ?? null}
+                  isPremium={isPremium}
+                  onDeleted={() => handleDeleted(item.key)}
+                />
+              )}
+            </motion.div>
+            {/* Ad inline tous les 8 items pour les non-premium */}
+            {(i + 1) % 8 === 0 && i < items.length - 1 && (
+              <div className="mt-3">
+                <AdSlot placement="feed-inline" index={Math.floor(i / 8)} />
+              </div>
             )}
-          </motion.div>
-          {/* Ad inline tous les 8 items pour les non-premium */}
-          {(i + 1) % 8 === 0 && i < items.length - 1 && (
-            <div className="mt-3">
-              <AdSlot placement="feed-inline" index={Math.floor(i / 8)} />
-            </div>
-          )}
-        </div>
-      ))}
+          </div>
+        ))}
 
       {hasMore && (
         <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
@@ -483,34 +585,47 @@ export default function FollowingFeed() {
 
 // ─── Sous-composants ─────────────────────────────────────────────────────────
 
-type FeedT = ReturnType<typeof useTranslations<"feed">>;
-type CommonT = ReturnType<typeof useTranslations<"common">>;
-type TimeT = ReturnType<typeof useTranslations<"time">>;
+export type FeedT = ReturnType<typeof useTranslations<"feed">>;
+export type CommonT = ReturnType<typeof useTranslations<"common">>;
+export type TimeT = ReturnType<typeof useTranslations<"time">>;
 
-function PresetFeedCard({ item, data, t, tTime, tCommon, locale }: { item: FeedItem; data: PresetPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string }) {
+export function PresetFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, onDeleted }: { item: FeedItem; data: PresetPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string; currentUserId: string | null; onDeleted: () => void }) {
+  const isMine = currentUserId === item.author.id;
   return (
-    <Link
-      href={`/presets/${data.id}`}
-      className="block rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors"
-    >
-      <FeedHeader author={item.author} action={t("actions.publishedPreset")} date={item.created_at} icon="✨" tTime={tTime} tCommon={tCommon} locale={locale} />
-      <div className="flex gap-3 p-3">
-        <div className="w-20 h-20 rounded-xl overflow-hidden bg-surface-800 shrink-0 relative">
-          {data.cover_url ? (
-            <Image src={data.cover_url} alt={data.name} fill className="object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-2xl">🎮</div>
-          )}
+    <div className="relative rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors">
+      <FeedHeader
+        author={item.author}
+        action={t("actions.publishedPreset")}
+        date={item.created_at}
+        icon="✨"
+        tTime={tTime}
+        tCommon={tCommon}
+        locale={locale}
+        actions={
+          isMine ? (
+            <DeletePostMenu kind="preset" postId={data.id} onDeleted={onDeleted} />
+          ) : null
+        }
+      />
+      <Link href={`/presets/${data.id}`} className="block hover:bg-surface-900/30 transition-colors">
+        <div className="flex gap-3 p-3">
+          <div className="w-20 h-20 rounded-xl overflow-hidden bg-surface-800 shrink-0 relative">
+            {data.cover_url ? (
+              <Image src={data.cover_url} alt={data.name} fill className="object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-2xl">🎮</div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-display font-bold text-sm leading-tight truncate">{data.name}</p>
+            {data.description && (
+              <p className="text-surface-400 text-xs mt-1 line-clamp-2 leading-snug">{data.description}</p>
+            )}
+            <p className="text-surface-600 text-[11px] mt-1.5">▶ {t("playCount", { count: data.play_count })}</p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-display font-bold text-sm leading-tight truncate">{data.name}</p>
-          {data.description && (
-            <p className="text-surface-400 text-xs mt-1 line-clamp-2 leading-snug">{data.description}</p>
-          )}
-          <p className="text-surface-600 text-[11px] mt-1.5">▶ {t("playCount", { count: data.play_count })}</p>
-        </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }
 
@@ -542,7 +657,12 @@ interface NaviVerdictPayload {
   locale?: string;
 }
 
-function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, isPremium }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string; currentUserId: string | null; isPremium: boolean }) {
+export function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, isPremium, onDeleted }: { item: FeedItem; data: ResultPayload; t: FeedT; tTime: TimeT; tCommon: CommonT; locale: string; currentUserId: string | null; isPremium: boolean; onDeleted: () => void }) {
+  // Compteurs sociaux locaux : on les initialise depuis le payload puis on
+  // les ajuste à la volée quand l'utilisateur commente ou interagit.
+  const [commentCount, setCommentCount] = useState<number>(data.comment_count ?? 0);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const isMine = currentUserId === item.author.id;
   const { game_type, preset_id, preset_name, result_data } = data;
   const rd = (result_data ?? {}) as Record<string, unknown>;
   const champion = rd.champion as { name: string; imageUrl?: string | null } | undefined;
@@ -585,7 +705,20 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, 
 
   const inner = (
     <>
-      <FeedHeader author={item.author} action={t("actions.sharedResult")} date={item.created_at} icon="🏆" tTime={tTime} tCommon={tCommon} locale={locale} />
+      <FeedHeader
+        author={item.author}
+        action={t("actions.sharedResult")}
+        date={item.created_at}
+        icon="🏆"
+        tTime={tTime}
+        tCommon={tCommon}
+        locale={locale}
+        actions={
+          isMine ? (
+            <DeletePostMenu kind="result" postId={data.id} onDeleted={onDeleted} />
+          ) : null
+        }
+      />
 
       {/* Badge jeu : identifie clairement le jeu joué (online ou solo) */}
       <div className="px-3 pt-2.5 -mb-1 flex items-center gap-2 flex-wrap">
@@ -670,7 +803,66 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, 
             )}
           </div>
         )}
+
+        {/* Lien optionnel "Voir le preset" si la partie est rattachée à un */}
+        {preset_id && (
+          <Link
+            href={`/presets/${preset_id}`}
+            className="mt-3 inline-flex items-center gap-1 text-brand-300 text-xs font-bold hover:text-brand-200"
+          >
+            {t("viewPresetLink")} →
+          </Link>
+        )}
       </div>
+
+      {/* ─── Footer social : réactions + commentaires ──────────────────── */}
+      <div className="px-3 py-2 border-t border-surface-800/40 flex items-center gap-2 flex-wrap">
+        <PostReactions
+          postType="result"
+          postId={data.id}
+          initialLikeCount={data.like_count ?? 0}
+          initialDislikeCount={data.dislike_count ?? 0}
+          initialUserReaction={null}
+          canReact={!!currentUserId}
+          size="sm"
+        />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCommentsOpen((v) => !v);
+          }}
+          className="ml-auto inline-flex items-center gap-1.5 text-xs font-bold py-1 px-2.5 rounded-full bg-surface-900/40 border border-surface-700/60 text-surface-300 hover:bg-surface-800/60 hover:text-brand-200 transition-colors"
+          aria-expanded={commentsOpen}
+        >
+          <span aria-hidden>💬</span>
+          <span className="font-mono tabular-nums">{commentCount}</span>
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {commentsOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden border-t border-surface-800/40"
+          >
+            <div className="p-3">
+              <PostComments
+                postType="result"
+                postId={data.id}
+                currentUserId={currentUserId}
+                postAuthorId={item.author.id}
+                onCountChange={(delta) =>
+                  setCommentCount((c) => Math.max(0, c + delta))
+                }
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 
@@ -678,18 +870,6 @@ function ResultFeedCard({ item, data, t, tTime, tCommon, locale, currentUserId, 
   // L'attribut data-feed-anchor sert à appliquer le highlight transitoire.
   const anchorId = item.key;
 
-  if (preset_id) {
-    return (
-      <Link
-        id={anchorId}
-        data-feed-anchor={anchorId}
-        href={`/presets/${preset_id}`}
-        className="block rounded-2xl border border-surface-800/50 bg-surface-900/40 overflow-hidden hover:border-brand-700/40 transition-colors scroll-mt-24"
-      >
-        {inner}
-      </Link>
-    );
-  }
   return (
     <div
       id={anchorId}
@@ -1105,20 +1285,28 @@ function ParticipantsBanner({ participants, t }: { participants: ParticipantRef[
   );
 }
 
-function FeedHeader({ author, action, date, icon, tTime, tCommon, locale }: { author: FeedItem["author"]; action: string; date: string; icon: string; tTime: TimeT; tCommon: CommonT; locale: string }) {
+function FeedHeader({ author, action, date, icon, tTime, tCommon, locale, actions }: { author: FeedItem["author"]; action: string; date: string; icon: string; tTime: TimeT; tCommon: CommonT; locale: string; actions?: React.ReactNode }) {
+  // Le bloc auteur est cliquable (lien profil) mais on isole le slot d'actions
+  // (DeletePostMenu, etc.) à droite pour qu'il reste interactif sans
+  // déclencher la navigation parente.
   return (
-    <Link href={`/profile/${author.id}`} className="flex items-center gap-2.5 px-3 py-2.5 border-b border-surface-800/40 hover:bg-surface-800/20 transition-colors">
-      <Avatar src={author.avatar_url} name={author.username} size="sm" className="rounded-full shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-surface-300 truncate flex items-center gap-1">
-          <span className="font-semibold text-white truncate">{author.username ?? tCommon("player")}</span>
-          <CreatorBadge status={author.subscription_status ?? null} />
-          <span className="text-surface-500 truncate">{action}</span>
-        </p>
-        <p className="text-surface-700 text-[10px]">{relativeTime(date, tTime, locale)}</p>
+    <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-surface-800/40">
+      <Link href={`/profile/${author.id}`} className="flex items-center gap-2.5 flex-1 min-w-0 -my-2.5 py-2.5 hover:bg-surface-800/20 transition-colors rounded">
+        <Avatar src={author.avatar_url} name={author.username} size="sm" className="rounded-full shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm text-surface-300 truncate flex items-center gap-1">
+            <span className="font-semibold text-white truncate">{author.username ?? tCommon("player")}</span>
+            <CreatorBadge status={author.subscription_status ?? null} />
+            <span className="text-surface-500 truncate">{action}</span>
+          </p>
+          <p className="text-surface-700 text-[10px]">{relativeTime(date, tTime, locale)}</p>
+        </div>
+      </Link>
+      <div className="flex items-center gap-1 shrink-0">
+        <span className="text-base">{icon}</span>
+        {actions}
       </div>
-      <span className="text-base shrink-0">{icon}</span>
-    </Link>
+    </div>
   );
 }
 

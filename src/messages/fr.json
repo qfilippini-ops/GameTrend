@@ -84,6 +84,45 @@
     "participantsLabel": "{count, plural, one {# participant} other {# participants}}",
     "onlineBadge": "Online",
     "playCount": "{count, plural, one {# partie} other {# parties}}",
+    "viewPresetLink": "Voir le preset",
+    "pullToRefresh": "Tire pour rafraîchir",
+    "releaseToRefresh": "Relâche pour rafraîchir",
+    "refreshing": "Rafraîchissement…",
+    "postReactions": {
+      "likeAria": "J'aime cette publication",
+      "dislikeAria": "Je n'aime pas cette publication"
+    },
+    "postComments": {
+      "placeholder": "Écris un commentaire…",
+      "replyPlaceholder": "Répondre…",
+      "send": "Envoyer",
+      "loading": "Chargement…",
+      "empty": "Aucun commentaire — sois le premier !",
+      "loginToComment": "Connecte-toi pour commenter.",
+      "errLoad": "Impossible de charger les commentaires.",
+      "errSubmit": "Erreur à l'envoi.",
+      "errDelete": "Erreur à la suppression.",
+      "anonymous": "Anonyme",
+      "authorBadge": "AUTEUR",
+      "reply": "Répondre",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer ce commentaire ?",
+      "time": {
+        "now": "à l'instant",
+        "minAgo": "il y a {n} min",
+        "hAgo": "il y a {n} h",
+        "dAgo": "il y a {n} j"
+      }
+    },
+    "postMenu": {
+      "openMenu": "Ouvrir le menu",
+      "delete": "Supprimer",
+      "errDelete": "Erreur à la suppression.",
+      "confirmTitle": "Supprimer la publication ?",
+      "confirmBody": "Cette action est définitive. La publication sera retirée du fil d'actualité et de la base de données.",
+      "cancel": "Annuler",
+      "confirmDelete": "Oui, supprimer"
+    },
     "explore": {
       "publicLobbies": "Lobbies publics",
       "lobbiesWaiting": "{count, plural, one {# salon en attente de joueurs} other {# salons en attente de joueurs}}",
@@ -266,7 +305,14 @@
       "publicPresets": "Presets publics",
       "pinnedPresets": "Presets épinglés",
       "loginPrefix": "Connecte-toi",
-      "loginSuffix": " pour ajouter ce joueur en ami."
+      "loginSuffix": " pour ajouter ce joueur en ami.",
+      "tabActivity": "Activité",
+      "tabPresets": "Presets ({count})",
+      "noActivityTitle": "Pas d'activité publique",
+      "noActivityText": "Ce joueur n'a encore rien partagé.",
+      "noPresetsTitle": "Aucun preset public",
+      "noPresetsText": "Ce joueur n'a pas encore publié de preset.",
+      "stats": "Stats"
     }
   },
   "friends": {
@@ -1501,6 +1547,9 @@
       "other": "vient de partager votre duel Outbid avec l'avis de Navi 🤖",
       "self": "Navi a départagé votre duel Outbid 🤖"
     },
+    "postLiked": "a aimé ta publication",
+    "postCommented": "a commenté ta publication",
+    "commentReplied": "a répondu à ton commentaire",
     "minutesAgo": "il y a {n} min",
     "hoursAgo": "il y a {n} h",
     "daysAgo": "il y a {n} j",

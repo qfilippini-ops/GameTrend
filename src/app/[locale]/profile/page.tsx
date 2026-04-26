@@ -11,7 +11,8 @@ import PresetCard from "@/components/presets/PresetCard";
 import DeletePresetButton from "@/components/presets/DeletePresetButton";
 import { useAuth } from "@/hooks/useAuth";
 import EditProfileModal from "@/components/profile/EditProfileModal";
-import CreatorStats from "@/components/profile/CreatorStats";
+import StatsAccordion from "@/components/profile/StatsAccordion";
+import dynamic from "next/dynamic";
 import type { Preset, Profile } from "@/types/database";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
 import LegalModal from "@/components/legal/LegalModal";
@@ -25,6 +26,12 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { useConsent } from "@/hooks/useConsent";
 
 type Tab = "mes-presets" | "favoris";
+type ProfileView = "activity" | "presets";
+
+const UserActivityFeed = dynamic(
+  () => import("@/components/feed/UserActivityFeed"),
+  { ssr: false }
+);
 
 export default function ProfilePage() {
   const t = useTranslations("profile");
@@ -40,6 +47,7 @@ export default function ProfilePage() {
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [presetsLoading, setPresetsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("mes-presets");
+  const [view, setView] = useState<ProfileView>("activity");
   const [legalModal, setLegalModal] = useState<LegalType | null>(null);
 
   const displayProfile = { ...profile, ...localProfile };
@@ -84,8 +92,6 @@ export default function ProfilePage() {
     });
   }, [user]);
 
-  const stats = (profile?.stats as Record<string, number>) ?? {};
-
   if (loading) {
     return (
       <div className="min-h-screen bg-surface-950 flex items-center justify-center">
@@ -97,13 +103,6 @@ export default function ProfilePage() {
   if (!user || user.is_anonymous) return null;
 
   const currentPresets = activeTab === "mes-presets" ? myPresets : favoritePresets;
-
-  const statItems = [
-    { label: t("stats.games"),     value: stats.games_played ?? 0, icon: "🎮" },
-    { label: t("stats.wins"),      value: stats.wins ?? 0,         icon: "🏆" },
-    { label: t("stats.presets"),   value: myPresets.length,        icon: "📦" },
-    { label: t("stats.favorites"), value: favoritePresets.length,  icon: "★"  },
-  ];
 
   return (
     <div className="min-h-screen bg-surface-950 bg-grid">
@@ -232,37 +231,38 @@ export default function ProfilePage() {
           />
         )}
 
-        {/* ── Stats créateur ───────────────────────────────────────────────── */}
-        <CreatorStats userId={user.id} followersCount={(displayProfile as { followers_count?: number })?.followers_count ?? 0} />
+        {/* ── Toggle Activité | Presets ──────────────────────────────────── */}
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-surface-900/60 border border-surface-800/50">
+          <button
+            type="button"
+            onClick={() => setView("activity")}
+            className={`py-2.5 rounded-xl text-sm font-bold transition-all ${
+              view === "activity"
+                ? "bg-brand-600 text-white shadow"
+                : "text-surface-400 hover:text-surface-200"
+            }`}
+          >
+            {tPublic("tabActivity")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setView("presets")}
+            className={`py-2.5 rounded-xl text-sm font-bold transition-all ${
+              view === "presets"
+                ? "bg-brand-600 text-white shadow"
+                : "text-surface-400 hover:text-surface-200"
+            }`}
+          >
+            {tPublic("tabPresets", { count: myPresets.length })}
+          </button>
+        </div>
 
-        {/* ── Stats ────────────────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
-          className="grid grid-cols-4 rounded-2xl overflow-hidden border border-surface-700/30 divide-x divide-surface-700/30"
-        >
-          {statItems.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.12 + i * 0.05 }}
-              className="flex flex-col items-center justify-center py-3.5 px-1 bg-surface-900/50 hover:bg-surface-800/40 transition-colors"
-            >
-              <span className="text-lg leading-none mb-1">{stat.icon}</span>
-              <span className="font-display font-bold text-white text-base leading-none">
-                {stat.value}
-              </span>
-              <span className="text-surface-600 text-[10px] font-medium mt-0.5">
-                {stat.label}
-              </span>
-            </motion.div>
-          ))}
-        </motion.div>
+        {view === "activity" ? (
+          <UserActivityFeed userId={user.id} />
+        ) : null}
 
         {/* ── Pinned presets (Premium) ─────────────────────────────────────── */}
-        {isPremium && pinnedIds.length > 0 && (
+        {view === "presets" && isPremium && pinnedIds.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -288,7 +288,8 @@ export default function ProfilePage() {
           </motion.div>
         )}
 
-        {/* ── Tabs + presets ───────────────────────────────────────────────── */}
+        {/* ── Tabs + presets (uniquement en mode "presets") ───────────────── */}
+        {view === "presets" && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -392,6 +393,13 @@ export default function ProfilePage() {
             </div>
           )}
         </motion.div>
+        )}
+
+        {/* ── Stats (accordéon fermé par défaut) ──────────────────────────── */}
+        <StatsAccordion
+          userId={user.id}
+          followersCount={(displayProfile as { followers_count?: number })?.followers_count ?? 0}
+        />
 
         {/* ── Mon abonnement ── */}
         <motion.div
