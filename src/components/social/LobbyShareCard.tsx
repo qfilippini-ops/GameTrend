@@ -190,8 +190,18 @@ export default function LobbyShareCard({ payload, onJoin }: Props) {
               title={t("lobbyPlayersTooltip")}
             >
               <span aria-hidden>👥</span>
+              {/*
+                `share_lobby_to_group` est appelé juste après l'INSERT dans
+                `game_rooms` mais AVANT que l'hôte ait validé son pseudo dans
+                JoinScreen → `room_players` est encore vide pendant quelques
+                secondes. On affiche donc au minimum 1 (l'hôte) tant que le
+                count réel n'a pas dépassé ce seuil.
+              */}
               <span>
-                {playerCount ?? "·"}/{maxPlayers}
+                {playerCount === null
+                  ? "·"
+                  : Math.max(playerCount, 1)}
+                /{maxPlayers}
               </span>
             </span>
           )}

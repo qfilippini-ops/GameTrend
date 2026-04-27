@@ -188,7 +188,10 @@ export default function BlindRankOnlinePlay({
   const remainingCards = totalCards - state.currentCardIndex - 1;
 
   return (
-    <div className="min-h-screen bg-surface-950 bg-grid flex flex-col">
+    // `h-screen` (et non `min-h-screen`) pour que `flex-1` du rack puisse
+    // remplir tout l'espace restant quand le chat de jeu est masqué — sinon
+    // le wrapper peut grandir indéfiniment et le rack ne se réadapte pas.
+    <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
       {/* Bandeau carte + timer */}
       <div className="px-4 pt-safe pt-4 pb-3 space-y-3 shrink-0 max-w-md w-full mx-auto">
         <div className="flex items-center justify-between text-xs text-surface-500">
@@ -268,8 +271,14 @@ export default function BlindRankOnlinePlay({
         </div>
       </div>
 
-      {/* Rack vertical */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-3">
+      {/* Rack vertical. Quand le chat est masqué, on centre verticalement le
+          contenu pour qu'il occupe l'espace de manière fluide (similaire au
+          mode solo) au lieu d'être collé en haut avec un vide en bas. */}
+      <div
+        className={`flex-1 min-h-0 overflow-y-auto px-4 pb-3 ${
+          chatHidden ? "flex flex-col justify-center" : ""
+        }`}
+      >
         <div className="max-w-md w-full mx-auto space-y-1.5">
           {state.slots.map((slot, idx) => {
             const rank = idx + 1;

@@ -436,8 +436,15 @@ export default function DypOnlinePlay({
         )}
       </div>
 
-      {/* Scène (cartes en horizontal, taille naturelle) */}
-      <div className="shrink-0 px-3 py-2 w-full">
+      {/* Scène (cartes en horizontal). Quand le chat est caché, la scène
+          prend tout l'espace vertical disponible et se centre, comme en solo. */}
+      <div
+        className={`${
+          chatHidden
+            ? "flex-1 min-h-0 flex items-center justify-center"
+            : "shrink-0"
+        } px-3 py-2 w-full transition-[flex] duration-200`}
+      >
         <div className="max-w-md w-full mx-auto">
           {inRoundTransition ? (
             <TransitionScreen
