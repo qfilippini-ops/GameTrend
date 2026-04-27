@@ -288,7 +288,12 @@
       "consentAge": "I confirm I am <strong>16 or older</strong>.",
       "successTitle": "Account created!",
       "successText": "Check your inbox to confirm your account. We sent a link to",
-      "successCta": "Go to sign-in"
+      "successCta": "Go to sign-in",
+      "creatorCodeLabel": "Creator code (optional)",
+      "creatorCodePlaceholder": "e.g. navi42",
+      "creatorCodeHint": "Supporting a creator? Enter their code. If you clicked their link, it's already filled in.",
+      "creatorCodeApplied": "Creator code detected ✓",
+      "creatorCodeInvalid": "Invalid format: 3 to 30 characters, letters/digits/dash/underscore."
     }
   },
   "profile": {
@@ -298,6 +303,9 @@
     "anonymous": "Player",
     "followers": "followers",
     "following": "following",
+    "scrollToAccountLabel": "My account",
+    "scrollToAccountTitle": "Jump straight to subscription, preferences and settings",
+    "scrollToAccountAria": "Scroll to subscription section",
     "seo": {
       "notFoundTitle": "Profile not found",
       "anonymousTitle": "Anonymous profile",

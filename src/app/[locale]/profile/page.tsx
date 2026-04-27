@@ -12,6 +12,7 @@ import DeletePresetButton from "@/components/presets/DeletePresetButton";
 import { useAuth } from "@/hooks/useAuth";
 import EditProfileModal from "@/components/profile/EditProfileModal";
 import StatsAccordion from "@/components/profile/StatsAccordion";
+import ScrollToAccountButton from "@/components/profile/ScrollToAccountButton";
 import dynamic from "next/dynamic";
 import type { Preset, Profile } from "@/types/database";
 import { PRESET_LIST_COLS } from "@/lib/supabase/columns";
@@ -401,12 +402,16 @@ export default function ProfilePage() {
         </motion.div>
         )}
 
-        {/* ── Mon abonnement ── */}
+        {/* ── Mon abonnement ──
+            id="account-section" sert d'ancre pour le bouton flottant
+            "ScrollToAccountButton" qui permet de sauter ici depuis le top
+            de la page sans scroller tout le feed. */}
         <motion.div
+          id="account-section"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.17 }}
-          className="rounded-2xl border border-surface-800/60 bg-surface-900/30 overflow-hidden"
+          className="rounded-2xl border border-surface-800/60 bg-surface-900/30 overflow-hidden scroll-mt-24"
         >
           <details open={!isPremium}>
             <summary className="flex items-center justify-between px-4 py-3 cursor-pointer select-none list-none hover:bg-surface-800/20 transition-colors">
@@ -525,6 +530,8 @@ export default function ProfilePage() {
         </motion.div>
 
       </div>
+
+      <ScrollToAccountButton />
     </div>
   );
 }

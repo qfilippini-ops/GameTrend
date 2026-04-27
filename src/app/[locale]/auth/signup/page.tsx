@@ -1,15 +1,39 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useRouter, Link } from "@/i18n/navigation";
 import { motion } from "framer-motion";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import LegalModal from "@/components/legal/LegalModal";
+import { AFFILIATE_CONFIG } from "@/lib/affiliate/config";
 
 // Version des CGU en vigueur — à mettre à jour lors de chaque révision
 const CGU_VERSION = "2025-04";
+
+/**
+ * Lecture cookie côté navigateur. Dupliqué (au lieu d'importer depuis
+ * ReferralClaimer) pour garder ce composant indépendant — la signature est
+ * triviale.
+ */
+function readCookieClient(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(
+    new RegExp("(?:^|;\\s*)" + name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "=([^;]*)")
+  );
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function writeCookieClient(name: string, value: string, maxAgeSeconds: number) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; path=/; SameSite=Lax`;
+}
+
+function deleteCookieClient(name: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+}
 
 export default function SignupPage() {
   return (
@@ -35,6 +59,21 @@ function SignupPageContent() {
   const [success, setSuccess] = useState(false);
   const [legalModal, setLegalModal] = useState<"cgu" | "privacy" | null>(null);
 
+  // Code créateur : optionnel. Pré-rempli si l'utilisateur a cliqué sur un
+  // lien `/r/{code}` (qui pose le cookie `gt_ref`). On garde un flag pour
+  // afficher un mini badge "Code créateur détecté ✓" qui rassure sur le
+  // fait que le créateur sera bien crédité.
+  const [creatorCode, setCreatorCode] = useState("");
+  const [codeFromCookie, setCodeFromCookie] = useState(false);
+
+  useEffect(() => {
+    const cookieCode = readCookieClient(AFFILIATE_CONFIG.COOKIE_NAME);
+    if (cookieCode) {
+      setCreatorCode(cookieCode);
+      setCodeFromCookie(true);
+    }
+  }, []);
+
   const supabase = createClient();
 
   async function handleSignup(e: React.FormEvent) {
@@ -51,6 +90,31 @@ function SignupPageContent() {
     if (password.length < 8) {
       setError(t("errorPassword"));
       return;
+    }
+
+    // Validation + synchronisation du cookie d'affiliation AVANT signUp.
+    //
+    // Stratégie : on réutilise le flux existant (cookie `gt_ref` →
+    // ReferralClaimer → RPC claim_referral) pour ne pas multiplier les
+    // chemins de code. Si l'utilisateur a saisi un code (ou modifié celui
+    // pré-rempli depuis le cookie), on écrase le cookie ; s'il l'a vidé
+    // alors qu'il était initialement présent, on supprime le cookie pour
+    // respecter sa décision (refus de l'affiliation).
+    const trimmedCode = creatorCode.trim().toLowerCase();
+    if (trimmedCode.length > 0) {
+      if (!AFFILIATE_CONFIG.CODE_REGEX.test(trimmedCode)) {
+        setError(t("creatorCodeInvalid"));
+        return;
+      }
+      writeCookieClient(
+        AFFILIATE_CONFIG.COOKIE_NAME,
+        trimmedCode,
+        AFFILIATE_CONFIG.COOKIE_MAX_AGE_SECONDS
+      );
+    } else if (codeFromCookie) {
+      // L'utilisateur a explicitement vidé le champ pré-rempli → il refuse
+      // l'attribution : on nettoie le cookie pour qu'il ne soit pas claim.
+      deleteCookieClient(AFFILIATE_CONFIG.COOKIE_NAME);
     }
 
     setLoading(true);
@@ -163,6 +227,40 @@ function SignupPageContent() {
             minLength={8}
             className="w-full bg-surface-800 border border-surface-600 focus:border-brand-500 text-white placeholder-surface-500 rounded-xl px-4 py-3.5 outline-none transition-colors"
           />
+
+          {/* Code créateur — optionnel. Repli automatique sur cookie `gt_ref`
+              si l'utilisateur a suivi un lien d'invitation. */}
+          <div className="space-y-1.5">
+            <label className="block text-surface-400 text-xs font-medium px-1">
+              {t("creatorCodeLabel")}
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={creatorCode}
+                onChange={(e) => {
+                  setCreatorCode(e.target.value);
+                  // Dès que l'user édite manuellement on n'affiche plus le
+                  // badge "détecté depuis lien" pour éviter la confusion
+                  // (le code n'est plus celui du cookie d'origine).
+                  setCodeFromCookie(false);
+                }}
+                placeholder={t("creatorCodePlaceholder")}
+                maxLength={30}
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full bg-surface-800 border border-surface-600 focus:border-brand-500 text-white placeholder-surface-500 rounded-xl px-4 py-3 outline-none transition-colors lowercase"
+              />
+              {codeFromCookie && creatorCode.length > 0 && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400 text-[10px] font-bold uppercase tracking-wider pointer-events-none">
+                  {t("creatorCodeApplied")}
+                </span>
+              )}
+            </div>
+            <p className="text-surface-600 text-[11px] px-1 leading-relaxed">
+              {t("creatorCodeHint")}
+            </p>
+          </div>
 
           <div className="space-y-3 rounded-xl bg-surface-900/60 border border-surface-700/30 p-4">
             <label className="flex items-start gap-3 cursor-pointer group">

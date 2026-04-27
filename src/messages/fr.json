@@ -288,7 +288,12 @@
       "consentAge": "Je confirme avoir <strong>16 ans ou plus</strong>.",
       "successTitle": "Compte créé !",
       "successText": "Vérifie tes emails pour confirmer ton compte. Un lien t'a été envoyé à",
-      "successCta": "Aller à la connexion"
+      "successCta": "Aller à la connexion",
+      "creatorCodeLabel": "Code créateur (optionnel)",
+      "creatorCodePlaceholder": "ex : navi42",
+      "creatorCodeHint": "Tu soutiens un créateur ? Renseigne son code ici. Si tu as cliqué sur son lien, le code est déjà rempli.",
+      "creatorCodeApplied": "Code créateur détecté ✓",
+      "creatorCodeInvalid": "Format incorrect : 3 à 30 caractères, lettres/chiffres/tiret/underscore."
     }
   },
   "profile": {
@@ -298,6 +303,9 @@
     "anonymous": "Joueur",
     "followers": "abonnés",
     "following": "abonnements",
+    "scrollToAccountLabel": "Mon compte",
+    "scrollToAccountTitle": "Aller directement à la section abonnement, préférences et paramètres",
+    "scrollToAccountAria": "Faire défiler jusqu'à la section abonnement",
     "seo": {
       "notFoundTitle": "Profil introuvable",
       "anonymousTitle": "Profil anonyme",
