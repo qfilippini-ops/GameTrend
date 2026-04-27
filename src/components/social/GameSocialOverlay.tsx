@@ -13,11 +13,12 @@ import GroupPanel from "@/components/social/GroupPanel";
  */
 export default function GameSocialOverlay() {
   return (
-    // `right-16` réserve la place pour le bouton "Options" rendu par
-    // `RoomGameButtons` à `top-3 right-3` (z-50, w ≈ 60px). Sans ce décalage,
-    // le bouton du groupe est masqué par le bouton Options.
+    // L'icône groupe est ancrée À GAUCHE de l'écran en jeu, alors que
+    // `RoomGameButtons` (bouton "Options" + menu déroulant ~180px) est ancré
+    // à droite. Cela rend tout chevauchement physiquement impossible, peu
+    // importe la largeur du label "Options" ou de son menu ouvert.
     <div
-      className="fixed top-3 right-16 z-40 pt-safe pointer-events-none"
+      className="fixed top-3 left-3 z-40 pt-safe pointer-events-none"
       aria-label="game social overlay"
     >
       <div className="pointer-events-auto">
