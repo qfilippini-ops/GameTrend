@@ -11,6 +11,7 @@ import BottomNav from "@/components/layout/BottomNav";
 import ActiveRoomBadge from "@/components/ActiveRoomBadge";
 import KickedToast from "@/components/KickedToast";
 import Heartbeat from "@/components/Heartbeat";
+import GroupInviteToasts from "@/components/social/GroupInviteToasts";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { FeedCacheProvider } from "@/components/feed/FeedCacheContext";
 import ReferralClaimer from "@/components/affiliate/ReferralClaimer";
@@ -201,6 +202,7 @@ export default async function LocaleLayout({
               <main className="pb-24 max-w-lg mx-auto">{children}</main>
               <BottomNav />
               <Suspense><ActiveRoomBadge /></Suspense>
+              <GroupInviteToasts />
             </FeedCacheProvider>
           </PaywallProvider>
         </NextIntlClientProvider>

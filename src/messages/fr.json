@@ -1207,7 +1207,9 @@
           "inputPlaceholder": "Message…",
           "sendShort": "→",
           "passShort": "Passer",
-          "passedLabel": "(message vide)"
+          "passedLabel": "(message vide)",
+          "hideChat": "Masquer le chat",
+          "showChat": "Afficher le chat"
         },
         "result": {
           "gameOver": "Tournoi terminé",
@@ -1384,7 +1386,9 @@
           "inputPlaceholder": "Message…",
           "sendShort": "→",
           "passShort": "Passer",
-          "passedLabel": "(message vide)"
+          "passedLabel": "(message vide)",
+          "hideChat": "Masquer le chat",
+          "showChat": "Afficher le chat"
         },
         "result": {
           "gameOver": "Partie terminée",
@@ -1567,7 +1571,9 @@
           "inputPlaceholder": "Message…",
           "sendShort": "→",
           "passShort": "Passer",
-          "passedLabel": "(message vide)"
+          "passedLabel": "(message vide)",
+          "hideChat": "Masquer le chat",
+          "showChat": "Afficher le chat"
         },
         "result": {
           "loading": "Chargement…",
@@ -1701,7 +1707,26 @@
     "lobbyShareInvited": "vous invite dans son salon",
     "lobbyPrivate": "Privé",
     "lobbyPublic": "Public",
+    "lobbyPlayersTooltip": "Joueurs dans le salon",
     "joinLobby": "Rejoindre",
+    "unread": "{n, plural, one {# message non lu} other {# messages non lus}}",
+    "rules": {
+      "ghostword": {
+        "ombre": "{v}% d'ombres"
+      },
+      "outbid": {
+        "team": "{v} cartes/équipe",
+        "tour": "{v}s/tour"
+      },
+      "dyp": {
+        "bracket": "Bracket {v}",
+        "tour": "{v}s/tour"
+      },
+      "blindrank": {
+        "rack": "{v} cartes/manche",
+        "tour": "{v}s/tour"
+      }
+    },
     "sysJoined": "{name} a rejoint le groupe",
     "sysLeft": "{name} a quitté le groupe",
     "sysKicked": "{name} a été exclu(e) du groupe"

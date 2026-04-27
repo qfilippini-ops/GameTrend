@@ -23,6 +23,7 @@ import JoinScreen, { type JoinScreenLabels } from "@/games/online/components/Joi
 import RoomGameButtons, {
   type RoomGameButtonsLabels,
 } from "@/games/online/components/RoomGameButtons";
+import GameSocialOverlay from "@/components/social/GameSocialOverlay";
 import type {
   OnlineRoom,
   RoomPlayer,
@@ -240,6 +241,7 @@ export default function RoomShell({ gameHomeHref, labels, renderPhase }: RoomShe
     <>
       {eventToastEl}
       {renderPhase(ctx)}
+      <GameSocialOverlay />
       {showGameButtons && (
         <RoomGameButtons
           roomId={roomId}

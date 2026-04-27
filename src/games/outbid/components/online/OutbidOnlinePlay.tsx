@@ -148,6 +148,23 @@ export default function OutbidOnlinePlay({
   const state = readState(room);
   const voteRound = room.vote_round ?? 0;
 
+  // Toggle masquer/afficher le chat de jeu pour récupérer toute la hauteur
+  // d'écran sur la scène. Compte les messages reçus pendant que le chat
+  // est caché pour afficher un badge sur le bouton "Afficher le chat".
+  const [chatHidden, setChatHidden] = useState(false);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const lastSeenMessageCountRef = useRef(messages.length);
+  useEffect(() => {
+    if (chatHidden) {
+      const delta = messages.length - lastSeenMessageCountRef.current;
+      if (delta > 0) setNewMessagesCount((c) => c + delta);
+      lastSeenMessageCountRef.current = messages.length;
+    } else {
+      lastSeenMessageCountRef.current = messages.length;
+      setNewMessagesCount(0);
+    }
+  }, [messages.length, chatHidden]);
+
   // ── Tick global (200ms) pour timer & auto-fill ────────────────────
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -472,8 +489,10 @@ export default function OutbidOnlinePlay({
 
   return (
     <div className="h-screen bg-surface-950 bg-grid flex flex-col overflow-hidden">
-      {/* ───── Scène : 2/3 ───── */}
-      <div className="flex-[2] min-h-0 grid grid-cols-[10%_80%_10%]">
+      {/* ───── Scène : 2/3 (ou 100% si chat caché) ───── */}
+      <div
+        className={`${chatHidden ? "flex-1" : "flex-[2]"} min-h-0 grid grid-cols-[10%_80%_10%] transition-[flex] duration-200`}
+      >
         {/* Colonne gauche : joueur */}
         {displayedLeft && leftSlot && (
           <PlayerColumn
@@ -596,28 +615,54 @@ export default function OutbidOnlinePlay({
         )}
       </div>
 
-      {/* ───── Chat : 1/3 ───── */}
-      <div className="flex-1 min-h-0 border-t border-surface-800/60 bg-surface-950/95">
-        <div className="max-w-2xl w-full mx-auto h-full flex flex-col">
-          <RoomChat
-            roomId={room.id}
-            myName={myName}
-            messages={messages}
-            playerAvatars={playerAvatars}
-            mode="realtime"
-            messageMeta={{ discussion_turn: 0, vote_round: voteRound }}
-            className="h-full"
-            labels={{
-              emptyState: tChat("emptyState"),
-              inputPlaceholder: tChat("inputPlaceholder"),
-              sendShort: tChat("sendShort"),
-              passShort: tChat("passShort"),
-              passedLabel: tChat("passedLabel"),
-              waitingForOther: () => "",
-            }}
-          />
+      {/* ───── Chat : 1/3 (toggle masquer/afficher) ───── */}
+      {!chatHidden && (
+        <div className="flex-1 min-h-0 border-t border-surface-800/60 bg-surface-950/95 relative">
+          <button
+            type="button"
+            onClick={() => setChatHidden(true)}
+            aria-label={tChat("hideChat")}
+            title={tChat("hideChat")}
+            className="absolute top-1 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-lg bg-surface-800/80 hover:bg-surface-700/80 text-surface-300 hover:text-white text-xs transition-colors"
+          >
+            ▾
+          </button>
+          <div className="max-w-2xl w-full mx-auto h-full flex flex-col">
+            <RoomChat
+              roomId={room.id}
+              myName={myName}
+              messages={messages}
+              playerAvatars={playerAvatars}
+              mode="realtime"
+              messageMeta={{ discussion_turn: 0, vote_round: voteRound }}
+              className="h-full"
+              labels={{
+                emptyState: tChat("emptyState"),
+                inputPlaceholder: tChat("inputPlaceholder"),
+                sendShort: tChat("sendShort"),
+                passShort: tChat("passShort"),
+                passedLabel: tChat("passedLabel"),
+                waitingForOther: () => "",
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
+      {chatHidden && (
+        <button
+          type="button"
+          onClick={() => setChatHidden(false)}
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-surface-800/90 hover:bg-surface-700/90 border border-surface-700/40 text-surface-200 text-[11px] font-medium shadow-lg backdrop-blur-md flex items-center gap-1.5"
+        >
+          <span aria-hidden>💬</span>
+          <span>{tChat("showChat")}</span>
+          {newMessagesCount > 0 && (
+            <span className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {newMessagesCount > 9 ? "9+" : newMessagesCount}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

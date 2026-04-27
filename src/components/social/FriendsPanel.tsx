@@ -39,7 +39,11 @@ export default function FriendsPanel() {
 
   const isConnected = !!(user && !user.is_anonymous);
   const { friends, loading } = useFriendsList(isConnected ? user!.id : null);
-  const { members: groupMembers, isFull: groupIsFull } = useGroup();
+  const {
+    members: groupMembers,
+    isFull: groupIsFull,
+    refresh: refreshGroup,
+  } = useGroup();
   const [invitedIds, setInvitedIds] = useState<Set<string>>(new Set());
   const [inviteError, setInviteError] = useState<string | null>(null);
   const groupMemberIds = new Set(groupMembers.map((m) => m.user_id));
@@ -59,7 +63,13 @@ export default function FriendsPanel() {
         next.delete(targetId);
         return next;
       });
+      return;
     }
+    // Premier invite : `invite_to_group` peut créer le groupe et nous y
+    // insérer côté serveur. Côté client, on n'a pas encore de canal Realtime
+    // pour ce nouveau groupe → on rafraîchit explicitement pour récupérer le
+    // membership et déclencher la subscription au canal `group:{id}`.
+    await refreshGroup();
   }
 
   useEffect(() => {

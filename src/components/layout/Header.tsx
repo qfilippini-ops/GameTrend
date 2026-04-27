@@ -4,7 +4,6 @@ import { Link } from "@/i18n/navigation";
 import NotificationBell from "@/components/social/NotificationBell";
 import FriendsPanel from "@/components/social/FriendsPanel";
 import GroupPanel from "@/components/social/GroupPanel";
-import GroupInviteToasts from "@/components/social/GroupInviteToasts";
 
 interface HeaderProps {
   title?: string;
@@ -61,7 +60,6 @@ export default function Header({
         </div>
 
       </div>
-      <GroupInviteToasts />
     </header>
   );
 }

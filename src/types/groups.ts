@@ -54,6 +54,8 @@ export interface GroupLobbyShareMessage extends GroupMessageBase {
     host_name: string;
     host_avatar?: string | null;
     preset_names?: string[];
+    max_players?: number;
+    config?: Record<string, unknown>;
   };
 }
 

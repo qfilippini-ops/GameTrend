@@ -1207,7 +1207,9 @@
           "inputPlaceholder": "Message…",
           "sendShort": "→",
           "passShort": "Pass",
-          "passedLabel": "(empty message)"
+          "passedLabel": "(empty message)",
+          "hideChat": "Hide chat",
+          "showChat": "Show chat"
         },
         "result": {
           "gameOver": "Tournament over",
@@ -1384,7 +1386,9 @@
           "inputPlaceholder": "Message…",
           "sendShort": "→",
           "passShort": "Pass",
-          "passedLabel": "(empty message)"
+          "passedLabel": "(empty message)",
+          "hideChat": "Hide chat",
+          "showChat": "Show chat"
         },
         "result": {
           "gameOver": "Game over",
@@ -1567,7 +1571,9 @@
           "inputPlaceholder": "Message…",
           "sendShort": "→",
           "passShort": "Pass",
-          "passedLabel": "(empty message)"
+          "passedLabel": "(empty message)",
+          "hideChat": "Hide chat",
+          "showChat": "Show chat"
         },
         "result": {
           "loading": "Loading…",
@@ -1701,7 +1707,26 @@
     "lobbyShareInvited": "invites you to their lobby",
     "lobbyPrivate": "Private",
     "lobbyPublic": "Public",
+    "lobbyPlayersTooltip": "Players in lobby",
     "joinLobby": "Join",
+    "unread": "{n, plural, one {# unread message} other {# unread messages}}",
+    "rules": {
+      "ghostword": {
+        "ombre": "{v}% shadows"
+      },
+      "outbid": {
+        "team": "{v} cards/team",
+        "tour": "{v}s/turn"
+      },
+      "dyp": {
+        "bracket": "Bracket {v}",
+        "tour": "{v}s/turn"
+      },
+      "blindrank": {
+        "rack": "{v} cards/round",
+        "tour": "{v}s/turn"
+      }
+    },
     "sysJoined": "{name} joined the group",
     "sysLeft": "{name} left the group",
     "sysKicked": "{name} was kicked from the group"

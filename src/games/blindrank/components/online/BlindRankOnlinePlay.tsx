@@ -81,6 +81,21 @@ export default function BlindRankOnlinePlay({
   const t = useTranslations("games.blindrank.online.play");
   const tChat = useTranslations("games.blindrank.online.chat");
 
+  // Toggle masquer/afficher le chat de jeu pour récupérer toute la hauteur.
+  const [chatHidden, setChatHidden] = useState(false);
+  const [newMessagesCount, setNewMessagesCount] = useState(0);
+  const lastSeenMessageCountRef = useRef(messages.length);
+  useEffect(() => {
+    if (chatHidden) {
+      const delta = messages.length - lastSeenMessageCountRef.current;
+      if (delta > 0) setNewMessagesCount((c) => c + delta);
+      lastSeenMessageCountRef.current = messages.length;
+    } else {
+      lastSeenMessageCountRef.current = messages.length;
+      setNewMessagesCount(0);
+    }
+  }, [messages.length, chatHidden]);
+
   const state = readState(room);
   const voteRound = room.vote_round ?? 0;
   const currentVotes = votes.filter((v) => v.vote_round === voteRound);
@@ -349,28 +364,54 @@ export default function BlindRankOnlinePlay({
         </div>
       </div>
 
-      {/* Chat — hauteur fixe avec scroll interne */}
-      <div className="border-t border-surface-800/40 bg-surface-950/95 w-full shrink-0">
-        <div className="max-w-md w-full mx-auto h-[36vh] min-h-[200px] max-h-[50vh] flex flex-col">
-          <RoomChat
-            roomId={room.id}
-            myName={myName}
-            messages={messages}
-            playerAvatars={playerAvatars}
-            mode="realtime"
-            messageMeta={{ discussion_turn: 0, vote_round: voteRound }}
-            className="h-full"
-            labels={{
-              emptyState: tChat("emptyState"),
-              inputPlaceholder: tChat("inputPlaceholder"),
-              sendShort: tChat("sendShort"),
-              passShort: tChat("passShort"),
-              passedLabel: tChat("passedLabel"),
-              waitingForOther: () => "",
-            }}
-          />
+      {/* Chat — hauteur fixe avec scroll interne (toggle masquer/afficher) */}
+      {!chatHidden && (
+        <div className="border-t border-surface-800/40 bg-surface-950/95 w-full shrink-0 relative">
+          <button
+            type="button"
+            onClick={() => setChatHidden(true)}
+            aria-label={tChat("hideChat")}
+            title={tChat("hideChat")}
+            className="absolute top-1 right-2 z-10 w-7 h-7 flex items-center justify-center rounded-lg bg-surface-800/80 hover:bg-surface-700/80 text-surface-300 hover:text-white text-xs transition-colors"
+          >
+            ▾
+          </button>
+          <div className="max-w-md w-full mx-auto h-[36vh] min-h-[200px] max-h-[50vh] flex flex-col">
+            <RoomChat
+              roomId={room.id}
+              myName={myName}
+              messages={messages}
+              playerAvatars={playerAvatars}
+              mode="realtime"
+              messageMeta={{ discussion_turn: 0, vote_round: voteRound }}
+              className="h-full"
+              labels={{
+                emptyState: tChat("emptyState"),
+                inputPlaceholder: tChat("inputPlaceholder"),
+                sendShort: tChat("sendShort"),
+                passShort: tChat("passShort"),
+                passedLabel: tChat("passedLabel"),
+                waitingForOther: () => "",
+              }}
+            />
+          </div>
         </div>
-      </div>
+      )}
+      {chatHidden && (
+        <button
+          type="button"
+          onClick={() => setChatHidden(false)}
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-surface-800/90 hover:bg-surface-700/90 border border-surface-700/40 text-surface-200 text-[11px] font-medium shadow-lg backdrop-blur-md flex items-center gap-1.5"
+        >
+          <span aria-hidden>💬</span>
+          <span>{tChat("showChat")}</span>
+          {newMessagesCount > 0 && (
+            <span className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              {newMessagesCount > 9 ? "9+" : newMessagesCount}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

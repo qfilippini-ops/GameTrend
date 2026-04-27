@@ -692,19 +692,22 @@ DECLARE
   v_game_type    text;
   v_host_id      uuid;
   v_is_priv      boolean;
+  v_max_players  int;
   v_config       jsonb;
   v_username     text;
   v_avatar_url   text;
-  v_preset_ids   uuid[];
-  v_preset_names text[];
+  v_preset_ids   uuid[] := ARRAY[]::uuid[];
+  v_preset_names text[] := ARRAY[]::text[];
+  v_single_id    text;
 BEGIN
   IF v_uid IS NULL THEN RETURN; END IF;
 
   SELECT group_id INTO v_group FROM public.group_members WHERE user_id = v_uid;
   IF v_group IS NULL THEN RETURN; END IF;
 
-  SELECT game_type, host_id, COALESCE(is_private, true), COALESCE(config, '{}'::jsonb)
-    INTO v_game_type, v_host_id, v_is_priv, v_config
+  SELECT game_type, host_id, COALESCE(is_private, true),
+         COALESCE(max_players, 0), COALESCE(config, '{}'::jsonb)
+    INTO v_game_type, v_host_id, v_is_priv, v_max_players, v_config
   FROM public.game_rooms WHERE id = p_room_id;
   IF NOT FOUND OR v_host_id <> v_uid THEN RETURN; END IF;
 
@@ -712,13 +715,35 @@ BEGIN
     INTO v_username, v_avatar_url
   FROM public.profiles WHERE id = v_uid;
 
-  -- Extrait jusqu'à 3 noms de presets utilisés (config.presetIds est un JSON array d'UUIDs)
-  BEGIN
-    SELECT ARRAY(SELECT jsonb_array_elements_text(v_config->'presetIds')::uuid)
-      INTO v_preset_ids;
-  EXCEPTION WHEN OTHERS THEN
-    v_preset_ids := ARRAY[]::uuid[];
-  END;
+  -- Collecte les preset IDs depuis tous les schémas connus :
+  --  • ghostword : config.presetIds (jsonb array)
+  --  • outbid    : config.outbid_settings.presetId
+  --  • dyp       : config.dyp_settings.presetId
+  --  • blindrank : config.blindrank_settings.presetId
+  IF jsonb_typeof(v_config->'presetIds') = 'array' THEN
+    BEGIN
+      SELECT array_agg(value::uuid)
+        INTO v_preset_ids
+      FROM jsonb_array_elements_text(v_config->'presetIds') AS value;
+    EXCEPTION WHEN OTHERS THEN
+      v_preset_ids := ARRAY[]::uuid[];
+    END;
+  END IF;
+
+  FOR v_single_id IN
+    SELECT v_config->'outbid_settings'->>'presetId'
+    UNION ALL SELECT v_config->'dyp_settings'->>'presetId'
+    UNION ALL SELECT v_config->'blindrank_settings'->>'presetId'
+  LOOP
+    IF v_single_id IS NOT NULL AND v_single_id <> '' THEN
+      BEGIN
+        v_preset_ids := array_append(v_preset_ids, v_single_id::uuid);
+      EXCEPTION WHEN OTHERS THEN
+        -- preset id mal formé : on l'ignore
+        NULL;
+      END;
+    END IF;
+  END LOOP;
 
   IF v_preset_ids IS NOT NULL AND array_length(v_preset_ids, 1) > 0 THEN
     SELECT ARRAY(
@@ -727,8 +752,6 @@ BEGIN
        ORDER BY array_position(v_preset_ids, id)
        LIMIT 3
     ) INTO v_preset_names;
-  ELSE
-    v_preset_names := ARRAY[]::text[];
   END IF;
 
   INSERT INTO public.group_messages(group_id, user_id, type, content, payload)
@@ -744,7 +767,12 @@ BEGIN
         'host_id',      v_uid,
         'host_name',    COALESCE(v_username, ''),
         'host_avatar',  v_avatar_url,
-        'preset_names', to_jsonb(v_preset_names)
+        'max_players',  v_max_players,
+        'preset_names', to_jsonb(v_preset_names),
+        -- config raw : permet au front d'afficher des règles spécifiques
+        -- au jeu (ombre %, taille de bracket, durée de tour, etc.) sans
+        -- ajouter une RPC dédiée à chaque évolution.
+        'config',       v_config
       )
     );
 END;

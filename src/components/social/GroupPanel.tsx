@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import Avatar from "@/components/ui/Avatar";
 import GroupCapacityInfo from "@/components/premium/GroupCapacityInfo";
+import LobbyShareCard from "@/components/social/LobbyShareCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useGroup } from "@/hooks/useGroup";
 import {
@@ -16,38 +17,6 @@ import {
 } from "@/app/actions/groups";
 import type { GroupMessage } from "@/types/groups";
 
-const ONLINE_GAMES = new Set(["ghostword", "blindrank", "dyp", "outbid"]);
-
-// Métadonnées d'affichage des jeux pour la carte lobby_share dans le chat
-const GAME_META: Record<
-  string,
-  { label: string; icon: string; gradient: string; ring: string }
-> = {
-  ghostword: {
-    label: "GhostWord",
-    icon: "👻",
-    gradient: "from-violet-600/30 via-violet-700/15 to-transparent",
-    ring: "ring-violet-500/40",
-  },
-  blindrank: {
-    label: "BlindRank",
-    icon: "📊",
-    gradient: "from-cyan-600/30 via-cyan-700/15 to-transparent",
-    ring: "ring-cyan-500/40",
-  },
-  dyp: {
-    label: "DYP",
-    icon: "🎯",
-    gradient: "from-amber-600/30 via-amber-700/15 to-transparent",
-    ring: "ring-amber-500/40",
-  },
-  outbid: {
-    label: "Outbid",
-    icon: "💰",
-    gradient: "from-emerald-600/30 via-emerald-700/15 to-transparent",
-    ring: "ring-emerald-500/40",
-  },
-};
 
 export default function GroupPanel() {
   const t = useTranslations("groups");
@@ -69,6 +38,11 @@ export default function GroupPanel() {
   const [tab, setTab] = useState<"chat" | "members">("chat");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  // Timestamp du dernier message vu — initialisé à "maintenant" pour ne pas
+  // afficher de badge sur l'historique quand on charge la page.
+  const [lastSeenAt, setLastSeenAt] = useState<string>(() =>
+    new Date().toISOString()
+  );
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +82,23 @@ export default function GroupPanel() {
   const hasPendingInvites = pendingInvites.length > 0;
 
   const myUserId = user?.id ?? null;
+
+  // Marque tout comme lu dès l'ouverture du panel et tant qu'il reste ouvert
+  // (les nouveaux messages reçus pendant l'ouverture ne doivent pas générer
+  // un badge à la fermeture).
+  useEffect(() => {
+    if (open) {
+      setLastSeenAt(new Date().toISOString());
+    }
+  }, [open, messages.length]);
+
+  const unreadCount = !open
+    ? messages.reduce((acc, m) => {
+        if (m.type === "system") return acc;
+        if (m.user_id && m.user_id === myUserId) return acc;
+        return m.created_at > lastSeenAt ? acc + 1 : acc;
+      }, 0)
+    : 0;
   const memberById = useMemo(() => {
     const map = new Map<string, (typeof members)[number]>();
     for (const m of members) map.set(m.user_id, m);
@@ -161,95 +152,12 @@ export default function GroupPanel() {
     }
 
     if (msg.type === "lobby_share") {
-      const payload = msg.payload;
-      const meta = GAME_META[payload.game_type] ?? {
-        label: payload.game_type,
-        icon: "🎮",
-        gradient: "from-brand-600/30 via-brand-700/15 to-transparent",
-        ring: "ring-brand-500/40",
-      };
-      const canJoin = ONLINE_GAMES.has(payload.game_type);
-      const href = canJoin
-        ? `/games/${payload.game_type}/online/${payload.code}`
-        : null;
-      const presets = payload.preset_names ?? [];
-
       return (
         <div key={msg.id} className="my-2 mx-3">
-          <div
-            className={`relative overflow-hidden rounded-2xl bg-surface-800/80 ring-1 ${meta.ring} shadow-lg`}
-          >
-            {/* Halo dégradé du jeu */}
-            <div
-              className={`absolute inset-0 bg-gradient-to-br ${meta.gradient} pointer-events-none`}
-              aria-hidden
-            />
-
-            <div className="relative p-3">
-              {/* Header : host + badge jeu */}
-              <div className="flex items-center gap-2.5">
-                <Avatar
-                  src={payload.host_avatar ?? null}
-                  name={payload.host_name}
-                  size="sm"
-                  className="rounded-xl shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-[13px] font-semibold leading-tight truncate">
-                    {payload.host_name}
-                  </p>
-                  <p className="text-surface-400 text-[10px] leading-tight">
-                    {t("lobbyShareInvited")}
-                  </p>
-                </div>
-                <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-900/70 border border-surface-700/40 text-[10px] font-bold text-white">
-                  <span>{meta.icon}</span>
-                  <span>{meta.label}</span>
-                </span>
-              </div>
-
-              {/* Presets */}
-              {presets.length > 0 && (
-                <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {presets.map((name, i) => (
-                    <span
-                      key={`${name}-${i}`}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface-900/60 border border-surface-700/40 text-[10px] text-surface-200 max-w-[140px] truncate"
-                      title={name}
-                    >
-                      <span className="text-[8px] opacity-60">🎴</span>
-                      <span className="truncate">{name}</span>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Footer : visibilité + code + bouton rejoindre */}
-              <div className="mt-3 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 text-[10px] text-surface-400">
-                  <span>{payload.is_private ? "🔒" : "🌐"}</span>
-                  <span>
-                    {payload.is_private
-                      ? t("lobbyPrivate")
-                      : t("lobbyPublic")}
-                  </span>
-                </span>
-                <span className="text-[10px] font-mono text-surface-500 tracking-wide">
-                  #{payload.code}
-                </span>
-                {href && (
-                  <Link
-                    href={href}
-                    onClick={() => setOpen(false)}
-                    className="ml-auto inline-flex items-center gap-1 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[12px] font-bold px-3 py-1.5 transition-colors shadow-md"
-                  >
-                    {t("joinLobby")}
-                    <span aria-hidden>→</span>
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
+          <LobbyShareCard
+            payload={msg.payload}
+            onJoin={() => setOpen(false)}
+          />
         </div>
       );
     }
@@ -257,6 +165,7 @@ export default function GroupPanel() {
     // text
     const author = msg.user_id ? memberById.get(msg.user_id) : null;
     const isMine = !!myUserId && msg.user_id === myUserId;
+    const profileHref = msg.user_id ? `/profile/${msg.user_id}` : null;
     return (
       <div
         key={msg.id}
@@ -264,7 +173,20 @@ export default function GroupPanel() {
           isMine ? "flex-row-reverse" : ""
         }`}
       >
-        {!isMine && (
+        {profileHref ? (
+          <Link
+            href={profileHref}
+            onClick={() => setOpen(false)}
+            className="shrink-0"
+          >
+            <Avatar
+              src={author?.avatar_url}
+              name={author?.username}
+              size="xs"
+              className="rounded-lg shrink-0"
+            />
+          </Link>
+        ) : (
           <Avatar
             src={author?.avatar_url}
             name={author?.username}
@@ -279,8 +201,22 @@ export default function GroupPanel() {
               : "bg-surface-800/80 text-surface-100 rounded-bl-sm"
           }`}
         >
-          {!isMine && (
-            <p className="text-[10px] font-medium text-brand-300 mb-0.5">
+          {profileHref ? (
+            <Link
+              href={profileHref}
+              onClick={() => setOpen(false)}
+              className={`block text-[10px] font-medium mb-0.5 hover:underline transition-colors ${
+                isMine ? "text-brand-100/80" : "text-brand-300"
+              }`}
+            >
+              {author?.username ?? "?"}
+            </Link>
+          ) : (
+            <p
+              className={`text-[10px] font-medium mb-0.5 ${
+                isMine ? "text-brand-100/80" : "text-brand-300"
+              }`}
+            >
               {author?.username ?? "?"}
             </p>
           )}
@@ -301,6 +237,16 @@ export default function GroupPanel() {
         {isConnected && hasGroup && (
           <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-brand-500 border border-surface-900 text-white text-[9px] font-bold flex items-center justify-center">
             {memberCount}
+          </span>
+        )}
+        {/* Badge messages non lus (en bas à gauche, distinct du compteur de membres) */}
+        {isConnected && hasGroup && unreadCount > 0 && (
+          <span
+            className="absolute -bottom-1 -left-1 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 border border-surface-900 text-white text-[9px] font-bold flex items-center justify-center animate-pulse"
+            style={{ boxShadow: "0 0 8px rgba(239,68,68,0.7)" }}
+            aria-label={t("unread", { n: unreadCount })}
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
         {isConnected && hasPendingInvites && !hasGroup && (
