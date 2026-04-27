@@ -293,7 +293,8 @@
       "creatorCodePlaceholder": "e.g. navi42",
       "creatorCodeHint": "Supporting a creator? Enter their code. If you clicked their link, it's already filled in.",
       "creatorCodeApplied": "Creator code detected ✓",
-      "creatorCodeInvalid": "Invalid format: 3 to 30 characters, letters/digits/dash/underscore."
+      "creatorCodeInvalid": "Invalid format: 3 to 30 characters, letters/digits/dash/underscore.",
+      "invitedByLabel": "You were invited by"
     }
   },
   "profile": {

@@ -65,16 +65,40 @@ function SignupPageContent() {
   // fait que le créateur sera bien crédité.
   const [creatorCode, setCreatorCode] = useState("");
   const [codeFromCookie, setCodeFromCookie] = useState(false);
+  // Métadonnées du créateur (si code reconnu) pour afficher une bannière
+  // "Tu as été invité par @username" — fort levier de social proof.
+  const [creatorInfo, setCreatorInfo] = useState<{
+    username: string;
+    avatar_url: string | null;
+  } | null>(null);
+
+  const supabase = createClient();
 
   useEffect(() => {
     const cookieCode = readCookieClient(AFFILIATE_CONFIG.COOKIE_NAME);
-    if (cookieCode) {
-      setCreatorCode(cookieCode);
-      setCodeFromCookie(true);
-    }
-  }, []);
+    if (!cookieCode) return;
+    setCreatorCode(cookieCode);
+    setCodeFromCookie(true);
 
-  const supabase = createClient();
+    // Lookup du créateur — la table `profiles` a une policy SELECT publique
+    // (cf. schema.sql : "Profils visibles par tous"), donc accessible sans
+    // auth. `maybeSingle()` pour ne pas throw si le code est inconnu (cas
+    // d'un cookie obsolète ou d'un partage de lien périmé).
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("username, avatar_url")
+        .eq("affiliate_code", cookieCode.toLowerCase())
+        .maybeSingle();
+      if (data?.username) {
+        setCreatorInfo({
+          username: data.username,
+          avatar_url: data.avatar_url ?? null,
+        });
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -193,6 +217,43 @@ function SignupPageContent() {
           <h1 className="text-3xl font-display font-black text-white mb-2">{t("title")}</h1>
           <p className="text-surface-400 text-sm">{t("subtitle")}</p>
         </div>
+
+        {/* Bannière "Invité par @creator" — affichée uniquement si l'utilisateur
+            arrive via un lien d'affiliation valide ET que le créateur existe.
+            Effet de social proof : valide l'invitation et personnalise l'expérience. */}
+        {creatorInfo && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-5 flex items-center gap-3 px-4 py-3 rounded-2xl border border-brand-700/40 bg-gradient-to-br from-brand-950/60 via-surface-900/60 to-surface-950/40 shadow-lg shadow-brand-900/10"
+          >
+            {creatorInfo.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={creatorInfo.avatar_url}
+                alt={creatorInfo.username}
+                className="w-10 h-10 rounded-full object-cover border-2 border-brand-500/50 shrink-0"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-brand-700/40 border-2 border-brand-500/50 flex items-center justify-center shrink-0">
+                <span className="text-brand-200 text-base font-bold">
+                  {creatorInfo.username.slice(0, 1).toUpperCase()}
+                </span>
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-brand-200/80 text-[10px] uppercase tracking-widest font-semibold">
+                {t("invitedByLabel")}
+              </p>
+              <p className="text-white font-display font-bold text-sm truncate">
+                @{creatorInfo.username}
+              </p>
+            </div>
+            <span className="text-2xl shrink-0" aria-hidden>
+              ✨
+            </span>
+          </motion.div>
+        )}
 
         {error && (
           <div className="mb-4 p-4 rounded-xl bg-red-950/40 border border-red-700/50 text-red-300 text-sm">
