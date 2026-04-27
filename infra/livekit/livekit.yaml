@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Config LiveKit Server — single-node, sans Redis.
+#
+# Remplacer LIVEKIT_API_KEY / LIVEKIT_API_SECRET par les valeurs générées
+# avec `docker run --rm livekit/livekit-server generate-keys`. Ces mêmes
+# valeurs doivent être renseignées côté Vercel (env LIVEKIT_API_KEY /
+# LIVEKIT_API_SECRET).
+# ─────────────────────────────────────────────────────────────────────────────
+
+port: 7880
+bind_addresses:
+  - ""
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 60000
+  use_external_ip: true
+
+turn:
+  enabled: false
+
+keys:
+  # Format: API_KEY: API_SECRET (32+ caractères)
+  REPLACE_API_KEY: REPLACE_API_SECRET_AT_LEAST_32_CHARS
+
+logging:
+  level: info
+  json: false
+
+room:
+  enabled_codecs:
+    - mime: audio/opus
+  empty_timeout: 300
+  max_participants: 16

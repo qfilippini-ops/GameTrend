@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import Avatar from "@/components/ui/Avatar";
 import GroupCapacityInfo from "@/components/premium/GroupCapacityInfo";
 import LobbyShareCard from "@/components/social/LobbyShareCard";
+import VoicePanel from "@/components/social/voice/VoicePanel";
 import { useAuth } from "@/hooks/useAuth";
 import { useGroup } from "@/hooks/useGroup";
 import {
@@ -408,6 +409,13 @@ export default function GroupPanel() {
                         </div>
                       ) : (
                         <div className="flex-1 overflow-y-auto">
+                          {group && (
+                            <VoicePanel
+                              groupId={group.id}
+                              selfIsHost={isHost}
+                              onProfileClick={() => setOpen(false)}
+                            />
+                          )}
                           {members.map((m) => {
                             const canKick = isHost && m.user_id !== myUserId;
                             return (

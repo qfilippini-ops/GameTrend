@@ -1738,7 +1738,24 @@
     },
     "sysJoined": "{name} joined the group",
     "sysLeft": "{name} left the group",
-    "sysKicked": "{name} was kicked from the group"
+    "sysKicked": "{name} was kicked from the group",
+    "voice": {
+      "joinVoice": "Join voice",
+      "leaveVoice": "Leave voice",
+      "connecting": "Connecting…",
+      "connected": "Voice active",
+      "retry": "Retry connection",
+      "micOn": "Mic on",
+      "micOff": "Mic muted",
+      "mutedByHost": "Muted by host",
+      "hostMuteAction": "Mute",
+      "hostUnmuteAction": "Unmute",
+      "hostBadge": "Host",
+      "selfBadge": "You",
+      "participantsCount": "{count, plural, one {# participant} other {# participants}}",
+      "errorTokenFailed": "Couldn't join voice. Please try again.",
+      "errorNotConfigured": "Voice not available (server is being set up)."
+    }
   },
   "legal": {
     "layoutTitle": "Legal information",

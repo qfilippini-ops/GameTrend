@@ -1738,7 +1738,24 @@
     },
     "sysJoined": "{name} a rejoint le groupe",
     "sysLeft": "{name} a quitté le groupe",
-    "sysKicked": "{name} a été exclu(e) du groupe"
+    "sysKicked": "{name} a été exclu(e) du groupe",
+    "voice": {
+      "joinVoice": "Rejoindre le vocal",
+      "leaveVoice": "Quitter le vocal",
+      "connecting": "Connexion…",
+      "connected": "Vocal en cours",
+      "retry": "Réessayer la connexion",
+      "micOn": "Micro activé",
+      "micOff": "Micro coupé",
+      "mutedByHost": "Coupé par l'hôte",
+      "hostMuteAction": "Couper",
+      "hostUnmuteAction": "Réactiver",
+      "hostBadge": "Hôte",
+      "selfBadge": "Toi",
+      "participantsCount": "{count, plural, one {# participant} other {# participants}}",
+      "errorTokenFailed": "Impossible de rejoindre le vocal. Réessaie dans un instant.",
+      "errorNotConfigured": "Vocal non disponible (serveur en cours de configuration)."
+    }
   },
   "legal": {
     "layoutTitle": "Informations légales",

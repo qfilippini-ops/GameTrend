@@ -12,6 +12,7 @@ import ActiveRoomBadge from "@/components/ActiveRoomBadge";
 import KickedToast from "@/components/KickedToast";
 import Heartbeat from "@/components/Heartbeat";
 import GroupInviteToasts from "@/components/social/GroupInviteToasts";
+import VoiceMiniOverlay from "@/components/social/voice/VoiceMiniOverlay";
 import PWAInstallBanner from "@/components/PWAInstallBanner";
 import { FeedCacheProvider } from "@/components/feed/FeedCacheContext";
 import ReferralClaimer from "@/components/affiliate/ReferralClaimer";
@@ -203,6 +204,7 @@ export default async function LocaleLayout({
               <BottomNav />
               <Suspense><ActiveRoomBadge /></Suspense>
               <GroupInviteToasts />
+              <VoiceMiniOverlay />
             </FeedCacheProvider>
           </PaywallProvider>
         </NextIntlClientProvider>

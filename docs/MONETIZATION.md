@@ -19,11 +19,11 @@
 
 ### Pourquoi 40 % et pas 30 %
 
-Notre LTV brute estimée par abonné est ~92 € (mix 5,40 € net × 17 mois). À 40 %, on reverse ~37 € sur la durée de vie, marge nette ~55 € par abonné acquis via affilié. On reste très largement bénéficiaire (marge > 60 %), et le 40 % nous positionne au-dessus du standard B2C (15-25 % récurrent) pour attirer les créateurs gaming sur YouTube/Twitch/TikTok.
+Notre LTV brute estimée par abonné est ~93 € (mix 5,45 € net × 17 mois). À 40 %, on reverse ~37 € sur la durée de vie, marge nette ~56 € par abonné acquis via affilié. On reste très largement bénéficiaire (marge > 60 %), et le 40 % nous positionne au-dessus du standard B2C (15-25 % récurrent) pour attirer les créateurs gaming sur YouTube/Twitch/TikTok.
 
 ### Anti-fraude
 
-- L'auto-fraude est économiquement absurde : un faux compte qui s'abonne paye 5,40 € pour récupérer 2,16 € (perte nette 3,24 €/mois). Aucune motivation économique.
+- L'auto-fraude est économiquement absurde : un faux compte qui s'abonne paye 6,99 € HT pour récupérer 2,46 € (perte nette ~4,53 €/mois côté fraudeur, après TVA payée par lui). Aucune motivation économique.
 - La fraude par carte volée est gérée par Stripe/Paddle (chargeback) → la commission `paid` est révoquée automatiquement (`status = 'reversed'`).
 - Pas d'anti-fraude lourd au lancement. À reconsidérer si on observe des patterns suspects sur > 100 affiliés actifs.
 
@@ -37,17 +37,23 @@ Notre LTV brute estimée par abonné est ~92 € (mix 5,40 € net × 17 mois). 
 
 ### Pricing cible
 
-- **Mensuel** : 6,99 €
-- **Annuel** : 49 € (équivaut à 4,08 €/mois, soit -42 % vs mensuel)
+- **Mensuel** : 6,99 € **HT** (hors taxes — prix avant TVA du pays de l'acheteur)
+- **Annuel** : 49 € **HT** (équivaut à 4,08 €/mois HT, soit -42 % vs mensuel)
 - **Essai gratuit** : 7 jours sans CB (multiplicateur de conversion ×2 à ×3)
+
+> ⚠️ **Tous les prix de cette doc sont HT.** Lemon Squeezy (Merchant of Record) collecte
+> automatiquement la TVA du pays de l'acheteur **par-dessus** ce prix. Exemples :
+> France 20 % → user paie 8,39 € TTC, plateforme touche 6,99 € HT moins frais LS.
+> Allemagne 19 %, Espagne 21 %, Royaume-Uni 20 %, USA 0 % (sales tax variable selon État).
+> La TVA n'apparaît jamais comme un coût pour la plateforme, c'est LS qui la reverse.
 
 ### Net plateforme par abonné
 
-| Source | Brut | Net après MoR (Lemon Squeezy / Paddle ~10 %) |
-|---|---|---|
-| Mensuel 6,99 € | 6,99 € | ~6,30 € |
-| Annuel 49 €  | 49 € | ~44 € (~3,67 €/mois) |
-| Mix attendu (~70/30) | — | ~5,40 €/mois |
+| Source | Brut HT | Frais Lemon Squeezy (5 % + 0,50 €) | Net après MoR |
+|---|---|---|---|
+| Mensuel 6,99 € HT | 6,99 € | -0,85 € | **~6,14 €** |
+| Annuel 49 € HT | 49 € | -2,95 € | **~46,05 €** (~3,84 €/mois) |
+| Mix attendu (~70/30) | — | — | **~5,45 €/mois** |
 
 ### Positionnement marketing
 
@@ -152,14 +158,33 @@ Décision : **pas de monnaie virtuelle au lancement**. Risques :
 
 ## 7. Estimation chiffrée
 
-| MAU | Conversion 1,8 % | Abonnés | Revenu mensuel net | Coût affil (40 % × 50 % via affilié) | Net plateforme |
-|---|---|---|---|---|---|
-| 5 000 | 90 | 90 | 538 € | 108 € | 430 € |
-| 20 000 | 360 | 360 | 2 152 € | 430 € | 1 720 € |
-| 50 000 | 900 | 900 | 5 382 € | 1 076 € | 4 305 € |
-| 100 000 | 1 800 | 1 800 | 10 764 € | 2 153 € | 8 610 € |
+> Tous les revenus sont **HT, après frais Lemon Squeezy (~10 %)**. La TVA est collectée
+> par LS et reversée aux États — elle n'entre ni dans le revenu ni dans les coûts.
 
-Coûts infra à 100 k MAU : ~250 €/mois max. **Marge nette stable autour de 78 % à toutes les échelles.** Modèle solidement rentable à partir de ~10 k MAU.
+### Scénario médian (conversion 1,8 %, 50 % via affiliation)
+
+| MAU | Abonnés | Revenu net | Coût affil (40 % × 50 %) | Coûts infra | **Net plateforme** |
+|---|---|---|---|---|---|
+| 5 000 | 90 | 491 € | 98 € | ~50 € | **343 €** |
+| 20 000 | 360 | 1 962 € | 392 € | ~80 € | **1 490 €** |
+| 50 000 | 900 | 4 905 € | 981 € | ~200 € | **3 724 €** |
+| 100 000 | 1 800 | 9 810 € | 1 962 € | ~400 € | **7 448 €** |
+
+**Marge nette ~70-76 % à toutes les échelles.** Modèle solidement rentable à partir de ~5 k MAU.
+
+### Scénario pessimiste (conversion 1 %, 100 % via affiliation)
+
+| DAU | MAU | Abonnés | Revenu net (3,68 €) | Coûts infra+vocal | **Marge** |
+|---|---|---|---|---|---|
+| 1 000 | 3 000 | 10 | 37 € | 53 € | **−16 €** ❌ |
+| 1 500 | 4 500 | 15 | 55 € | 53 € | **+2 €** ⚠️ |
+| 2 000 | 6 000 | 20 | 74 € | 58 € | **+16 €** ✅ |
+| 5 000 | 15 000 | 50 | 184 € | 85 € | **+99 €** ✅ |
+| 10 000 | 30 000 | 100 | 368 € | 160 € | **+208 €** ✅ |
+| 50 000 | 150 000 | 500 | 1 840 € | 750 € | **+1 090 €** ✅ |
+| 100 000 | 300 000 | 1 000 | 3 680 € | 1 700 € | **+1 980 €** ✅ |
+
+**Break-even pessimiste : ~1 500 DAU.** Au-delà, marge stable 40-55 %.
 
 ---
 

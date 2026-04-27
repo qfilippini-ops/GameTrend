@@ -1,0 +1,15 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Caddy reverse proxy pour LiveKit. HTTPS + WSS automatique via Let's Encrypt.
+# Nécessite un enregistrement DNS A pointant vers le VPS pour le sous-domaine.
+# ─────────────────────────────────────────────────────────────────────────────
+
+livekit.gametrend.fr {
+  reverse_proxy localhost:7880
+  encode gzip
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "no-referrer"
+  }
+}

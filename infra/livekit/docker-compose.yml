@@ -1,0 +1,47 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# LiveKit voice stack (single-node, suffisant jusqu'à ~500 DAU sur VPS Hostinger
+# KVM 2). Le déploiement complet est documenté dans docs/VOICE_SETUP.md.
+#
+# Trois services :
+#   • livekit  : serveur SFU WebRTC (signalisation 7880, médias 7881 UDP)
+#   • caddy    : reverse-proxy WSS + cert Let's Encrypt automatique
+#   • coturn   : relais TURN pour les clients derrière des NAT stricts
+#
+# Réseau host pour les trois services :
+#   • livekit + coturn : indispensable pour exposer correctement les ports UDP
+#     médias WebRTC sans NAT supplémentaire.
+#   • caddy : nécessaire pour atteindre `localhost:7880` (LiveKit en host
+#     network), sinon Caddy renvoie 502 Bad Gateway sur le proxy.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  livekit:
+    image: livekit/livekit-server:v1.7
+    restart: unless-stopped
+    network_mode: host
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    depends_on:
+      - coturn
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  coturn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: -c /etc/coturn/turnserver.conf
+
+volumes:
+  caddy_data:
+  caddy_config:
