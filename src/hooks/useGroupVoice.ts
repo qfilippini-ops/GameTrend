@@ -370,21 +370,37 @@ async function leaveVoice(): Promise<void> {
 }
 
 /**
- * Demande explicitement la permission micro via getUserMedia, sans toucher
- * au SDK LiveKit. Évite la race condition "setMicrophoneEnabled échoue à
- * la 1ère tentative parce que Chrome n'a pas fini d'afficher le pop-up".
- *
- * Retourne true si la permission est accordée (ou déjà accordée).
+ * Lit l'état actuel de la permission micro via Permissions API.
+ * Retourne null si l'API n'est pas disponible.
  */
-async function ensureMicPermission(): Promise<boolean> {
+async function readMicPermissionState(): Promise<
+  PermissionState | null
+> {
+  if (typeof navigator === "undefined" || !navigator.permissions) return null;
+  try {
+    const status = await navigator.permissions.query({
+      name: "microphone" as PermissionName,
+    });
+    return status.state;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Provoque le pop-up de permission OS si elle n'a pas encore été accordée.
+ * On NE l'appelle PAS si la permission est déjà granted (sinon on déclenche
+ * un getUserMedia inutile qui entre en race condition avec celui interne
+ * au SDK LiveKit sur Chrome mobile, d'où le bug "1ère tentative échoue").
+ *
+ * Retourne true si la permission est OK pour publier, false sinon.
+ */
+async function promptForMicPermission(): Promise<boolean> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices) {
     return false;
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // On libère immédiatement le stream : LiveKit ouvrira le sien au moment
-    // de publier la track. Sans ça, on garde un track audio « fantôme »
-    // ouvert qui n'est pas envoyé au serveur.
     stream.getTracks().forEach((t) => t.stop());
     return true;
   } catch (err) {
@@ -432,22 +448,53 @@ async function toggleMic(): Promise<void> {
     return;
   }
 
-  // Activer le micro : on demande d'abord la permission OS via getUserMedia,
-  // puis seulement après on publie la track LiveKit. Évite la race
-  // condition « 1ère tentative échoue / 2ème marche ».
-  const granted = await ensureMicPermission();
-  if (!granted) {
+  // Activer le micro :
+  //   1. Si permission non encore accordée → on déclenche le pop-up nous-mêmes
+  //      (sinon le SDK le ferait, mais avec un message d'erreur moins propre)
+  //   2. Si permission déjà granted → on saute getUserMedia et on attaque
+  //      directement le SDK (évite la race condition Chrome mobile)
+  //   3. Retry automatique 1 fois en cas d'échec : sur certains téléphones
+  //      la première tentative échoue parce que l'AudioContext n'est pas
+  //      encore "running", la 2ème passe systématiquement.
+  const permState = await readMicPermissionState();
+  if (permState === "denied") {
+    micError = "mic_permission_denied";
     rebuildAndNotify();
     return;
   }
+  if (permState !== "granted") {
+    const granted = await promptForMicPermission();
+    if (!granted) {
+      rebuildAndNotify();
+      return;
+    }
+    // Petit délai pour laisser le cleanup du getUserMedia se terminer
+    // avant que le SDK appelle son propre getUserMedia.
+    await new Promise((r) => setTimeout(r, 150));
+  }
 
-  try {
-    await lp.setMicrophoneEnabled(true);
-    micError = null;
-  } catch (err) {
-    console.error("[useGroupVoice] enable mic failed", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    const name = err instanceof Error ? err.name : "";
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await lp.setMicrophoneEnabled(true);
+      micError = null;
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      console.warn(
+        `[useGroupVoice] enable mic attempt ${attempt}/2 failed`,
+        err
+      );
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+  }
+
+  if (lastErr) {
+    const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+    const name = lastErr instanceof Error ? lastErr.name : "";
     if (
       name === "NotAllowedError" ||
       /permission|denied|not allowed/i.test(msg)
