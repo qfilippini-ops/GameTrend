@@ -56,6 +56,11 @@ let sharedRoom: Room | null = null;
 let sharedGroupId: string | null = null;
 let sharedSelfIdentity: string | null = null;
 let snapshot: VoiceSnapshot = initialSnapshot;
+// Erreur du dernier toggle micro (ex. permission denied). Persiste à travers
+// les rebuildSnapshot() pour qu'on puisse l'afficher dans l'UI.
+let micError: string | null = null;
+// Erreur de la dernière action mute/unmute par l'host.
+let hostMuteError: string | null = null;
 
 const subscribers = new Set<() => void>();
 
@@ -175,7 +180,7 @@ function rebuildSnapshot() {
   snapshot = {
     groupId: sharedGroupId,
     status,
-    error: null,
+    error: micError ?? hostMuteError,
     selfIdentity: sharedSelfIdentity,
     isMicEnabled: localMeta?.isMicEnabled ?? false,
     mutedByHost: localMeta?.mutedByHost ?? false,
@@ -332,11 +337,44 @@ async function toggleMic(): Promise<void> {
   if (lp.permissions && !lp.permissions.canPublish) {
     return;
   }
+  // Pré-check : si le navigateur a déjà refusé la permission, on évite
+  // l'appel au SDK qui peut échouer silencieusement en mode PWA standalone.
+  try {
+    if (typeof navigator !== "undefined" && navigator.permissions) {
+      const status = await navigator.permissions.query({
+        name: "microphone" as PermissionName,
+      });
+      if (status.state === "denied") {
+        micError = "mic_permission_denied";
+        rebuildAndNotify();
+        return;
+      }
+    }
+  } catch {
+    // Permissions API non supportée → on laisse le SDK gérer.
+  }
+
   const enabled = lp.isMicrophoneEnabled;
   try {
     await lp.setMicrophoneEnabled(!enabled);
+    micError = null;
   } catch (err) {
     console.error("[useGroupVoice] toggleMic failed", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    const name = err instanceof Error ? err.name : "";
+    if (
+      name === "NotAllowedError" ||
+      /permission|denied|not allowed/i.test(msg)
+    ) {
+      micError = "mic_permission_denied";
+    } else if (
+      name === "NotFoundError" ||
+      /no microphone|requested device/i.test(msg)
+    ) {
+      micError = "mic_not_found";
+    } else {
+      micError = "mic_failed";
+    }
   }
   rebuildAndNotify();
 }
@@ -346,14 +384,28 @@ async function hostMute(
   targetUserId: string,
   canPublish: boolean
 ): Promise<void> {
-  const res = await fetch("/api/livekit/permissions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ groupId, targetUserId, canPublish }),
-  });
+  hostMuteError = null;
+  rebuildAndNotify();
+  let res: Response;
+  try {
+    res = await fetch("/api/livekit/permissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId, targetUserId, canPublish }),
+    });
+  } catch (err) {
+    console.error("[useGroupVoice] hostMute network error", err);
+    hostMuteError = "host_mute_network";
+    rebuildAndNotify();
+    throw err;
+  }
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error ?? `permission_failed_${res.status}`);
+    const code = data.error ?? `permission_failed_${res.status}`;
+    console.error("[useGroupVoice] hostMute failed", code, res.status);
+    hostMuteError = `host_mute:${code}`;
+    rebuildAndNotify();
+    throw new Error(code);
   }
 }
 

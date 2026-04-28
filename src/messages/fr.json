@@ -1757,7 +1757,12 @@
       "hintTapMicToTalk": "Appuie sur ton micro pour parler.",
       "participantsCount": "{count, plural, one {# participant} other {# participants}}",
       "errorTokenFailed": "Impossible de rejoindre le vocal. Réessaie dans un instant.",
-      "errorNotConfigured": "Vocal non disponible (serveur en cours de configuration)."
+      "errorNotConfigured": "Vocal non disponible (serveur en cours de configuration).",
+      "errorMicPermissionDenied": "Micro bloqué par le navigateur. Tape l'icône cadenas à gauche de l'URL → Autorisations → Microphone → Autoriser, puis recharge la page.",
+      "errorMicPermissionDeniedPwa": "Micro bloqué pour l'app installée. Deux options : 1) Ouvre directement gametrend.fr dans ton navigateur Chrome/Safari (pas via l'icône installée) et autorise le micro, ça se synchronisera. 2) Ou désinstalle puis réinstalle l'app après avoir autorisé le micro sur le site web.",
+      "errorMicNotFound": "Aucun microphone détecté sur cet appareil.",
+      "errorMicGeneric": "Impossible d'activer le micro. Réessaie ou recharge la page.",
+      "errorHostMuteFailed": "Impossible de couper ce membre. Vérifie ta connexion et réessaie."
     }
   },
   "legal": {

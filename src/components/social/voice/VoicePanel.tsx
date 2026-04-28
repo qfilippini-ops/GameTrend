@@ -1,9 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useGroupVoice } from "@/hooks/useGroupVoice";
 import VoiceParticipantRow from "./VoiceParticipantRow";
+
+function detectStandalonePWA(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+  if (
+    typeof navigator !== "undefined" &&
+    "standalone" in navigator &&
+    (navigator as { standalone?: boolean }).standalone === true
+  ) {
+    return true;
+  }
+  return false;
+}
 
 interface VoicePanelProps {
   groupId: string;
@@ -31,6 +44,10 @@ export default function VoicePanel({
   const t = useTranslations("groups.voice");
   const voice = useGroupVoice(groupId);
   const [pendingTarget, setPendingTarget] = useState<string | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  useEffect(() => {
+    setIsStandalone(detectStandalonePWA());
+  }, []);
 
   async function handleJoin() {
     await voice.join();
@@ -128,6 +145,22 @@ export default function VoicePanel({
       <p className="px-3 pt-2 pb-1 text-[11px] text-surface-500">
         {t("hintTapMicToTalk")}
       </p>
+
+      {voice.error && (
+        <div className="mx-3 mb-2 rounded-lg border border-red-500/30 bg-red-950/30 p-2.5">
+          <p className="text-[11px] text-red-300 leading-snug">
+            {voice.error === "mic_permission_denied"
+              ? isStandalone
+                ? t("errorMicPermissionDeniedPwa")
+                : t("errorMicPermissionDenied")
+              : voice.error === "mic_not_found"
+                ? t("errorMicNotFound")
+                : voice.error.startsWith("host_mute")
+                  ? t("errorHostMuteFailed")
+                  : t("errorMicGeneric")}
+          </p>
+        </div>
+      )}
 
       <div className="bg-surface-900/40">
         {voice.participants.map((p) => (

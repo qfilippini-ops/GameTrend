@@ -1757,7 +1757,12 @@
       "hintTapMicToTalk": "Tap your mic icon to start talking.",
       "participantsCount": "{count, plural, one {# participant} other {# participants}}",
       "errorTokenFailed": "Couldn't join voice. Please try again.",
-      "errorNotConfigured": "Voice not available (server is being set up)."
+      "errorNotConfigured": "Voice not available (server is being set up).",
+      "errorMicPermissionDenied": "Microphone blocked by your browser. Tap the lock icon left of the URL → Permissions → Microphone → Allow, then reload.",
+      "errorMicPermissionDeniedPwa": "Microphone blocked in the installed app. Two options: 1) Open gametrend.fr directly in Chrome/Safari (not via the home-screen icon), allow the mic, it will sync. 2) Or uninstall and reinstall the app after granting mic permission on the website.",
+      "errorMicNotFound": "No microphone detected on this device.",
+      "errorMicGeneric": "Couldn't turn on the mic. Try again or reload the page.",
+      "errorHostMuteFailed": "Couldn't mute this member. Check your connection and retry."
     }
   },
   "legal": {

@@ -83,9 +83,24 @@ export async function POST(req: Request) {
 
   try {
     await setMemberPublishPermission(groupId, targetUserId, canPublish);
+    console.log(
+      "[livekit/permissions] OK",
+      JSON.stringify({ groupId, targetUserId, canPublish })
+    );
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[livekit/permissions] failed", err);
-    return NextResponse.json({ error: "permission_failed" }, { status: 500 });
+    const detail =
+      err instanceof Error
+        ? `${err.name}: ${err.message}`
+        : String(err);
+    console.error(
+      "[livekit/permissions] failed",
+      JSON.stringify({ groupId, targetUserId, canPublish }),
+      detail
+    );
+    return NextResponse.json(
+      { error: "permission_failed", detail },
+      { status: 500 }
+    );
   }
 }
