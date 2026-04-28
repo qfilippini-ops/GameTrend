@@ -28,6 +28,9 @@ export type VoiceParticipantMeta = {
   isLocal: boolean;
   isMicEnabled: boolean;
   mutedByHost: boolean;
+  /** Coupé localement par l'utilisateur courant (audio = 0 chez nous, mais
+   *  l'autre continue de parler pour les autres). */
+  isLocallyMuted: boolean;
   isSpeaking: boolean;
   audioLevel: number;
 };
@@ -61,6 +64,9 @@ let snapshot: VoiceSnapshot = initialSnapshot;
 let micError: string | null = null;
 // Erreur de la dernière action mute/unmute par l'host.
 let hostMuteError: string | null = null;
+// Mutes locaux : { identity → muted } — applique seulement chez nous, ne
+// remonte pas au serveur. Persiste tant qu'on est dans la room.
+const localMutes = new Set<string>();
 
 const subscribers = new Set<() => void>();
 
@@ -104,6 +110,28 @@ function detachAllRemoteAudio() {
   audioElements.clear();
 }
 
+/**
+ * Applique le local-mute à un participant remote : volume = 0 chez nous
+ * mais le serveur continue de relayer son audio aux autres.
+ */
+function applyLocalMuteForParticipant(identity: string, muted: boolean) {
+  if (!sharedRoom) return;
+  const p = sharedRoom.remoteParticipants.get(identity);
+  if (!p) return;
+  try {
+    p.setVolume(muted ? 0 : 1);
+  } catch (err) {
+    console.error("[useGroupVoice] setVolume failed", err);
+  }
+}
+
+function setLocalMuteForIdentity(identity: string, muted: boolean) {
+  if (muted) localMutes.add(identity);
+  else localMutes.delete(identity);
+  applyLocalMuteForParticipant(identity, muted);
+  rebuildAndNotify();
+}
+
 function notify() {
   subscribers.forEach((cb) => {
     try {
@@ -143,6 +171,7 @@ function buildParticipantMeta(p: Participant, isLocal: boolean): VoiceParticipan
     isLocal,
     isMicEnabled: p.isMicrophoneEnabled,
     mutedByHost: p.permissions ? !p.permissions.canPublish : false,
+    isLocallyMuted: !isLocal && localMutes.has(p.identity),
     isSpeaking: p.isSpeaking,
     audioLevel: p.audioLevel,
   };
@@ -214,8 +243,16 @@ function attachListeners(room: Room) {
     room.on(ev, rebuildAndNotify);
   }
 
-  room.on(RoomEvent.TrackSubscribed, (track) => {
+  room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
     attachRemoteAudio(track);
+    // Si on avait local-muté ce participant avant qu'il publie, on
+    // réapplique maintenant que sa track existe.
+    if (
+      track.kind === Track.Kind.Audio &&
+      localMutes.has(participant.identity)
+    ) {
+      applyLocalMuteForParticipant(participant.identity, true);
+    }
     rebuildAndNotify();
   });
   room.on(RoomEvent.TrackUnsubscribed, (track) => {
@@ -322,6 +359,9 @@ async function leaveVoice(): Promise<void> {
     /* ignore */
   }
   detachAllRemoteAudio();
+  localMutes.clear();
+  micError = null;
+  hostMuteError = null;
   sharedRoom = null;
   sharedGroupId = null;
   sharedSelfIdentity = null;
@@ -329,39 +369,28 @@ async function leaveVoice(): Promise<void> {
   notify();
 }
 
-async function toggleMic(): Promise<void> {
-  if (!sharedRoom) return;
-  // Si l'host nous a soft-muté, le serveur refusera la republication. On
-  // bloque ici aussi pour éviter une erreur visible.
-  const lp = sharedRoom.localParticipant;
-  if (lp.permissions && !lp.permissions.canPublish) {
-    return;
+/**
+ * Demande explicitement la permission micro via getUserMedia, sans toucher
+ * au SDK LiveKit. Évite la race condition "setMicrophoneEnabled échoue à
+ * la 1ère tentative parce que Chrome n'a pas fini d'afficher le pop-up".
+ *
+ * Retourne true si la permission est accordée (ou déjà accordée).
+ */
+async function ensureMicPermission(): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices) {
+    return false;
   }
-  // Pré-check : si le navigateur a déjà refusé la permission, on évite
-  // l'appel au SDK qui peut échouer silencieusement en mode PWA standalone.
   try {
-    if (typeof navigator !== "undefined" && navigator.permissions) {
-      const status = await navigator.permissions.query({
-        name: "microphone" as PermissionName,
-      });
-      if (status.state === "denied") {
-        micError = "mic_permission_denied";
-        rebuildAndNotify();
-        return;
-      }
-    }
-  } catch {
-    // Permissions API non supportée → on laisse le SDK gérer.
-  }
-
-  const enabled = lp.isMicrophoneEnabled;
-  try {
-    await lp.setMicrophoneEnabled(!enabled);
-    micError = null;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // On libère immédiatement le stream : LiveKit ouvrira le sien au moment
+    // de publier la track. Sans ça, on garde un track audio « fantôme »
+    // ouvert qui n'est pas envoyé au serveur.
+    stream.getTracks().forEach((t) => t.stop());
+    return true;
   } catch (err) {
-    console.error("[useGroupVoice] toggleMic failed", err);
-    const msg = err instanceof Error ? err.message : String(err);
     const name = err instanceof Error ? err.name : "";
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[useGroupVoice] getUserMedia failed", name, msg);
     if (
       name === "NotAllowedError" ||
       /permission|denied|not allowed/i.test(msg)
@@ -372,6 +401,58 @@ async function toggleMic(): Promise<void> {
       /no microphone|requested device/i.test(msg)
     ) {
       micError = "mic_not_found";
+    } else {
+      micError = "mic_failed";
+    }
+    return false;
+  }
+}
+
+async function toggleMic(): Promise<void> {
+  if (!sharedRoom) return;
+  // Si l'host nous a soft-muté, le serveur refusera la republication. On
+  // bloque ici aussi pour éviter une erreur visible.
+  const lp = sharedRoom.localParticipant;
+  if (lp.permissions && !lp.permissions.canPublish) {
+    return;
+  }
+
+  const wantsToEnable = !lp.isMicrophoneEnabled;
+
+  // Couper le micro : on n'a pas besoin de permission.
+  if (!wantsToEnable) {
+    try {
+      await lp.setMicrophoneEnabled(false);
+      micError = null;
+    } catch (err) {
+      console.error("[useGroupVoice] disable mic failed", err);
+      micError = "mic_failed";
+    }
+    rebuildAndNotify();
+    return;
+  }
+
+  // Activer le micro : on demande d'abord la permission OS via getUserMedia,
+  // puis seulement après on publie la track LiveKit. Évite la race
+  // condition « 1ère tentative échoue / 2ème marche ».
+  const granted = await ensureMicPermission();
+  if (!granted) {
+    rebuildAndNotify();
+    return;
+  }
+
+  try {
+    await lp.setMicrophoneEnabled(true);
+    micError = null;
+  } catch (err) {
+    console.error("[useGroupVoice] enable mic failed", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    const name = err instanceof Error ? err.name : "";
+    if (
+      name === "NotAllowedError" ||
+      /permission|denied|not allowed/i.test(msg)
+    ) {
+      micError = "mic_permission_denied";
     } else {
       micError = "mic_failed";
     }
@@ -456,11 +537,19 @@ export function useGroupVoice(activeGroupId: string | null) {
     [activeGroupId]
   );
 
+  const setLocalMute = useCallback(
+    (targetUserId: string, muted: boolean) => {
+      setLocalMuteForIdentity(targetUserId, muted);
+    },
+    []
+  );
+
   return {
     ...snapshot,
     join,
     leave: leaveVoice,
     toggleMic,
     muteMember,
+    setLocalMute,
   };
 }

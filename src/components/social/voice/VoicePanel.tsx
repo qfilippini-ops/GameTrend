@@ -64,11 +64,17 @@ export default function VoicePanel({
   async function handleHostMute(targetUserId: string, currentlyMuted: boolean) {
     setPendingTarget(targetUserId);
     try {
+      // currentlyMuted=true → on veut unmute (canPublish=true)
+      // currentlyMuted=false → on veut mute (canPublish=false)
       await voice.muteMember(targetUserId, currentlyMuted);
     } catch (err) {
       console.error("[VoicePanel] mute failed", err);
     }
     setPendingTarget(null);
+  }
+
+  function handleToggleLocalMute(targetUserId: string, currentlyMuted: boolean) {
+    voice.setLocalMute(targetUserId, !currentlyMuted);
   }
 
   if (voice.status === "idle") {
@@ -168,7 +174,8 @@ export default function VoicePanel({
             key={p.identity}
             participant={p}
             selfIsHost={selfIsHost}
-            onMute={handleHostMute}
+            onHostMute={handleHostMute}
+            onToggleLocalMute={handleToggleLocalMute}
             onToggleSelfMic={handleToggleMic}
             onProfileClick={onProfileClick}
             pending={pendingTarget === p.identity}
