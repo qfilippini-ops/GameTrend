@@ -110,7 +110,7 @@ export default function GroupCapacityInfo({ capacity }: Props) {
               top: coords.top,
               left: coords.left,
               width: POPOVER_WIDTH,
-              zIndex: 100,
+              zIndex: 400,
             }}
             className="rounded-xl border border-amber-500/30 bg-surface-900/95 backdrop-blur-md p-3 shadow-xl"
           >

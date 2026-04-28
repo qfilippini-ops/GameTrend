@@ -5,8 +5,11 @@ import {
   Room,
   RoomEvent,
   ConnectionState,
+  Track,
   type RemoteParticipant,
   type Participant,
+  type RemoteTrack,
+  type RemoteAudioTrack,
 } from "livekit-client";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -55,6 +58,46 @@ let sharedSelfIdentity: string | null = null;
 let snapshot: VoiceSnapshot = initialSnapshot;
 
 const subscribers = new Set<() => void>();
+
+// Audio elements créés pour chaque remote audio track. Sans ça, livekit-client
+// ne joue PAS l'audio entrant (depuis SDK v2 il faut attacher manuellement).
+const audioElements = new Map<string, HTMLAudioElement>();
+
+function attachRemoteAudio(track: RemoteTrack) {
+  if (track.kind !== Track.Kind.Audio) return;
+  const audioTrack = track as RemoteAudioTrack;
+  const el = audioTrack.attach();
+  el.id = `lk-audio-${track.sid ?? Math.random().toString(36).slice(2)}`;
+  el.autoplay = true;
+  el.playsInline = true;
+  el.style.display = "none";
+  document.body.appendChild(el);
+  if (track.sid) audioElements.set(track.sid, el);
+  el.play().catch(() => {
+    // Autoplay bloqué (rare car le user a cliqué pour rejoindre). On
+    // ignore : le SDK retentera, et l'audio démarrera au prochain user
+    // gesture.
+  });
+}
+
+function detachRemoteAudio(track: RemoteTrack) {
+  if (track.kind !== Track.Kind.Audio) return;
+  if (!track.sid) return;
+  const el = audioElements.get(track.sid);
+  if (!el) return;
+  try {
+    track.detach(el);
+  } catch {
+    /* ignore */
+  }
+  el.remove();
+  audioElements.delete(track.sid);
+}
+
+function detachAllRemoteAudio() {
+  audioElements.forEach((el) => el.remove());
+  audioElements.clear();
+}
 
 function notify() {
   subscribers.forEach((cb) => {
@@ -165,6 +208,15 @@ function attachListeners(room: Room) {
   for (const ev of events) {
     room.on(ev, rebuildAndNotify);
   }
+
+  room.on(RoomEvent.TrackSubscribed, (track) => {
+    attachRemoteAudio(track);
+    rebuildAndNotify();
+  });
+  room.on(RoomEvent.TrackUnsubscribed, (track) => {
+    detachRemoteAudio(track);
+    rebuildAndNotify();
+  });
 }
 
 async function joinVoice(groupId: string): Promise<void> {
@@ -264,6 +316,7 @@ async function leaveVoice(): Promise<void> {
   } catch {
     /* ignore */
   }
+  detachAllRemoteAudio();
   sharedRoom = null;
   sharedGroupId = null;
   sharedSelfIdentity = null;

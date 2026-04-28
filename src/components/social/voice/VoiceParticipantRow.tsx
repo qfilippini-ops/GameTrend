@@ -9,6 +9,7 @@ interface VoiceParticipantRowProps {
   participant: VoiceParticipantMeta;
   selfIsHost: boolean;
   onMute?: (targetUserId: string, canPublish: boolean) => void;
+  onToggleSelfMic?: () => void;
   onProfileClick?: () => void;
   pending?: boolean;
 }
@@ -17,11 +18,16 @@ interface VoiceParticipantRowProps {
  * Ligne de participant vocal. Affiche l'avatar avec un anneau lumineux
  * proportionnel à `audioLevel` quand il parle, son micro/mute, et — pour
  * l'host uniquement et sur les autres membres — un bouton mute/unmute.
+ *
+ * Pour le participant local, l'icône micro est interactive : tap pour
+ * activer/couper son propre micro (déclenche la demande de permission
+ * navigateur la première fois).
  */
 export default function VoiceParticipantRow({
   participant: p,
   selfIsHost,
   onMute,
+  onToggleSelfMic,
   onProfileClick,
   pending = false,
 }: VoiceParticipantRowProps) {
@@ -92,25 +98,56 @@ export default function VoiceParticipantRow({
         )}
       </div>
 
-      <span
-        className={`text-base ${micColor}`}
-        title={
-          p.mutedByHost
-            ? t("mutedByHost")
-            : p.isMicEnabled
-              ? t("micOn")
-              : t("micOff")
-        }
-        aria-label={
-          p.mutedByHost
-            ? t("mutedByHost")
-            : p.isMicEnabled
-              ? t("micOn")
-              : t("micOff")
-        }
-      >
-        {micIcon}
-      </span>
+      {p.isLocal ? (
+        <button
+          type="button"
+          onClick={onToggleSelfMic}
+          disabled={p.mutedByHost}
+          aria-label={
+            p.mutedByHost
+              ? t("mutedByHost")
+              : p.isMicEnabled
+                ? t("tapToMute")
+                : t("tapToUnmute")
+          }
+          title={
+            p.mutedByHost
+              ? t("mutedByHost")
+              : p.isMicEnabled
+                ? t("tapToMute")
+                : t("tapToUnmute")
+          }
+          className={`w-10 h-10 flex items-center justify-center rounded-xl text-lg transition-all ${
+            p.mutedByHost
+              ? "bg-red-950/40 border border-red-500/40 text-red-300 cursor-not-allowed"
+              : p.isMicEnabled
+                ? "bg-emerald-600/80 border border-emerald-400/60 text-white hover:bg-emerald-500"
+                : "bg-surface-800 border border-surface-700/40 text-surface-300 hover:text-white hover:border-brand-500/50"
+          }`}
+        >
+          {micIcon}
+        </button>
+      ) : (
+        <span
+          className={`text-base ${micColor}`}
+          title={
+            p.mutedByHost
+              ? t("mutedByHost")
+              : p.isMicEnabled
+                ? t("micOn")
+                : t("micOff")
+          }
+          aria-label={
+            p.mutedByHost
+              ? t("mutedByHost")
+              : p.isMicEnabled
+                ? t("micOn")
+                : t("micOff")
+          }
+        >
+          {micIcon}
+        </span>
+      )}
 
       {showMuteButton && (
         <button

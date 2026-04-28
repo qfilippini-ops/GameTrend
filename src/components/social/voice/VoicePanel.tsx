@@ -107,34 +107,8 @@ export default function VoicePanel({
   // status === "connected"
   return (
     <div className="border-b border-surface-800/40">
-      <div className="flex items-center gap-2 px-3 py-2.5 bg-surface-800/40">
-        <button
-          onClick={handleToggleMic}
-          disabled={voice.mutedByHost}
-          className={`w-9 h-9 flex items-center justify-center rounded-xl text-base transition-all ${
-            voice.mutedByHost
-              ? "bg-red-950/40 border border-red-500/40 text-red-300 cursor-not-allowed"
-              : voice.isMicEnabled
-                ? "bg-emerald-600/80 border border-emerald-400/60 text-white hover:bg-emerald-500"
-                : "bg-surface-800 border border-surface-700/40 text-surface-300 hover:text-white hover:border-brand-500/50"
-          }`}
-          aria-label={
-            voice.mutedByHost
-              ? t("mutedByHost")
-              : voice.isMicEnabled
-                ? t("micOff")
-                : t("micOn")
-          }
-          title={
-            voice.mutedByHost
-              ? t("mutedByHost")
-              : voice.isMicEnabled
-                ? t("micOff")
-                : t("micOn")
-          }
-        >
-          {voice.mutedByHost ? "🔇" : voice.isMicEnabled ? "🎤" : "🎙️"}
-        </button>
+      <div className="flex items-center gap-2 px-3 py-2 bg-surface-800/40">
+        <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
         <div className="flex-1 text-[12px] text-surface-300">
           <p className="font-medium text-white">
             {t("connected")}
@@ -151,6 +125,10 @@ export default function VoicePanel({
         </button>
       </div>
 
+      <p className="px-3 pt-2 pb-1 text-[11px] text-surface-500">
+        {t("hintTapMicToTalk")}
+      </p>
+
       <div className="bg-surface-900/40">
         {voice.participants.map((p) => (
           <VoiceParticipantRow
@@ -158,6 +136,7 @@ export default function VoicePanel({
             participant={p}
             selfIsHost={selfIsHost}
             onMute={handleHostMute}
+            onToggleSelfMic={handleToggleMic}
             onProfileClick={onProfileClick}
             pending={pendingTarget === p.identity}
           />

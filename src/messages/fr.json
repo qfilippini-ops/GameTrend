@@ -1752,6 +1752,9 @@
       "hostUnmuteAction": "Réactiver",
       "hostBadge": "Hôte",
       "selfBadge": "Toi",
+      "tapToMute": "Appuie pour te couper",
+      "tapToUnmute": "Appuie pour parler",
+      "hintTapMicToTalk": "Appuie sur ton micro pour parler.",
       "participantsCount": "{count, plural, one {# participant} other {# participants}}",
       "errorTokenFailed": "Impossible de rejoindre le vocal. Réessaie dans un instant.",
       "errorNotConfigured": "Vocal non disponible (serveur en cours de configuration)."

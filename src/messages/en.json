@@ -1752,6 +1752,9 @@
       "hostUnmuteAction": "Unmute",
       "hostBadge": "Host",
       "selfBadge": "You",
+      "tapToMute": "Tap to mute yourself",
+      "tapToUnmute": "Tap to talk",
+      "hintTapMicToTalk": "Tap your mic icon to start talking.",
       "participantsCount": "{count, plural, one {# participant} other {# participants}}",
       "errorTokenFailed": "Couldn't join voice. Please try again.",
       "errorNotConfigured": "Voice not available (server is being set up)."
