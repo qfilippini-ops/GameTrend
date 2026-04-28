@@ -57,7 +57,14 @@ export interface CallLLMOptions {
 }
 
 export type CallLLMResult =
-  | { ok: true; text: string; model: string }
+  | {
+      ok: true;
+      text: string;
+      model: string;
+      /** Token counts (utiles pour log d'usage et estimation coût). */
+      promptTokens: number;
+      completionTokens: number;
+    }
   | { ok: false; error: string };
 
 function isReasoningModel(model: string): boolean {
@@ -136,7 +143,13 @@ export async function callLLM(opts: CallLLMOptions): Promise<CallLLMResult> {
         error: `empty_response (finish=${finish}, reasoning_tokens=${reasoningTokens})`,
       };
     }
-    return { ok: true, text, model };
+    return {
+      ok: true,
+      text,
+      model,
+      promptTokens: json?.usage?.prompt_tokens ?? 0,
+      completionTokens: json?.usage?.completion_tokens ?? 0,
+    };
   } catch (e) {
     if ((e as Error).name === "AbortError") {
       return { ok: false, error: "timeout" };

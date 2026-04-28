@@ -9,6 +9,8 @@
  * à react-email plus tard, ce wrapper reste compatible.
  */
 
+import { logResendEmailUsage } from "@/lib/admin/usage-log";
+
 const RESEND_API = "https://api.resend.com/emails";
 
 export type EmailLocale = "fr" | "en";
@@ -19,6 +21,10 @@ interface SendEmailOptions {
   html: string;
   text?: string;
   replyTo?: string;
+  /** Type d'email pour catégoriser les stats (welcome, payment_failed…). */
+  emailType?: string;
+  /** UUID du destinataire si connu (pour cross-ref avec profiles). */
+  userId?: string | null;
 }
 
 export async function sendEmail(opts: SendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
@@ -50,6 +56,11 @@ export async function sendEmail(opts: SendEmailOptions): Promise<{ success: bool
 
       if (res.ok) {
         const json = await res.json();
+        logResendEmailUsage({
+          userId: opts.userId,
+          emailType: opts.emailType,
+          metadata: { to: opts.to, subject: opts.subject, resend_id: json?.id },
+        });
         return { success: true, id: json?.id };
       }
 

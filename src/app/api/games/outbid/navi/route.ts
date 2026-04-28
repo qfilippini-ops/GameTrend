@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callLLM } from "@/lib/llm/openai";
+import { logOpenAINaviUsage } from "@/lib/admin/usage-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,12 +214,27 @@ Tu peux utiliser un peu de markdown (gras, listes). Termine par une ligne « **V
     maxTokens: 2500,
   });
   if (!llm.ok) {
-    console.error("[navi] LLM error:", llm.error);
+    const detail = "error" in llm ? llm.error : "unknown";
+    console.error("[navi] LLM error:", detail);
     return NextResponse.json(
-      { error: "llm_failed", detail: llm.error },
+      { error: "llm_failed", detail },
       { status: 502 }
     );
   }
+
+  // Logging d'usage (fire-and-forget, ne bloque pas la réponse)
+  logOpenAINaviUsage({
+    userId: user.id,
+    promptTokens: llm.promptTokens,
+    completionTokens: llm.completionTokens,
+    model: llm.model,
+    metadata: {
+      mode: resultId ? "result" : "room",
+      locale,
+      team_a_size: teamA.length,
+      team_b_size: teamB.length,
+    },
+  });
 
   // Persiste le verdict via la bonne RPC selon le mode
   const { data: saved, error: saveErr } = resultId

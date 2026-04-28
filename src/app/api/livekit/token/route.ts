@@ -4,6 +4,7 @@ import {
   createGroupVoiceToken,
   isLiveKitConfigured,
 } from "@/lib/livekit/server";
+import { logLiveKitTokenMint } from "@/lib/admin/usage-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +74,12 @@ export async function POST(req: Request) {
       userId: user.id,
       username,
       avatarUrl,
+      groupId,
+      isHost: membership.is_host,
+    });
+
+    logLiveKitTokenMint({
+      userId: user.id,
       groupId,
       isHost: membership.is_host,
     });

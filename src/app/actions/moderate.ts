@@ -1,5 +1,7 @@
 "use server";
 
+import { logSightengineUsage } from "@/lib/admin/usage-log";
+
 export interface ModerationResult {
   safe: boolean;
   reason?: string;
@@ -42,6 +44,17 @@ export async function checkImageSafety(
     }
 
     const data = await response.json();
+
+    // Logging usage (fire-and-forget). On ne loggue que les appels qui ont
+    // effectivement consommé un crédit Sightengine (=200 OK).
+    logSightengineUsage({
+      metadata: {
+        file_name: fileName,
+        mime_type: mimeType,
+        nudity_sexual_activity: data?.nudity?.sexual_activity ?? null,
+        gore_prob: data?.gore?.prob ?? null,
+      },
+    });
 
     // Log complet pour calibration — visible dans le terminal local et les logs Vercel
     console.log("[moderate] scores pour", fileName, ":", JSON.stringify({
