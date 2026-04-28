@@ -92,16 +92,77 @@ Vercel redéploie automatiquement. Une fois en ligne, va sur
 `https://gametrend.fr/fr/admin/dashboard` (en étant connecté avec le compte
 dont l'UUID est dans `ADMIN_USER_IDS`).
 
-## Itération 2 (à venir)
+## Itération 2 (livrée) — Cron quotidien + APIs externes
 
-- **Vercel Cron** quotidien `/api/admin/cron/daily-snapshot` qui :
-  - Fetch Vercel REST API → bandwidth + invocations facturables
-  - Fetch OpenAI Usage API → cross-check avec `usage_log`
-  - Fetch Resend stats → quota restant
-  - Reconcile `subscriptions` → `revenue_snapshots`
-- Variables d'env : `VERCEL_API_TOKEN`, `VERCEL_TEAM_ID`, `VERCEL_PROJECT_ID`
-- Suppression du cast `as any` dans `usage-log.ts` et `manual-revenue/route.ts`
-  une fois `Database` regénéré (`supabase gen types typescript --linked`)
+### Fonctionnalités
+
+- **Vercel Cron** `/api/admin/cron/daily-snapshot` qui tourne **chaque jour à
+  03:00 UTC** (`vercel.json`). Snapshot J-1 (la veille en UTC).
+- **Bouton "Lancer le snapshot"** dans `/admin/dashboard` pour
+  déclencher manuellement (backfill, test, force re-run après changement de
+  tarifs).
+- **4 sources persistées en parallèle** :
+  - `integrations/vercel.ts` → `cost_snapshots(service='vercel')` via Vercel
+    REST API si `VERCEL_API_TOKEN` est set, sinon fallback sur le tarif fixe.
+  - `integrations/openai.ts` → `cost_snapshots(service='openai')` via Usage
+    API. Utilise `OPENAI_ADMIN_KEY` si défini (granularité par modèle), sinon
+    fallback `OPENAI_API_KEY` sur le legacy `/v1/usage?date=`.
+  - `integrations/lemon.ts` → `revenue_snapshots(source='lemon_squeezy')`
+    en agrégeant la table `subscriptions` du jour (source de vérité = BD
+    locale, pas l'API Lemon).
+  - `integrations/fixed-costs.ts` → `cost_snapshots` pour chaque service de
+    `FIXED_MONTHLY_COSTS_EUR`, valeur = `monthly_cents / daysInMonth`.
+- **Pas de double-comptage** : la route `/api/admin/dashboard/data` privilégie
+  les snapshots quand ils existent et utilise un "filler prorata" uniquement
+  pour les jours non encore snapshotés (typiquement la journée en cours, le
+  cron ne tournant que pour J-1).
+
+### Sécurité du cron
+
+- Vercel Cron envoie automatiquement `Authorization: Bearer ${CRON_SECRET}`
+  si la variable est définie au niveau du projet Vercel.
+- En production, l'absence du header → **404 opaque** (pas 401/403, pour ne
+  pas révéler que la route existe).
+- En preview/dev local sans `CRON_SECRET` → l'endpoint est accessible (pour
+  faciliter les tests).
+- Le déclenchement manuel `/api/admin/cron/run` requiert `requireAdmin()`
+  (ADMIN_USER_IDS), 404 sinon.
+
+### Variables d'env à ajouter (Vercel Production + Preview)
+
+```
+CRON_SECRET=<openssl rand -hex 32>
+VERCEL_API_TOKEN=<si tu veux le suivi auto Vercel>
+VERCEL_TEAM_ID=<si compte team>
+VERCEL_PROJECT_ID=<id du projet GameTrend>
+OPENAI_ADMIN_KEY=<sk-admin-... si tu veux la granularité par modèle>
+```
+
+Tu peux activer le cron sans `VERCEL_API_TOKEN` ni `OPENAI_ADMIN_KEY` : les
+snapshots de fixes + la reconciliation Lemon fonctionnent toujours, et les
+chiffres OpenAI continuent d'être tracés via `usage_log` (logging maison).
+
+### Activation
+
+1. Push le code sur main
+2. Vercel détecte automatiquement `vercel.json` et configure le cron
+3. Vérifier dans Vercel → Project → Settings → Cron Jobs que la tâche est
+   listée comme "Enabled"
+4. Tester immédiatement via le bouton "Lancer le snapshot" dans
+   `/admin/dashboard` → vérifier que `cost_snapshots` se remplit
+
+### Limitations connues
+
+- **Vercel API** : l'endpoint d'usage par jour n'est pas publiquement
+  documenté de façon stable. Le code fait un best-effort et fallback proprement
+  si l'API change. Les chiffres exacts restent dans le dashboard Vercel.
+- **OpenAI Usage API legacy** : le coût exact n'est pas renvoyé, on le
+  recalcule d'après les tarifs gpt-5-nano hardcodés dans `pricing.ts`. Si
+  tu utilises plusieurs modèles, divergence possible (±5%). L'admin key
+  contourne ce problème.
+- **Cast `as any`** dans `usage-log.ts`, `manual-revenue/route.ts`,
+  `lemon.ts`, `fixed-costs.ts` parce que les nouvelles tables ne sont pas
+  dans `Database`. À supprimer après `supabase gen types typescript --linked`.
 
 ## Itération 3 (à venir)
 

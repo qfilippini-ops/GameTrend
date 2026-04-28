@@ -34,6 +34,9 @@ type DashboardData = {
     fixed_consumed_to_date_eur_cents: number;
     variable_eur_cents: number;
     snapshot_eur_cents: number;
+    filler_eur_cents: number;
+    snapshotted_days: number;
+    missing_days: number;
     total_to_date_eur_cents: number;
     fixed_breakdown: Array<{
       service: string;
@@ -225,39 +228,39 @@ export default function AdminDashboardClient() {
           <h2 className="text-lg font-bold mb-3">Coûts du mois</h2>
           <div className="rounded-2xl bg-surface-900/60 border border-surface-800/60 p-4 space-y-3">
             <p className="text-xs text-surface-500">
-              Fixes mensuels au prorata (J{data.period.day_of_month}/
-              {data.period.days_in_month}) +
-              variables consommés depuis le 1er du mois.
+              {data.costs.snapshotted_days} jour
+              {data.costs.snapshotted_days > 1 ? "s" : ""} snapshoté
+              {data.costs.snapshotted_days > 1 ? "s" : ""} ·{" "}
+              {data.costs.missing_days} jour
+              {data.costs.missing_days > 1 ? "s" : ""} en filler prorata
+              (cron pas encore passé).
             </p>
 
-            <div className="space-y-2">
-              {data.costs.fixed_breakdown.map((fc) => {
-                const consumed = Math.round(
-                  (fc.monthly_cents * data.period.day_of_month) /
-                    data.period.days_in_month
-                );
-                return (
-                  <Row
-                    key={fc.service}
-                    label={fc.label}
-                    sub={`${fmtEur(fc.monthly_cents)}/mois — ${fc.note}`}
-                    value={fmtEur(consumed)}
-                  />
-                );
-              })}
-            </div>
+            {Object.keys(data.costs.snapshot_by_service_eur_cents).length >
+              0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] uppercase tracking-wide text-surface-500">
+                  Snapshots cron
+                </p>
+                {Object.entries(data.costs.snapshot_by_service_eur_cents).map(
+                  ([svc, cents]) => (
+                    <Row key={svc} label={svc} value={fmtEur(cents)} />
+                  )
+                )}
+              </div>
+            )}
 
-            <div className="border-t border-surface-800/60 pt-3">
+            <div className="border-t border-surface-800/60 pt-3 space-y-2">
               <Row
                 label="Coûts variables (usage_log)"
                 value={fmtEur(data.costs.variable_eur_cents)}
-                sub="Détail dans la section Usage"
+                sub="Navi/Sightengine/Resend/LiveKit (mois courant)"
               />
-              {data.costs.snapshot_eur_cents > 0 && (
+              {data.costs.filler_eur_cents > 0 && (
                 <Row
-                  label="Coûts snapshot (cron)"
-                  value={fmtEur(data.costs.snapshot_eur_cents)}
-                  sub="APIs externes Vercel/OpenAI/etc"
+                  label="Filler fixes (jours non snapshotés)"
+                  value={fmtEur(data.costs.filler_eur_cents)}
+                  sub={`Prorata journalier des ${fmtEur(data.costs.fixed_monthly_total_eur_cents)}/mois`}
                 />
               )}
             </div>
@@ -268,6 +271,27 @@ export default function AdminDashboardClient() {
                 {fmtEur(data.costs.total_to_date_eur_cents)}
               </span>
             </div>
+
+            <details className="text-xs text-surface-500 pt-2">
+              <summary className="cursor-pointer hover:text-surface-300">
+                Référence tarifs fixes
+              </summary>
+              <div className="mt-2 space-y-1">
+                {data.costs.fixed_breakdown.map((fc) => (
+                  <div key={fc.service} className="flex justify-between gap-3">
+                    <span>
+                      {fc.label}
+                      <span className="block text-[10px] text-surface-600">
+                        {fc.note}
+                      </span>
+                    </span>
+                    <span className="tabular-nums whitespace-nowrap">
+                      {fmtEur(fc.monthly_cents)}/mois
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
         </section>
 
@@ -323,8 +347,11 @@ export default function AdminDashboardClient() {
         {/* Saisie manuelle AdSense */}
         <ManualRevenueForm onSaved={load} />
 
+        {/* Cron manuel */}
+        <CronRunForm onRan={load} />
+
         <footer className="text-center text-xs text-surface-600 pt-8">
-          Itération 1 · MVP · données live
+          v2 · données live + snapshots quotidiens
         </footer>
       </div>
     </main>
@@ -390,6 +417,76 @@ function Row({
         {value}
       </span>
     </div>
+  );
+}
+
+function CronRunForm({ onRan }: { onRan: () => void }) {
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const [date, setDate] = useState(yesterday);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<unknown>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function run() {
+    setBusy(true);
+    setErr(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/cron/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.detail ?? json.error ?? `HTTP ${res.status}`);
+      }
+      setResult(json);
+      onRan();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="text-lg font-bold mb-3">Snapshot quotidien (cron)</h2>
+      <div className="rounded-2xl bg-surface-900/60 border border-surface-800/60 p-4 space-y-3">
+        <p className="text-xs text-surface-500">
+          Le cron tourne automatiquement chaque jour à 03:00 UTC. Tu peux
+          aussi déclencher manuellement (backfill, test). Cible une date
+          donnée (J-1 par défaut).
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs text-surface-400">
+            Date à snapshotter
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="mt-1 block px-3 py-2 rounded-lg bg-surface-800 border border-surface-700/40 text-white text-sm"
+            />
+          </label>
+          <button
+            onClick={run}
+            disabled={busy}
+            className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold disabled:opacity-50"
+          >
+            {busy ? "Snapshot en cours…" : "Lancer le snapshot"}
+          </button>
+          {err && <span className="text-xs text-red-400">{err}</span>}
+        </div>
+        {result !== null && (
+          <pre className="text-[11px] bg-surface-950 border border-surface-800/40 rounded-lg p-3 overflow-x-auto text-surface-300">
+            {JSON.stringify(result, null, 2)}
+          </pre>
+        )}
+      </div>
+    </section>
   );
 }
 

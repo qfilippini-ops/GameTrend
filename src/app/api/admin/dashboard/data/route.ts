@@ -193,31 +193,48 @@ export async function GET() {
     0
   );
 
-  // ─── 6. Coûts mensuels effectifs (variables + saisis dans cost_snapshots) ─
-  // On lit aussi cost_snapshots du mois (rempli par cron/manuel) pour récup
-  // les coûts fixes "officiels" (Vercel API par ex.) vs estimations.
+  // ─── 6. Coûts depuis cost_snapshots (rempli par cron quotidien) ─────────
+  // Le cron snapshote chaque jour TOUS les fixes + Vercel/OpenAI via API.
+  // Pour éviter le double-comptage avec fixed_consumed_to_date, on adopte
+  // la logique suivante :
+  //   • Pour chaque jour du mois où on a au moins un snapshot → on utilise
+  //     uniquement les snapshots (autoritaires).
+  //   • Pour les jours non encore snapshotés (ex: jour courant avant cron) →
+  //     on ajoute la part journalière des fixes en filler.
+  //
+  // Cela donne une estimation précise même si le cron est en retard.
   const { data: snapshotCosts } = await admin
     .from("cost_snapshots")
-    .select("service, amount_cents")
+    .select("snapshot_date, service, amount_cents")
     .gte("snapshot_date", monthStart.toISOString().slice(0, 10))
     .lt("snapshot_date", nextMonthStart.toISOString().slice(0, 10))
-    .returns<{ service: string; amount_cents: number }[]>();
+    .returns<
+      { snapshot_date: string; service: string; amount_cents: number }[]
+    >();
+
   const snapshotCostBySvc: Record<string, number> = {};
+  const snapshottedDates = new Set<string>();
   for (const c of snapshotCosts ?? []) {
     snapshotCostBySvc[c.service] =
       (snapshotCostBySvc[c.service] ?? 0) + c.amount_cents;
+    snapshottedDates.add(c.snapshot_date);
   }
   const snapshotCostTotal = (snapshotCosts ?? []).reduce(
     (sum, c) => sum + c.amount_cents,
     0
   );
 
+  // Jours du mois passés sans snapshot → on ajoute le filler prorata
+  const dailyFixedTotal = Math.round(fixedMonthlyTotal / daysInMonth);
+  const missingDays = Math.max(0, dayOfMonth - snapshottedDates.size);
+  const fillerCents = dailyFixedTotal * missingDays;
+
   // ─── 7. Calculs synthèse ─────────────────────────────────────────────────
   const totalRevenueCents = lemonGrossCents + extraRevenueCents;
   const totalNetRevenueCents = totalRevenueCents - lemonFeesCents;
-  // Total coût = fixes au prorata + variables consommés + snapshots du cron
-  const totalCostCents =
-    fixedConsumedToDate + variableCostCents + snapshotCostTotal;
+  // Total coût = snapshots (autoritaires) + variables (usage_log) + filler
+  // pour les jours non encore snapshotés.
+  const totalCostCents = snapshotCostTotal + variableCostCents + fillerCents;
   const grossMarginCents = totalNetRevenueCents - totalCostCents;
   const grossMarginPct =
     totalNetRevenueCents > 0
@@ -262,6 +279,9 @@ export async function GET() {
       fixed_consumed_to_date_eur_cents: fixedConsumedToDate,
       variable_eur_cents: variableCostCents,
       snapshot_eur_cents: snapshotCostTotal,
+      filler_eur_cents: fillerCents,
+      snapshotted_days: snapshottedDates.size,
+      missing_days: missingDays,
       total_to_date_eur_cents: totalCostCents,
       fixed_breakdown: FIXED_MONTHLY_COSTS_EUR,
       snapshot_by_service_eur_cents: snapshotCostBySvc,
