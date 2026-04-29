@@ -5,12 +5,43 @@
  * temps réel côté client à chaque changement d'input. Toutes les valeurs
  * monétaires sont en **centimes EUR** sauf indication contraire.
  *
- * Hypothèses simplificatrices documentées dans `getDefaultInputs()`. Les
- * paliers d'infra (Vercel, Supabase, Hostinger) sont des modèles publics
- * d'avril 2026, à ajuster si les fournisseurs changent leurs grilles.
+ * Philosophie : l'utilisateur paramètre des **hypothèses d'usage** (combien
+ * de calls Navi/premium/mois, combien d'images/MAU/mois, etc.) et le
+ * simulateur calcule automatiquement les coûts en multipliant par les
+ * tarifs unitaires des fournisseurs (constantes ci-dessous, à jour avril
+ * 2026).
  */
 
-import { estimateLemonFeesCents, USD_TO_EUR } from "./pricing";
+import { USD_TO_EUR } from "./pricing";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Constantes de tarification (centimes EUR par unité)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** OpenAI gpt-5-nano : 1 verdict Navi typique = ~2000 reasoning + 500 output
+ *  tokens → ~0,025 c. On garde 0,025 c en moyenne par appel. */
+const OPENAI_COST_PER_NAVI_CALL_CENTS = 0.025;
+
+/** Sightengine : ~0,001 $ par image (modèles nudity-2.1 + gore). */
+const SIGHTENGINE_COST_PER_IMAGE_CENTS = 0.1;
+
+/** Resend : 3000 emails/mois gratuits (Free tier), au-delà ~0,04 c/email. */
+const RESEND_FREE_TIER_EMAILS = 3000;
+const RESEND_COST_PER_BILLABLE_EMAIL_CENTS = 0.04;
+
+/** Supabase Storage : selon le plan, X GB inclus, puis 0,021 $/GB. */
+const SUPABASE_STORAGE_INCLUDED_GB: Record<SupabasePlan, number> = {
+  free: 1,
+  pro: 100,
+  team_estimate: 500,
+};
+const SUPABASE_EXTRA_STORAGE_USD_PER_GB = 0.021;
+
+/** Vercel Pro : bandwidth supplémentaire ~0,40 $/GB au-delà du 1 TB inclus. */
+const VERCEL_EXTRA_BANDWIDTH_USD_PER_GB = 0.4;
+
+/** Estimation : 1 page vue ≈ 50 KB (front Next.js avec PWA + cache). */
+const KB_PER_PAGEVIEW = 50;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inputs
@@ -18,53 +49,42 @@ import { estimateLemonFeesCents, USD_TO_EUR } from "./pricing";
 
 export type SimulatorInputs = {
   // ─── Audience ────────────────────────────────────────────────────────────
-  /** Total comptes inscrits */
   totalUsers: number;
   /** % de totalUsers qui sont actifs au moins 1× sur 30 jours */
   mauRatePct: number;
 
   // ─── Conversion premium ──────────────────────────────────────────────────
-  /** % de MAU qui sont premium actifs (trialing+active+lifetime) */
   premiumConversionPct: number;
-  /** Mix premium en % (somme = 100, normalisé automatiquement) */
   monthlySharePct: number;
   yearlySharePct: number;
   lifetimeSharePct: number;
-
-  // ─── Affiliation ─────────────────────────────────────────────────────────
-  /** % de premium acquis via lien d'affiliation (génère commission) */
   affiliateAcquisitionPct: number;
-  /** Taux de commission affilié sur le NET (après fees Lemon) */
   affiliateCommissionRatePct: number;
+  /** % de comptes achetant un Lifetime CE MOIS (one-shot) */
+  lifetimeMonthlyAcquisitionPct: number;
 
   // ─── Tarifs (en centimes EUR) ────────────────────────────────────────────
   monthlyPriceCents: number;
   yearlyPriceCents: number;
   lifetimePriceCents: number;
 
-  /** % des nouveaux lifetime achetés CE MOIS (one-shot, pas récurrent) */
-  lifetimeMonthlyAcquisitionPct: number;
-
-  // ─── Coûts variables (par utilisateur, par mois, en centimes EUR) ───────
-  /** Coût Navi par premium actif/mois (les non-premium n'ont pas accès Navi) */
-  naviCostPerPremiumCents: number;
-  /** Coût modération images par MAU/mois (covers, avatars, bannières) */
-  moderationCostPerMauCents: number;
-  /** Coût emails Resend par MAU/mois (welcome + lifecycle abos) */
-  emailCostPerMauCents: number;
-  /** Coût bandwidth voice par premium/mois (le voice est premium-only) */
-  voiceBandwidthCostPerPremiumCents: number;
-  /** Coût storage par MAU/mois (covers stockés, avatars) */
-  storageCostPerMauCents: number;
+  // ─── Usage (paramètres clés, le coût en € est dérivé automatiquement) ───
+  /** Nombre moyen d'arbitrages Navi par premium et par mois */
+  naviCallsPerPremiumPerMonth: number;
+  /** Nombre d'images uploadées (covers, avatars, bannières) par MAU/mois */
+  imagesUploadedPerMauPerMonth: number;
+  /** Nombre d'emails envoyés par MAU/mois (welcome + lifecycle + notifs) */
+  emailsPerMauPerMonth: number;
+  /** Minutes de vocal consommées par premium/mois (estimation pour capacity) */
+  voiceMinutesPerPremiumPerMonth: number;
+  /** Stockage moyen en MB par MAU (avatar + covers + bannière) */
+  storageMbPerMau: number;
+  /** Pages vues par utilisateur ACTIF (premium ou free) par mois */
+  pageViewsPerActiveUser: number;
 
   // ─── Revenus pub (AdSense) ───────────────────────────────────────────────
-  /** RPM = revenu en EUR pour 1000 impressions */
   adsenseRpmEur: number;
-  /** Pages vues par utilisateur FREE actif par mois */
-  pageViewsPerFreeUser: number;
-  /** Slots pub affichés par page (en moyenne) */
   adSlotsPerPage: number;
-  /** % de l'audience free qui voit la pub (consentement RGPD) */
   adsConsentPct: number;
 
   // ─── Coûts fixes mensuels (paliers) ──────────────────────────────────────
@@ -90,9 +110,18 @@ export type SimulatorOutputs = {
   freeActive: number;
   monthlyCount: number;
   yearlyCount: number;
-  lifetimeCount: number; // total cumulé (pas one-shot)
+  lifetimeCount: number;
   newLifetimeThisMonth: number;
   affiliateAcquired: number;
+
+  // Usage agrégé (utile pour debug + capacity planning)
+  totalNaviCalls: number;
+  totalImagesModerated: number;
+  totalEmails: number;
+  totalVoiceMinutes: number;
+  totalStorageGb: number;
+  totalPageViews: number;
+  estimatedBandwidthGb: number;
 
   // Revenus mensuels (centimes EUR)
   mrrFromMonthlyCents: number;
@@ -103,7 +132,7 @@ export type SimulatorOutputs = {
   affiliateCommissionsCents: number;
   adsenseRevenueCents: number;
   totalGrossRevenueCents: number;
-  totalNetRevenueCents: number; // gross - lemonFees - affiliateCommissions
+  totalNetRevenueCents: number;
 
   // Coûts variables (centimes EUR)
   naviCostCents: number;
@@ -126,11 +155,10 @@ export type SimulatorOutputs = {
   marginPct: number;
   costPerMauCents: number;
   costPerPremiumCents: number;
-  arpuCents: number; // average revenue per ACTIVE user (MAU)
-  arppuCents: number; // average revenue per PAYING user
+  arpuCents: number;
+  arppuCents: number;
   isProfitable: boolean;
 
-  // Warnings (paliers à upgrader)
   warnings: string[];
 };
 
@@ -138,21 +166,25 @@ export type SimulatorOutputs = {
 // Paliers d'infrastructure (avril 2026)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Vercel : prix mensuel + capacités (tarifs sans dépassement). */
 const VERCEL_PLANS: Record<
   VercelPlan,
-  { label: string; monthlyCents: number; maxBandwidthGb: number; maxInvocationsM: number }
+  {
+    label: string;
+    monthlyCents: number;
+    maxBandwidthGb: number;
+    maxInvocationsM: number;
+  }
 > = {
   hobby: {
     label: "Hobby (gratuit)",
     monthlyCents: 0,
     maxBandwidthGb: 100,
-    maxInvocationsM: 0.1, // 100k function invocations
+    maxInvocationsM: 0.1,
   },
   pro: {
     label: "Pro (20 $/mois)",
     monthlyCents: Math.round(2000 * USD_TO_EUR),
-    maxBandwidthGb: 1000, // 1TB
+    maxBandwidthGb: 1000,
     maxInvocationsM: 1,
   },
   enterprise_estimate: {
@@ -163,33 +195,27 @@ const VERCEL_PLANS: Record<
   },
 };
 
-/** Supabase : prix + capacités principales. */
 const SUPABASE_PLANS: Record<
   SupabasePlan,
-  { label: string; monthlyCents: number; maxMauAuth: number; maxStorageGb: number }
+  { label: string; monthlyCents: number; maxMauAuth: number }
 > = {
   free: {
     label: "Free (gratuit)",
     monthlyCents: 0,
     maxMauAuth: 50000,
-    maxStorageGb: 1,
   },
   pro: {
     label: "Pro (25 $/mois)",
     monthlyCents: Math.round(2500 * USD_TO_EUR),
     maxMauAuth: 100000,
-    maxStorageGb: 100,
   },
   team_estimate: {
     label: "Team (~599 $/mois estimé)",
     monthlyCents: Math.round(59900 * USD_TO_EUR),
     maxMauAuth: 1000000,
-    maxStorageGb: 500,
   },
 };
 
-/** Hostinger VPS : capacité voice estimée (participants simultanés LiveKit).
- *  Tarifs hors promotion (renouvellement). À jour avril 2026. */
 const HOSTINGER_PLANS: Record<
   HostingerPlan,
   { label: string; monthlyCents: number; maxVoiceParticipants: number }
@@ -197,7 +223,7 @@ const HOSTINGER_PLANS: Record<
   kvm2: {
     label: "KVM 2 (~17,99 €/mois)",
     monthlyCents: 1799,
-    maxVoiceParticipants: 50, // ordre de grandeur LiveKit single-node
+    maxVoiceParticipants: 50,
   },
   kvm4: {
     label: "KVM 4 (~27,99 €/mois)",
@@ -217,61 +243,48 @@ const HOSTINGER_PLANS: Record<
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Defaults (utilisés au premier load)
+// Defaults — valeurs jugées les plus crédibles pour une app gaming sociale
+// au lancement
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Valeurs par défaut "raisonnables" pour un démarrage GameTrend.
- *
- * Hypothèses :
- *   - 70% des inscrits restent actifs (MAU rate généreux mais réaliste pour
- *     une app sociale gaming)
- *   - 5% conversion en premium (standard freemium)
- *   - Mix : 60% monthly, 30% yearly, 10% lifetime (les early adopters
- *     préfèrent le lifetime tant qu'il est dispo)
- *   - 30% des premium acquis via affilié (à augmenter si tu pushes le
- *     programme)
- *   - 1% des comptes achètent un lifetime ce mois (modérément optimiste)
- *
- * Coûts variables : extrapolés depuis les patterns observés (Navi gpt-5-nano
- * à ~0,005 €/appel, modération à 0,001 $/image, etc.). À ajuster si tes
- * données réelles divergent (bouton "Charger valeurs actuelles").
- */
 export function getDefaultInputs(): SimulatorInputs {
   return {
+    // Audience
     totalUsers: 1000,
     mauRatePct: 70,
 
+    // Conversion
     premiumConversionPct: 5,
     monthlySharePct: 60,
     yearlySharePct: 30,
     lifetimeSharePct: 10,
-
     affiliateAcquisitionPct: 30,
     affiliateCommissionRatePct: 40,
+    lifetimeMonthlyAcquisitionPct: 1,
 
+    // Tarifs
     monthlyPriceCents: 699,
     yearlyPriceCents: 4900,
     lifetimePriceCents: 9900,
 
-    lifetimeMonthlyAcquisitionPct: 1,
+    // Usage par utilisateur (valeurs crédibles app sociale gaming)
+    naviCallsPerPremiumPerMonth: 20, // ~1 arbitrage Outbid tous les 1-2 jours
+    imagesUploadedPerMauPerMonth: 5, // covers, avatar, bannière sporadiques
+    emailsPerMauPerMonth: 2, // welcome + 1 lifecycle/notif typique
+    voiceMinutesPerPremiumPerMonth: 30, // ~1 session de groupe par mois
+    storageMbPerMau: 10, // avatar (~200KB) + qq covers
+    pageViewsPerActiveUser: 60, // ~2 pages/jour pour un actif
 
-    // Estimations conservatrices (en centimes EUR par mois)
-    naviCostPerPremiumCents: 5, // ~5c/mois si 10 calls Navi/mois × 0,5c
-    moderationCostPerMauCents: 1, // ~1 image modérée/MAU/mois × 0,1c
-    emailCostPerMauCents: 0, // free tier Resend (3000/mois inclus)
-    voiceBandwidthCostPerPremiumCents: 2, // bande passante VPS marginale
-    storageCostPerMauCents: 0, // inclus dans Supabase Pro
-
-    adsenseRpmEur: 0.5, // RPM gaming/social en France ~0.30-1€
-    pageViewsPerFreeUser: 30, // ~1 page/jour
+    // AdSense
+    adsenseRpmEur: 0.5,
     adSlotsPerPage: 2,
-    adsConsentPct: 60, // typique RGPD (40% refusent)
+    adsConsentPct: 60,
 
+    // Fixes
     vercelPlan: "hobby",
     supabasePlan: "free",
     hostingerVpsPlan: "kvm2",
-    otherFixedCostsCents: 100, // domaine .fr ~1€/mois
+    otherFixedCostsCents: 100,
   };
 }
 
@@ -301,8 +314,6 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
   const premiumActive = Math.round(mau * (inputs.premiumConversionPct / 100));
   const freeActive = Math.max(0, mau - premiumActive);
 
-  // Normalisation du mix premium pour totaliser 100% (évite les NaN si user
-  // saisit 30/30/30 = 90)
   const mixSum =
     inputs.monthlySharePct + inputs.yearlySharePct + inputs.lifetimeSharePct;
   const monthlyShare = mixSum > 0 ? inputs.monthlySharePct / mixSum : 0;
@@ -316,48 +327,52 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
   const newLifetimeThisMonth = Math.round(
     inputs.totalUsers * (inputs.lifetimeMonthlyAcquisitionPct / 100)
   );
-
   const affiliateAcquired = Math.round(
     premiumActive * (inputs.affiliateAcquisitionPct / 100)
   );
 
+  // ─── Usage agrégé ────────────────────────────────────────────────────────
+  const totalNaviCalls =
+    premiumActive * inputs.naviCallsPerPremiumPerMonth;
+  const totalImagesModerated =
+    mau * inputs.imagesUploadedPerMauPerMonth;
+  const totalEmails = mau * inputs.emailsPerMauPerMonth;
+  const totalVoiceMinutes =
+    premiumActive * inputs.voiceMinutesPerPremiumPerMonth;
+  const totalStorageGb = (mau * inputs.storageMbPerMau) / 1024;
+  const totalPageViews = mau * inputs.pageViewsPerActiveUser;
+  const estimatedBandwidthGb =
+    (totalPageViews * KB_PER_PAGEVIEW) / (1024 * 1024); // KB → GB
+
   // ─── Revenus ─────────────────────────────────────────────────────────────
-  // MRR = revenus mensuels récurrents
   const mrrFromMonthlyCents = monthlyCount * inputs.monthlyPriceCents;
-  // Yearly contribue 1/12 par mois
   const mrrFromYearlyCents = Math.round(
     (yearlyCount * inputs.yearlyPriceCents) / 12
   );
-  // Lifetime = uniquement les NOUVEAUX lifetime du mois (one-shot)
   const lifetimeOneShotCents =
     newLifetimeThisMonth * inputs.lifetimePriceCents;
 
   const lemonGrossRevenueCents =
     mrrFromMonthlyCents + mrrFromYearlyCents + lifetimeOneShotCents;
 
-  // Frais Lemon : 5% + 0,46 € par transaction (estimé)
-  // Nombre de transactions/mois ≈ monthlyCount + yearlyCount/12 + nouveaux lifetime
   const transactionsPerMonth =
     monthlyCount + Math.round(yearlyCount / 12) + newLifetimeThisMonth;
-  // Calcul approximatif des fees globaux (pas par transaction pour simplifier)
   const lemonFeesCents =
     Math.round(lemonGrossRevenueCents * 0.05) +
     transactionsPerMonth * Math.round(50 * USD_TO_EUR);
 
-  // Commissions affiliés : 40% du net (gross - 5%) sur la part premium
-  // acquise via affilié, applicable sur monthly + yearly + lifetime du mois
-  const grossLemonNet = lemonGrossRevenueCents - Math.round(lemonGrossRevenueCents * 0.05);
-  const affiliatePart = grossLemonNet * (inputs.affiliateAcquisitionPct / 100);
+  const grossLemonNet =
+    lemonGrossRevenueCents - Math.round(lemonGrossRevenueCents * 0.05);
+  const affiliatePart =
+    grossLemonNet * (inputs.affiliateAcquisitionPct / 100);
   const affiliateCommissionsCents = Math.round(
     affiliatePart * (inputs.affiliateCommissionRatePct / 100)
   );
 
-  // AdSense : impressions × RPM. Les premium n'ont pas de pub.
+  // AdSense : impressions = pages vues × slots × consentement, pour les FREE
+  const freePageViews = freeActive * inputs.pageViewsPerActiveUser;
   const monthlyImpressions =
-    freeActive *
-    inputs.pageViewsPerFreeUser *
-    inputs.adSlotsPerPage *
-    (inputs.adsConsentPct / 100);
+    freePageViews * inputs.adSlotsPerPage * (inputs.adsConsentPct / 100);
   const adsenseRevenueCents = Math.round(
     (monthlyImpressions / 1000) * inputs.adsenseRpmEur * 100
   );
@@ -366,13 +381,31 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
   const totalNetRevenueCents =
     totalGrossRevenueCents - lemonFeesCents - affiliateCommissionsCents;
 
-  // ─── Coûts variables ─────────────────────────────────────────────────────
-  const naviCostCents = premiumActive * inputs.naviCostPerPremiumCents;
-  const moderationCostCents = mau * inputs.moderationCostPerMauCents;
-  const emailCostCents = mau * inputs.emailCostPerMauCents;
-  const voiceBandwidthCostCents =
-    premiumActive * inputs.voiceBandwidthCostPerPremiumCents;
-  const storageCostCents = mau * inputs.storageCostPerMauCents;
+  // ─── Coûts variables (calculés automatiquement) ──────────────────────────
+  const naviCostCents = Math.round(
+    totalNaviCalls * OPENAI_COST_PER_NAVI_CALL_CENTS
+  );
+
+  const moderationCostCents = Math.round(
+    totalImagesModerated * SIGHTENGINE_COST_PER_IMAGE_CENTS
+  );
+
+  const billableEmails = Math.max(0, totalEmails - RESEND_FREE_TIER_EMAILS);
+  const emailCostCents = Math.round(
+    billableEmails * RESEND_COST_PER_BILLABLE_EMAIL_CENTS
+  );
+
+  // Voice bandwidth : 0 c tant qu'on ne sature pas le VPS (le forfait fixe
+  // couvre tout). On garde le compteur pour les warnings.
+  const voiceBandwidthCostCents = 0;
+
+  // Storage : 0 c sous le quota du plan Supabase, sinon $0.021/GB
+  const includedStorageGb =
+    SUPABASE_STORAGE_INCLUDED_GB[inputs.supabasePlan] ?? 1;
+  const billableStorageGb = Math.max(0, totalStorageGb - includedStorageGb);
+  const storageCostCents = Math.round(
+    billableStorageGb * SUPABASE_EXTRA_STORAGE_USD_PER_GB * 100 * USD_TO_EUR
+  );
 
   const variableCostsTotalCents =
     naviCostCents +
@@ -390,8 +423,18 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
   const supabaseCostCents = supabasePlan.monthlyCents;
   const hostingerCostCents = hostingerPlan.monthlyCents;
 
+  // Vercel : surcoût bandwidth si dépassement du quota inclus
+  let vercelExtraBandwidthCents = 0;
+  if (estimatedBandwidthGb > vercelPlan.maxBandwidthGb) {
+    const extraGb = estimatedBandwidthGb - vercelPlan.maxBandwidthGb;
+    vercelExtraBandwidthCents = Math.round(
+      extraGb * VERCEL_EXTRA_BANDWIDTH_USD_PER_GB * 100 * USD_TO_EUR
+    );
+  }
+
   const fixedCostsTotalCents =
     vercelCostCents +
+    vercelExtraBandwidthCents +
     supabaseCostCents +
     hostingerCostCents +
     inputs.otherFixedCostsCents;
@@ -399,33 +442,37 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
   // ─── Warnings paliers ────────────────────────────────────────────────────
   if (mau > supabasePlan.maxMauAuth) {
     warnings.push(
-      `Supabase : ${mau.toLocaleString("fr-FR")} MAU dépasse la limite ${supabasePlan.maxMauAuth.toLocaleString("fr-FR")} du plan ${supabasePlan.label}. Upgrade nécessaire.`
+      `Supabase : ${mau.toLocaleString("fr-FR")} MAU dépasse la limite ${supabasePlan.maxMauAuth.toLocaleString("fr-FR")} du plan ${supabasePlan.label}. Upgrade obligatoire.`
     );
   }
-
-  // Bandwidth Vercel estimé (très approximatif) : 50 KB par page vue × pages
-  const estimatedBandwidthGb =
-    (mau * inputs.pageViewsPerFreeUser * 50) / (1024 * 1024); // 50KB → GB
   if (estimatedBandwidthGb > vercelPlan.maxBandwidthGb) {
     warnings.push(
-      `Vercel : ~${Math.round(estimatedBandwidthGb)} GB bandwidth estimés dépasse les ${vercelPlan.maxBandwidthGb} GB inclus dans ${vercelPlan.label}. Coût supplémentaire à prévoir (~40 $/100 GB).`
+      `Vercel : ~${Math.round(estimatedBandwidthGb)} GB bandwidth dépasse les ${vercelPlan.maxBandwidthGb} GB du ${vercelPlan.label}. Surcoût ajouté : ${(vercelExtraBandwidthCents / 100).toFixed(2)} €.`
     );
   }
-
-  // Function invocations Vercel : 1 invocation par page vue + 5 pour API
-  const estimatedInvocationsM = (mau * inputs.pageViewsPerFreeUser * 6) / 1_000_000;
-  if (estimatedInvocationsM > vercelPlan.maxInvocationsM) {
-    warnings.push(
-      `Vercel : ~${estimatedInvocationsM.toFixed(2)} M invocations estimées dépasse ${vercelPlan.maxInvocationsM} M inclus.`
-    );
-  }
-
-  // Voice : LiveKit single-node sature autour de X participants simultanés
-  // Estimation : si 10% des premium sont en vocal en moyenne aux pics
+  // Estimation : 10% des premium en vocal aux pics, 1 personne = 1 participant
   const peakVoiceParticipants = Math.round(premiumActive * 0.1);
   if (peakVoiceParticipants > hostingerPlan.maxVoiceParticipants) {
     warnings.push(
-      `LiveKit (${hostingerPlan.label}) : ~${peakVoiceParticipants} participants vocal simultanés au pic dépasse la capacité ${hostingerPlan.maxVoiceParticipants}. Upgrade VPS ou clustering.`
+      `LiveKit (${hostingerPlan.label}) : ~${peakVoiceParticipants} participants vocal au pic dépasse la capacité ${hostingerPlan.maxVoiceParticipants}. Upgrade VPS recommandé.`
+    );
+  }
+  if (totalStorageGb > includedStorageGb) {
+    warnings.push(
+      `Supabase Storage : ${totalStorageGb.toFixed(1)} GB dépasse les ${includedStorageGb} GB inclus dans ${supabasePlan.label}. Surcoût : ${(storageCostCents / 100).toFixed(2)} €.`
+    );
+  }
+  if (
+    inputs.vercelPlan === "hobby" &&
+    (mrrFromMonthlyCents > 0 || mrrFromYearlyCents > 0)
+  ) {
+    warnings.push(
+      `Vercel Hobby interdit l'usage commercial. Tu monétises (MRR > 0) → upgrade Pro obligatoire (TOS).`
+    );
+  }
+  if (inputs.supabasePlan === "free" && mau > 1000) {
+    warnings.push(
+      `Supabase Free se met en pause après 7j sans activité. À ${mau.toLocaleString("fr-FR")} MAU, ce risque est inacceptable → upgrade Pro recommandé.`
     );
   }
 
@@ -439,11 +486,7 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
 
   const costPerMauCents = mau > 0 ? Math.round(totalCostsCents / mau) : 0;
   const costPerPremiumCents =
-    premiumActive > 0
-      ? Math.round(
-          (variableCostsTotalCents + fixedCostsTotalCents) / premiumActive
-        )
-      : 0;
+    premiumActive > 0 ? Math.round(totalCostsCents / premiumActive) : 0;
 
   const arpuCents = mau > 0 ? Math.round(totalGrossRevenueCents / mau) : 0;
   const arppuCents =
@@ -460,6 +503,15 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
     lifetimeCount,
     newLifetimeThisMonth,
     affiliateAcquired,
+
+    totalNaviCalls,
+    totalImagesModerated,
+    totalEmails,
+    totalVoiceMinutes,
+    totalStorageGb,
+    totalPageViews,
+    estimatedBandwidthGb,
+
     mrrFromMonthlyCents,
     mrrFromYearlyCents,
     lifetimeOneShotCents,
@@ -469,17 +521,20 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
     adsenseRevenueCents,
     totalGrossRevenueCents,
     totalNetRevenueCents,
+
     naviCostCents,
     moderationCostCents,
     emailCostCents,
     voiceBandwidthCostCents,
     storageCostCents,
     variableCostsTotalCents,
-    vercelCostCents,
+
+    vercelCostCents: vercelCostCents + vercelExtraBandwidthCents,
     supabaseCostCents,
     hostingerCostCents,
     otherFixedCostsCents: inputs.otherFixedCostsCents,
     fixedCostsTotalCents,
+
     totalCostsCents,
     grossMarginCents,
     marginPct,
@@ -491,7 +546,3 @@ export function simulate(inputs: SimulatorInputs): SimulatorOutputs {
     warnings,
   };
 }
-
-// Forcer l'utilisation des helpers depuis pricing.ts (évite l'unused import
-// au cas où on simplifie estimateLemonFeesCents plus tard).
-void estimateLemonFeesCents;

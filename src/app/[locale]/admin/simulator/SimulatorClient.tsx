@@ -28,7 +28,7 @@ function fmtNumber(n: number): string {
 }
 
 // ─── Stockage local des scénarios ───────────────────────────────────────────
-const STORAGE_KEY = "gt_admin_simulator_v1";
+const STORAGE_KEY = "gt_admin_simulator_v2";
 
 function loadStored(): SimulatorInputs | null {
   if (typeof window === "undefined") return null;
@@ -57,7 +57,6 @@ export default function SimulatorClient() {
   const [baselineLoading, setBaselineLoading] = useState(false);
   const [baselineMsg, setBaselineMsg] = useState<string | null>(null);
 
-  // Sauvegarde automatique des inputs (un changement = persist)
   useEffect(() => {
     saveStored(inputs);
   }, [inputs]);
@@ -92,11 +91,11 @@ export default function SimulatorClient() {
           yearlySharePct: number;
           lifetimeSharePct: number;
         };
-        variableCosts: {
-          naviCostPerPremiumCents: number;
-          moderationCostPerMauCents: number;
-          emailCostPerMauCents: number;
-          voiceBandwidthCostPerPremiumCents: number;
+        usage: {
+          naviCallsPerPremiumPerMonth: number;
+          imagesUploadedPerMauPerMonth: number;
+          emailsPerMauPerMonth: number;
+          voiceMinutesPerPremiumPerMonth: number;
         };
       };
       setInputs((prev) => ({
@@ -107,15 +106,15 @@ export default function SimulatorClient() {
         monthlySharePct: data.mix.monthlySharePct,
         yearlySharePct: data.mix.yearlySharePct,
         lifetimeSharePct: data.mix.lifetimeSharePct,
-        naviCostPerPremiumCents: data.variableCosts.naviCostPerPremiumCents,
-        moderationCostPerMauCents:
-          data.variableCosts.moderationCostPerMauCents,
-        emailCostPerMauCents: data.variableCosts.emailCostPerMauCents,
-        voiceBandwidthCostPerPremiumCents:
-          data.variableCosts.voiceBandwidthCostPerPremiumCents,
+        naviCallsPerPremiumPerMonth: data.usage.naviCallsPerPremiumPerMonth,
+        imagesUploadedPerMauPerMonth:
+          data.usage.imagesUploadedPerMauPerMonth,
+        emailsPerMauPerMonth: data.usage.emailsPerMauPerMonth,
+        voiceMinutesPerPremiumPerMonth:
+          data.usage.voiceMinutesPerPremiumPerMonth,
       }));
       setBaselineMsg(
-        `Chargé : ${data.audience.totalUsers} comptes, ${data.audience.mau} MAU, ${data.audience.premiumActive} premium`
+        `Chargé : ${data.audience.totalUsers} comptes · ${data.audience.mau} MAU · ${data.audience.premiumActive} premium`
       );
     } catch (e) {
       setBaselineMsg(e instanceof Error ? e.message : String(e));
@@ -130,16 +129,18 @@ export default function SimulatorClient() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-950 text-surface-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    // max-w-none + larges paddings pour exploiter le PC
+    <main className="min-h-screen bg-surface-950 text-surface-100">
+      <div className="max-w-[1700px] mx-auto p-4 lg:p-6 space-y-5">
+        {/* ─── Header ───────────────────────────────────────────────── */}
         <header className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold">
+            <h1 className="text-2xl lg:text-3xl font-bold">
               Simulateur de scale
             </h1>
             <p className="text-sm text-surface-400 mt-1">
-              Joue sur les paramètres pour anticiper coûts et revenus à
-              différentes échelles.
+              Joue sur les hypothèses, les coûts se recalculent
+              automatiquement.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -169,9 +170,13 @@ export default function SimulatorClient() {
           <p className="text-xs text-surface-500">{baselineMsg}</p>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
-          {/* ─── Inputs ────────────────────────────────────────────────── */}
-          <div className="space-y-5">
+        {/* ─── KPI Hero ─────────────────────────────────────────────── */}
+        <HeroBar outputs={outputs} />
+
+        {/* ─── Layout principal ─────────────────────────────────────── */}
+        <div className="grid gap-5 lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_440px]">
+          {/* Inputs en grille */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <Section title="Audience">
               <NumberRow
                 label="Total comptes inscrits"
@@ -185,13 +190,13 @@ export default function SimulatorClient() {
                     (actifs ou inactifs). Sert de base pour calculer le MAU
                     et le nombre de lifetime acquis ce mois.
                     <br />
-                    <strong>Impact :</strong> ↑ → ↑ revenus pub (free actifs),
-                    ↑ achats lifetime, ↑ coûts storage/modération.
+                    <strong>Impact :</strong> ↑ → ↑ revenus pub (free
+                    actifs), ↑ achats lifetime, ↑ coûts storage/modération.
                   </>
                 }
               />
               <SliderRow
-                label="% de comptes actifs (MAU rate)"
+                label="% comptes actifs (MAU)"
                 value={inputs.mauRatePct}
                 onChange={(v) => update("mauRatePct", v)}
                 min={0}
@@ -200,13 +205,11 @@ export default function SimulatorClient() {
                 info={
                   <>
                     Portion des inscrits qui se connectent au moins 1× sur
-                    30 jours. Calculé via <code>profiles.last_seen_at</code>.
+                    30 jours. Calculé via{" "}
+                    <code>profiles.last_seen_at</code>.
                     <br />
                     <strong>Repères :</strong> 70% = excellent au lancement,
                     30-50% = typique en année 2-3 sur app sociale.
-                    <br />
-                    <strong>Impact :</strong> ↑ → ↑ MAU, ↑ pool de conversion
-                    premium, ↑ pages vues = ↑ pub.
                   </>
                 }
               />
@@ -224,19 +227,16 @@ export default function SimulatorClient() {
                 info={
                   <>
                     LA métrique business clé : portion d&apos;utilisateurs
-                    actifs qui souscrivent (toutes formules confondues).
+                    actifs qui souscrivent.
                     <br />
                     <strong>Repères :</strong> 1-3% = standard freemium,
                     5% = bon, &gt;10% = exceptionnel (Spotify ~46%, mais
-                    c&apos;est du paywall obligatoire).
-                    <br />
-                    <strong>Impact :</strong> levier #1 sur le revenu, doublé
-                    le taux double quasi tout (MRR + ARR + lifetime).
+                    paywall obligatoire).
                   </>
                 }
               />
               <SliderRow
-                label="% Premium acquis via affilié"
+                label="% Premium via affilié"
                 value={inputs.affiliateAcquisitionPct}
                 onChange={(v) => update("affiliateAcquisitionPct", v)}
                 min={0}
@@ -244,18 +244,15 @@ export default function SimulatorClient() {
                 suffix="%"
                 info={
                   <>
-                    Portion des nouveaux abonnés arrivés via le lien d&apos;un
-                    ambassadeur (système actuel : <code>/r/&lt;code&gt;</code>).
-                    <br />
-                    <strong>Impact :</strong> ↑ génère plus de commissions à
-                    reverser MAIS souvent rentable car remplace de la pub
-                    payante (CAC plus bas). Sans budget acquisition,
-                    20-40% est un bon objectif via tes early adopters.
+                    Portion des nouveaux abonnés arrivés via un lien{" "}
+                    <code>/r/&lt;code&gt;</code>. ↑ génère plus de
+                    commissions à reverser, mais souvent rentable car
+                    remplace de la pub payante.
                   </>
                 }
               />
               <SliderRow
-                label="Commission affilié sur le net"
+                label="Commission affilié"
                 value={inputs.affiliateCommissionRatePct}
                 onChange={(v) => update("affiliateCommissionRatePct", v)}
                 min={0}
@@ -264,20 +261,16 @@ export default function SimulatorClient() {
                 info={
                   <>
                     Ce que tu reverses à l&apos;ambassadeur, calculé sur le
-                    montant NET (après les 5% de frais Lemon).
+                    NET (après 5% Lemon).
                     <br />
-                    <strong>Réglage actuel :</strong> 40%, défini dans
-                    <code>src/lib/affiliate/config.ts</code>.
-                    <br />
-                    <strong>Repères :</strong> 20% = conservateur, 30-40% =
-                    standard SaaS, 50%+ = très généreux (utilisé par certains
-                    pour booster le bouche-à-oreille au lancement).
+                    Réglage actuel app : 40% (
+                    <code>src/lib/affiliate/config.ts</code>).
                   </>
                 }
               />
             </Section>
 
-            <Section title="Mix Premium (somme normalisée à 100%)">
+            <Section title="Mix Premium (normalisé 100%)">
               <SliderRow
                 label="Monthly"
                 value={inputs.monthlySharePct}
@@ -287,12 +280,8 @@ export default function SimulatorClient() {
                 suffix="%"
                 info={
                   <>
-                    Part des premium qui choisissent le plan mensuel
-                    (6,99 €). MRR récurrent stable, mais churn plus élevé
-                    (résiliation facile chaque mois).
-                    <br />
-                    <strong>Impact :</strong> ↑ → ↑ MRR direct mais cashflow
-                    plus volatil.
+                    Part des premium qui choisissent le mensuel. MRR stable
+                    mais churn plus élevé.
                   </>
                 }
               />
@@ -305,12 +294,8 @@ export default function SimulatorClient() {
                 suffix="%"
                 info={
                   <>
-                    Part des premium qui choisissent le plan annuel (49 €).
-                    Cashflow upfront, meilleure rétention (pas de friction
-                    mensuelle), mais ARPU mensuel plus bas (4,08 €/mois eq).
-                    <br />
-                    <strong>Impact :</strong> ↑ → ↑ trésorerie immédiate, ↓
-                    MRR pur mais ↑ stabilité.
+                    Cashflow upfront, meilleure rétention. ARPU mensuel
+                    plus bas (4,08 €/mois eq pour 49 €/an).
                   </>
                 }
               />
@@ -323,17 +308,13 @@ export default function SimulatorClient() {
                 suffix="%"
                 info={
                   <>
-                    Part des premium qui ont acheté le lifetime (99 €,
-                    limité aux 100 premiers comptes). Contribue 0 € au MRR
-                    mais reste premium ad vitam (coûts variables continus).
-                    <br />
-                    <strong>Impact :</strong> ↑ → boost initial revenu mais
-                    aucune récurrence après.
+                    Limité aux 100 premiers comptes. Contribue 0 € au MRR
+                    mais reste premium ad vitam (coûts continus).
                   </>
                 }
               />
               <SliderRow
-                label="% de comptes achetant un Lifetime ce mois"
+                label="% comptes achetant Lifetime ce mois"
                 value={inputs.lifetimeMonthlyAcquisitionPct}
                 onChange={(v) =>
                   update("lifetimeMonthlyAcquisitionPct", v)
@@ -344,198 +325,191 @@ export default function SimulatorClient() {
                 suffix="%"
                 info={
                   <>
-                    Taux de NOUVEAUX achats lifetime ce mois (one-shot, pas
-                    récurrent). Influencé par les early adopters, le FOMO
-                    sur les 100 premiers, tes campagnes.
-                    <br />
-                    <strong>Repères :</strong> 0,5-2% au lancement, 0% après
-                    épuisement des 100 places.
+                    Taux de NOUVEAUX achats lifetime ce mois (one-shot).
+                    0,5-2% au lancement (FOMO 100 places), 0% après
+                    épuisement.
                   </>
                 }
               />
             </Section>
 
-            <Section title="Tarifs">
+            <Section title="Tarifs (centimes EUR)">
               <NumberRow
-                label="Monthly (centimes EUR)"
+                label="Monthly"
                 value={inputs.monthlyPriceCents}
                 onChange={(v) => update("monthlyPriceCents", v)}
                 hint={`= ${fmtEur(inputs.monthlyPriceCents)}/mois`}
                 info={
                   <>
-                    Prix du plan mensuel en centimes (699 = 6,99 €). Augmenter
-                    de 1 € = +14% revenu pour le même nombre de premium si
-                    aucun churn n&apos;est induit.
-                    <br />
-                    <strong>Élasticité :</strong> au-dessus de 9-10 € le taux
-                    de conversion baisse souvent significativement (à tester).
+                    Élasticité prix : au-dessus de 9-10 €, le taux de
+                    conversion baisse souvent significativement (à tester).
                   </>
                 }
               />
               <NumberRow
-                label="Yearly (centimes EUR)"
+                label="Yearly"
                 value={inputs.yearlyPriceCents}
                 onChange={(v) => update("yearlyPriceCents", v)}
                 hint={`= ${fmtEur(inputs.yearlyPriceCents)}/an = ${fmtEur(Math.round(inputs.yearlyPriceCents / 12))}/mois`}
                 info={
                   <>
-                    Prix du plan annuel. Réduction implicite : 49 €/an =
-                    4,08 €/mois soit -42% vs monthly. Standard SaaS = -20 à
-                    -50% pour inciter à l&apos;engagement annuel.
+                    Standard SaaS = -20 à -50% vs monthly pour inciter à
+                    l&apos;engagement annuel.
                   </>
                 }
               />
               <NumberRow
-                label="Lifetime (centimes EUR)"
+                label="Lifetime"
                 value={inputs.lifetimePriceCents}
                 onChange={(v) => update("lifetimePriceCents", v)}
                 hint={`= ${fmtEur(inputs.lifetimePriceCents)} unique`}
                 info={
                   <>
-                    Prix du lifetime (one-shot). Bonne pratique : 12-24× le
-                    prix monthly pour rester rentable. Ici 99 € = 14×
-                    monthly → break-even si l&apos;utilisateur reste 14 mois
-                    (ce qu&apos;il fera s&apos;il a payé lifetime).
+                    Bonne pratique : 12-24× le prix monthly. 99 € = 14×
+                    monthly → break-even si l&apos;utilisateur reste 14
+                    mois.
                   </>
                 }
               />
             </Section>
 
-            <Section title="Coûts variables (centimes EUR)">
-              <NumberRow
-                label="Coût Navi par premium / mois"
-                value={inputs.naviCostPerPremiumCents}
-                onChange={(v) => update("naviCostPerPremiumCents", v)}
-                hint="OpenAI gpt-5-nano. Varie selon usage Outbid."
-                info={
-                  <>
-                    Coût moyen OpenAI par utilisateur premium et par mois,
-                    en centimes EUR. Calculé via tokens × tarif
-                    gpt-5-nano (0,05 $/M input, 0,40 $/M output).
-                    <br />
-                    <strong>Référence :</strong> 1 verdict Navi typique
-                    (~2000 tokens reasoning + 500 output) ≈ 0,025 c. Donc
-                    5 c/mois = 200 verdicts/premium/mois.
-                  </>
-                }
-              />
-              <NumberRow
-                label="Coût modération par MAU / mois"
-                value={inputs.moderationCostPerMauCents}
-                onChange={(v) => update("moderationCostPerMauCents", v)}
-                hint="Sightengine ~0,1c/image. Dépend du nb d'uploads."
-                info={
-                  <>
-                    Sightengine vérifie chaque image uploadée (covers
-                    presets, avatars, bannières). ~0,1 c/image (modèles
-                    nudity-2.1 + gore).
-                    <br />
-                    <strong>Repère :</strong> 1 c/MAU/mois = 10 images
-                    modérées par utilisateur actif/mois.
-                  </>
-                }
-              />
-              <NumberRow
-                label="Coût emails par MAU / mois"
-                value={inputs.emailCostPerMauCents}
-                onChange={(v) => update("emailCostPerMauCents", v)}
-                hint="Resend gratuit jusqu'à 3000/mois, ensuite ~0,04c/email."
-                info={
-                  <>
-                    Resend : 3000 emails/mois gratuits (plan Free), puis
-                    ~0,04 c/email au-delà (plan Pro 20 $/mois pour 50k).
-                    <br />
-                    À 0 c tant que tu restes sous le quota gratuit. Mets ~1c
-                    si tu prévois beaucoup d&apos;emails (campagnes, notifs).
-                  </>
-                }
-              />
-              <NumberRow
-                label="Coût bandwidth voice par premium / mois"
-                value={inputs.voiceBandwidthCostPerPremiumCents}
+            <Section title="Hypothèses d'usage">
+              <SliderRow
+                label="Calls Navi par premium / mois"
+                value={inputs.naviCallsPerPremiumPerMonth}
                 onChange={(v) =>
-                  update("voiceBandwidthCostPerPremiumCents", v)
+                  update("naviCallsPerPremiumPerMonth", v)
                 }
-                hint="VPS LiveKit. Inclus dans le forfait jusqu'à saturation."
+                min={0}
+                max={200}
+                suffix=" calls"
                 info={
                   <>
-                    Coût marginal de la bande passante voice consommée par
-                    premium et par mois. <strong>0 c</strong> tant que tu ne
-                    satures pas la BP du VPS Hostinger (forfait fixe, BP
-                    incluse). Au-delà = upgrade nécessaire (passage à
-                    KVM4 ou Cloud Startup).
+                    Nombre moyen d&apos;arbitrages Navi (Outbid) par
+                    premium/mois. <strong>Coût unitaire :</strong> ~0,025 c
+                    par call (gpt-5-nano, ~2500 tokens reasoning + output).
+                    <br />
+                    <br />
+                    <strong>Repères :</strong> 5 = utilisateur occasionnel,
+                    20 = standard, 50+ = power user.
                   </>
                 }
               />
-              <NumberRow
-                label="Coût storage par MAU / mois"
-                value={inputs.storageCostPerMauCents}
-                onChange={(v) => update("storageCostPerMauCents", v)}
-                hint="Covers / avatars. Inclus dans Supabase Pro jusqu'à 100GB."
+              <SliderRow
+                label="Images uploadées par MAU / mois"
+                value={inputs.imagesUploadedPerMauPerMonth}
+                onChange={(v) =>
+                  update("imagesUploadedPerMauPerMonth", v)
+                }
+                min={0}
+                max={50}
+                suffix=" images"
                 info={
                   <>
-                    Stockage Supabase (covers presets, avatars, bannières).
-                    Free : 1 GB inclus. Pro : 100 GB inclus, puis 0,021 $/GB.
+                    Covers presets, avatars, bannières.{" "}
+                    <strong>Coût unitaire :</strong> ~0,1 c par image
+                    (Sightengine modération).
+                  </>
+                }
+              />
+              <SliderRow
+                label="Emails envoyés par MAU / mois"
+                value={inputs.emailsPerMauPerMonth}
+                onChange={(v) => update("emailsPerMauPerMonth", v)}
+                min={0}
+                max={20}
+                suffix=" emails"
+                info={
+                  <>
+                    Welcome + lifecycle abos + notifs.{" "}
+                    <strong>Coût :</strong> 0 c sous 3000 emails/mois
+                    (Resend Free), puis ~0,04 c/email au-delà.
+                  </>
+                }
+              />
+              <SliderRow
+                label="Minutes vocal par premium / mois"
+                value={inputs.voiceMinutesPerPremiumPerMonth}
+                onChange={(v) =>
+                  update("voiceMinutesPerPremiumPerMonth", v)
+                }
+                min={0}
+                max={300}
+                step={5}
+                suffix=" min"
+                info={
+                  <>
+                    Durée moyenne en vocal LiveKit par premium/mois.{" "}
+                    <strong>Coût :</strong> 0 € tant que tu ne satures pas
+                    le VPS. Sert juste au capacity planning (warning si
+                    pic dépasse capacité KVM).
+                  </>
+                }
+              />
+              <SliderRow
+                label="MB stockés par MAU"
+                value={inputs.storageMbPerMau}
+                onChange={(v) => update("storageMbPerMau", v)}
+                min={0}
+                max={100}
+                step={1}
+                suffix=" MB"
+                info={
+                  <>
+                    Taille moyenne stockée par utilisateur (avatar +
+                    covers + bannière). <strong>Coût :</strong> 0 € sous
+                    le quota Supabase, sinon ~0,021 $/GB.
+                  </>
+                }
+              />
+              <SliderRow
+                label="Pages vues par actif / mois"
+                value={inputs.pageViewsPerActiveUser}
+                onChange={(v) => update("pageViewsPerActiveUser", v)}
+                min={0}
+                max={500}
+                step={10}
+                suffix=" pages"
+                info={
+                  <>
+                    Détermine le bandwidth Vercel ET les impressions pub
+                    AdSense (pour les free uniquement).
                     <br />
-                    À 0 c tant que tu es sous quota. Mets ~0,5 c quand tu
-                    passes la barre des 100 GB.
+                    Repères : 30 = ~1 page/jour, 60 = ~2/jour, 200 = power
+                    user.
                   </>
                 }
               />
             </Section>
 
-            <Section title="Revenus publicité (AdSense)">
+            <Section title="Revenus pub (AdSense, free only)">
               <NumberRow
-                label="RPM (€ pour 1000 impressions)"
+                label="RPM (€ / 1000 impressions)"
                 value={inputs.adsenseRpmEur}
                 onChange={(v) => update("adsenseRpmEur", v)}
                 step={0.1}
-                hint="Gaming/social FR : 0,30 → 1 €. À ajuster selon ton historique."
+                hint="Gaming/social FR : 0,30 → 1 €"
                 info={
                   <>
-                    Revenue Per Mille = ce que Google AdSense te paie pour
-                    1000 impressions affichées. Très variable selon le
-                    marché et la qualité du trafic.
-                    <br />
-                    <strong>Repères France :</strong> gaming/social = 0,30 à
-                    1 €, finance = 5-15 €, B2B = 10-30 €. À remplacer par ta
-                    vraie valeur via le dashboard AdSense.
+                    Revenue Per Mille AdSense. Très variable. Trouvable
+                    dans ton dashboard AdSense après 1-2 mois d&apos;usage.
                   </>
                 }
               />
               <NumberRow
-                label="Pages vues par utilisateur free / mois"
-                value={inputs.pageViewsPerFreeUser}
-                onChange={(v) => update("pageViewsPerFreeUser", v)}
-                step={5}
-                info={
-                  <>
-                    Nombre de pages distinctes qu&apos;un free actif visite
-                    par mois en moyenne. Trouvable dans PostHog (event
-                    $pageview / nb users).
-                    <br />
-                    <strong>Repères :</strong> 30 = ~1 page/jour
-                    (occasionnel), 100 = utilisateur engagé, 300 = power user.
-                  </>
-                }
-              />
-              <NumberRow
-                label="Slots pub par page (moyenne)"
+                label="Slots pub par page"
                 value={inputs.adSlotsPerPage}
                 onChange={(v) => update("adSlotsPerPage", v)}
                 step={1}
                 info={
                   <>
-                    Nombre moyen de blocs publicitaires affichés par page
-                    (compte tes <code>&lt;AdSlot /&gt;</code> dans le code).
-                    <br />
-                    <strong>Trade-off :</strong> ↑ slots = ↑ revenus mais ↓
-                    UX et risque de rejet AdSense. 2-3 est un bon équilibre.
+                    Compte tes <code>&lt;AdSlot /&gt;</code> dans le code.
+                    Trade-off ↑ revenus mais ↓ UX.
                   </>
                 }
               />
               <SliderRow
-                label="% de free qui voient la pub (consentement RGPD)"
+                label="% consentement RGPD"
                 value={inputs.adsConsentPct}
                 onChange={(v) => update("adsConsentPct", v)}
                 min={0}
@@ -543,13 +517,9 @@ export default function SimulatorClient() {
                 suffix="%"
                 info={
                   <>
-                    Portion d&apos;utilisateurs qui acceptent les cookies
-                    pub via le bandeau RGPD. En EU, beaucoup refusent.
-                    <br />
-                    <strong>Repères :</strong> 60% est typique (40% refusent
-                    ou ne se prononcent pas). Sans consentement, AdSense
-                    affiche des pubs non personnalisées au RPM ~3-5× plus
-                    bas, ou rien.
+                    60% est typique en EU. Sans consentement, AdSense
+                    affiche pub non personnalisée (RPM 3-5× plus bas) ou
+                    rien.
                   </>
                 }
               />
@@ -560,92 +530,56 @@ export default function SimulatorClient() {
                 label="Plan Vercel"
                 value={inputs.vercelPlan}
                 onChange={(v) => update("vercelPlan", v as VercelPlan)}
-                options={Object.entries(getVercelPlans()).map(([k, v]) => ({
-                  value: k,
-                  label: v.label,
-                }))}
+                options={Object.entries(getVercelPlans()).map(
+                  ([k, v]) => ({ value: k, label: v.label })
+                )}
                 info={
                   <>
-                    Hébergement Next.js (front + API routes + cron).
-                    <br />
-                    <br />
                     <strong>Quand upgrade ?</strong>
-                    <br />· <strong>Hobby (gratuit)</strong> : OK jusqu&apos;à
-                    ~3-5K MAU. ⚠ Interdit usage commercial → upgrade Pro dès
-                    monétisation active (TOS Vercel).
-                    <br />· <strong>Pro (20 $/mois)</strong> : OK jusqu&apos;à
-                    ~50-100K MAU avec usage standard (1 TB BP, 1 M
-                    invocations inclus).
-                    <br />· <strong>Enterprise</strong> : 100K+ MAU ou besoin
-                    SLA / support dédié.
-                    <br />
-                    <br />
-                    Le simulateur lève une alerte jaune si la projection
-                    dépasse la capacité du palier sélectionné.
+                    <br />· <strong>Hobby</strong> : ~3-5K MAU. ⚠ Interdit
+                    usage commercial → Pro dès monétisation.
+                    <br />· <strong>Pro</strong> : ~50-100K MAU.
+                    <br />· <strong>Enterprise</strong> : 100K+ MAU ou
+                    SLA dédié.
                   </>
                 }
               />
               <SelectRow
                 label="Plan Supabase"
                 value={inputs.supabasePlan}
-                onChange={(v) => update("supabasePlan", v as SupabasePlan)}
-                options={Object.entries(getSupabasePlans()).map(([k, v]) => ({
-                  value: k,
-                  label: v.label,
-                }))}
+                onChange={(v) =>
+                  update("supabasePlan", v as SupabasePlan)
+                }
+                options={Object.entries(getSupabasePlans()).map(
+                  ([k, v]) => ({ value: k, label: v.label })
+                )}
                 info={
                   <>
-                    DB Postgres + Auth + Storage + Realtime.
-                    <br />
-                    <br />
                     <strong>Quand upgrade ?</strong>
-                    <br />· <strong>Free</strong> : OK jusqu&apos;à ~2-3K MAU
-                    réels. Limite stricte 50K MAU auth, 500 MB DB, 1 GB
-                    storage. ⚠ <strong>Mise en pause après 7j sans
-                    activité</strong> = casse la prod si tu pars en vacances.
-                    <br />· <strong>Pro (25 $/mois)</strong> : OK jusqu&apos;à
-                    ~50K MAU. Inclut 100K MAU auth, 8 GB DB, 100 GB storage,
-                    pas de pause.
-                    <br />· <strong>Team (~599 $/mois)</strong> : 100K-1M MAU
-                    avec backups journaliers, SOC2.
-                    <br />
-                    <br />
-                    <strong>Recommandation :</strong> passer Pro dès le
-                    lancement public (la pause Free = risque trop gros).
+                    <br />· <strong>Free</strong> : ~2-3K MAU. ⚠ Pause
+                    après 7j inactivité = casse la prod.
+                    <br />· <strong>Pro</strong> : ~50K MAU. Recommandé
+                    dès lancement public.
+                    <br />· <strong>Team</strong> : 100K-1M MAU.
                   </>
                 }
               />
               <SelectRow
-                label="VPS Hostinger (LiveKit)"
+                label="VPS Hostinger (LiveKit voice)"
                 value={inputs.hostingerVpsPlan}
-                onChange={(v) => update("hostingerVpsPlan", v as HostingerPlan)}
+                onChange={(v) =>
+                  update("hostingerVpsPlan", v as HostingerPlan)
+                }
                 options={Object.entries(getHostingerPlans()).map(
                   ([k, v]) => ({ value: k, label: v.label })
                 )}
                 info={
                   <>
-                    Serveur LiveKit auto-hébergé pour le voice (groupes
-                    sociaux). Capacité = participants vocaux simultanés au
-                    pic.
-                    <br />
-                    <br />
-                    <strong>Quand upgrade ?</strong> En supposant que
-                    ~10% de tes premium sont en vocal aux pics (estimation
-                    raisonnable pour une app gaming sociale) :
-                    <br />· <strong>KVM 2</strong> : ≈ 50 participants → OK
-                    jusqu&apos;à <strong>~500 premium</strong> actifs
-                    <br />· <strong>KVM 4</strong> : ≈ 120 participants → OK
-                    jusqu&apos;à <strong>~1 200 premium</strong>
-                    <br />· <strong>KVM 8</strong> : ≈ 300 participants → OK
-                    jusqu&apos;à <strong>~3 000 premium</strong>
-                    <br />· <strong>Cloud Startup</strong> : ≈ 600
-                    participants → OK jusqu&apos;à <strong>~6 000
-                    premium</strong>
-                    <br />
-                    <br />
-                    Si tu n&apos;utilises pas le voice du tout, KVM 2 suffit
-                    ad vitam (juste l&apos;hébergement Coturn). Au-delà de
-                    Cloud Startup, il faut clusteriser LiveKit (multi-node).
+                    En supposant ~10% premium en vocal aux pics :
+                    <br />· <strong>KVM 2</strong> : ~500 premium
+                    <br />· <strong>KVM 4</strong> : ~1 200 premium
+                    <br />· <strong>KVM 8</strong> : ~3 000 premium
+                    <br />· <strong>Cloud Startup</strong> : ~6 000 premium
                   </>
                 }
               />
@@ -653,24 +587,19 @@ export default function SimulatorClient() {
                 label="Autres fixes (centimes EUR/mois)"
                 value={inputs.otherFixedCostsCents}
                 onChange={(v) => update("otherFixedCostsCents", v)}
-                hint="Domaine, comptable SASU, sentry, etc."
+                hint="Domaine, comptable, monitoring..."
                 info={
                   <>
-                    Tout ce qui n&apos;est pas couvert par les paliers
-                    ci-dessus :
-                    <br />· Domaine .fr ≈ 100 c (1 €/mois au prorata)
-                    <br />· Comptable SASU ≈ 5000 c (50 €/mois)
-                    <br />· Sentry / monitoring ≈ 0-2600 c
-                    <br />· PostHog Pro si dépassement quota gratuit
-                    <br />· Assurance pro RC, etc.
+                    Domaine .fr (~100 c), comptable SASU (~5000 c), Sentry
+                    (0-2600 c), assurance pro RC, etc.
                   </>
                 }
               />
             </Section>
           </div>
 
-          {/* ─── Résultats (sticky sur desktop) ────────────────────────── */}
-          <aside className="lg:sticky lg:top-4 self-start space-y-4">
+          {/* ─── Résultats sticky droite ─────────────────────────────── */}
+          <aside className="lg:sticky lg:top-4 self-start space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1">
             <ResultsPanel outputs={outputs} />
           </aside>
         </div>
@@ -679,50 +608,93 @@ export default function SimulatorClient() {
   );
 }
 
-// ─── Sous-composants UI ─────────────────────────────────────────────────────
+// ─── KPI Hero (full width, top) ─────────────────────────────────────────────
 
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(true);
+function HeroBar({ outputs }: { outputs: ReturnType<typeof simulate> }) {
+  const margeColor =
+    outputs.grossMarginCents >= 0 ? "text-emerald-400" : "text-red-400";
+  const margeBg =
+    outputs.grossMarginCents >= 0
+      ? "from-emerald-500/10 to-transparent"
+      : "from-red-500/10 to-transparent";
+
   return (
-    <section className="rounded-2xl bg-surface-900/60 border border-surface-800/60 overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface-800/40"
-      >
-        <span className="font-bold text-sm uppercase tracking-wide text-surface-200">
-          {title}
-        </span>
-        <span className="text-surface-500 text-xs">
-          {open ? "Réduire" : "Déplier"}
-        </span>
-      </button>
-      {open && <div className="px-4 pb-4 pt-1 space-y-3">{children}</div>}
-    </section>
+    <div
+      className={`rounded-2xl border border-surface-800/60 bg-gradient-to-r ${margeBg} bg-surface-900/80 p-4 lg:p-5`}
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-surface-400">
+            Marge brute mensuelle
+          </p>
+          <p className={`text-2xl lg:text-3xl font-bold ${margeColor}`}>
+            {fmtEur(outputs.grossMarginCents)}
+          </p>
+          <p className="text-xs text-surface-500">
+            {outputs.marginPct.toFixed(1)}% ·{" "}
+            {outputs.isProfitable ? "Profitable" : "Non rentable"}
+          </p>
+        </div>
+        <KpiBlock
+          label="MAU"
+          value={fmtNumber(outputs.mau)}
+          sub={`${fmtNumber(outputs.freeActive)} free / ${fmtNumber(outputs.premiumActive)} premium`}
+        />
+        <KpiBlock
+          label="Revenu net / mois"
+          value={fmtEur(outputs.totalNetRevenueCents)}
+          sub={`Brut ${fmtEur(outputs.totalGrossRevenueCents)}`}
+        />
+        <KpiBlock
+          label="Coûts / mois"
+          value={fmtEur(outputs.totalCostsCents)}
+          sub={`Fixes ${fmtEur(outputs.fixedCostsTotalCents)} + Var ${fmtEur(outputs.variableCostsTotalCents)}`}
+          tone="negative"
+        />
+        <KpiBlock
+          label="ARPU / ARPPU"
+          value={`${fmtEur(outputs.arpuCents)} / ${fmtEur(outputs.arppuCents)}`}
+          sub={`Coût/MAU ${fmtEur(outputs.costPerMauCents)}`}
+        />
+      </div>
+    </div>
   );
 }
 
-/**
- * Icône info + tooltip rendu via React Portal (document.body) pour ne pas
- * être clippé par les `overflow-hidden` des sections accordéon parentes.
- * Repositionne le tooltip à gauche du bouton si débordement à droite.
- */
+function KpiBlock({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: "negative";
+}) {
+  const valueColor = tone === "negative" ? "text-red-400" : "text-white";
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-surface-400">
+        {label}
+      </p>
+      <p className={`text-xl lg:text-2xl font-bold ${valueColor}`}>{value}</p>
+      {sub && <p className="text-xs text-surface-500">{sub}</p>}
+    </div>
+  );
+}
+
+// ─── InfoIcon avec portal ───────────────────────────────────────────────────
+
 function InfoIcon({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{
-    left: number;
-    top: number;
-    placement: "right" | "left";
-  }>({ left: 0, top: 0, placement: "right" });
+  const [coords, setCoords] = useState<{ left: number; top: number }>({
+    left: 0,
+    top: 0,
+  });
   const btnRef = useRef<HTMLButtonElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Ferme au click extérieur
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
@@ -730,16 +702,14 @@ function InfoIcon({ children }: { children: React.ReactNode }) {
       if (
         btnRef.current?.contains(target) ||
         tooltipRef.current?.contains(target)
-      ) {
+      )
         return;
-      }
       setOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
-  // Ferme au scroll/resize (sinon le tooltip flotte au mauvais endroit)
   useEffect(() => {
     if (!open) return;
     const onScroll = () => setOpen(false);
@@ -756,7 +726,7 @@ function InfoIcon({ children }: { children: React.ReactNode }) {
     e.stopPropagation();
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      const tooltipWidth = 288; // w-72 = 18rem = 288px
+      const tooltipWidth = 288;
       const margin = 12;
       const overflowsRight =
         rect.right + tooltipWidth + margin > window.innerWidth;
@@ -765,7 +735,6 @@ function InfoIcon({ children }: { children: React.ReactNode }) {
           ? Math.max(margin, rect.left - tooltipWidth - 8)
           : rect.right + 8,
         top: rect.top,
-        placement: overflowsRight ? "left" : "right",
       });
     }
     setOpen((o) => !o);
@@ -820,6 +789,25 @@ function LabelWithInfo({
   );
 }
 
+// ─── Sections / Rows ────────────────────────────────────────────────────────
+
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl bg-surface-900/60 border border-surface-800/60 p-4">
+      <p className="font-bold text-xs uppercase tracking-wide text-surface-200 mb-3">
+        {title}
+      </p>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
+}
+
 function NumberRow({
   label,
   value,
@@ -851,7 +839,7 @@ function NumberRow({
           const n = parseFloat(e.target.value);
           onChange(Number.isFinite(n) ? n : 0);
         }}
-        className="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700/40 text-white text-sm w-full md:max-w-[200px]"
+        className="px-3 py-1.5 rounded-lg bg-surface-800 border border-surface-700/40 text-white text-sm w-full"
       />
       {hint && (
         <p className="text-[10px] text-surface-500 mt-1">{hint}</p>
@@ -881,11 +869,11 @@ function SliderRow({
 }) {
   return (
     <div className="flex flex-col">
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-surface-400">
+      <div className="flex justify-between items-center mb-1 gap-2">
+        <label className="text-xs text-surface-400 truncate">
           <LabelWithInfo label={label} info={info} />
         </label>
-        <span className="text-xs text-white font-medium tabular-nums">
+        <span className="text-xs text-white font-medium tabular-nums whitespace-nowrap">
           {value}
           {suffix}
         </span>
@@ -924,7 +912,7 @@ function SelectRow({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700/40 text-white text-sm w-full md:max-w-[300px]"
+        className="px-3 py-1.5 rounded-lg bg-surface-800 border border-surface-700/40 text-white text-sm w-full"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -936,103 +924,175 @@ function SelectRow({
   );
 }
 
+// ─── Panneau résultats ──────────────────────────────────────────────────────
+
 function ResultsPanel({
   outputs,
 }: {
   outputs: ReturnType<typeof simulate>;
 }) {
-  const margeColor =
-    outputs.grossMarginCents >= 0 ? "text-emerald-400" : "text-red-400";
-
   return (
-    <div className="space-y-4">
-      {/* KPI Hero */}
-      <div className="rounded-2xl bg-surface-900/80 border border-surface-800/60 p-4 space-y-3">
-        <p className="text-[10px] uppercase tracking-wider text-surface-400">
-          Résultat mensuel simulé
-        </p>
-        <div className="flex items-baseline gap-2">
-          <span className={`text-3xl font-bold ${margeColor}`}>
-            {fmtEur(outputs.grossMarginCents)}
-          </span>
-          <span className="text-xs text-surface-400">
-            ({outputs.marginPct.toFixed(1)}% marge)
-          </span>
-        </div>
-        <p className="text-xs text-surface-500">
-          {outputs.isProfitable ? "Profitable" : "Non rentable"} ·{" "}
-          {fmtNumber(outputs.mau)} MAU · {fmtNumber(outputs.premiumActive)}{" "}
-          premium ({fmtNumber(outputs.affiliateAcquired)} via affilié)
-        </p>
-      </div>
-
-      {/* Composition */}
-      <Card title="Audience">
-        <Line label="Total comptes" v={fmtNumber(outputs.mau + outputs.freeActive)} />
-        <Line label="MAU" v={fmtNumber(outputs.mau)} />
-        <Line label="Free actifs" v={fmtNumber(outputs.freeActive)} />
-        <Line label="Premium actifs" v={fmtNumber(outputs.premiumActive)} highlight />
-        <Line label="· monthly" v={fmtNumber(outputs.monthlyCount)} small />
-        <Line label="· yearly" v={fmtNumber(outputs.yearlyCount)} small />
-        <Line label="· lifetime cumulés" v={fmtNumber(outputs.lifetimeCount)} small />
-        <Line label="Nouveaux lifetime ce mois" v={fmtNumber(outputs.newLifetimeThisMonth)} small />
-      </Card>
-
-      {/* Revenus */}
-      <Card title="Revenus mensuels">
-        <Line label="MRR Monthly" v={fmtEur(outputs.mrrFromMonthlyCents)} />
-        <Line label="MRR Yearly (annualisé/12)" v={fmtEur(outputs.mrrFromYearlyCents)} />
-        <Line label="Lifetime ce mois" v={fmtEur(outputs.lifetimeOneShotCents)} />
-        <Line label="Total Lemon brut" v={fmtEur(outputs.lemonGrossRevenueCents)} highlight />
-        <Line label="− Frais MoR (5% + 0,46 €)" v={`-${fmtEur(outputs.lemonFeesCents)}`} negative />
-        <Line label="− Commissions affiliés" v={`-${fmtEur(outputs.affiliateCommissionsCents)}`} negative />
-        <Line label="+ AdSense" v={fmtEur(outputs.adsenseRevenueCents)} />
-        <Line label="Net total" v={fmtEur(outputs.totalNetRevenueCents)} highlight positive />
-      </Card>
-
-      {/* Coûts variables */}
-      <Card title="Coûts variables">
-        <Line label="Navi (OpenAI)" v={fmtEur(outputs.naviCostCents)} />
-        <Line label="Modération (Sightengine)" v={fmtEur(outputs.moderationCostCents)} />
-        <Line label="Emails (Resend)" v={fmtEur(outputs.emailCostCents)} />
-        <Line label="Voice bandwidth" v={fmtEur(outputs.voiceBandwidthCostCents)} />
-        <Line label="Storage" v={fmtEur(outputs.storageCostCents)} />
-        <Line label="Total variables" v={fmtEur(outputs.variableCostsTotalCents)} highlight />
-      </Card>
-
-      {/* Coûts fixes */}
-      <Card title="Coûts fixes">
-        <Line label="Vercel" v={fmtEur(outputs.vercelCostCents)} />
-        <Line label="Supabase" v={fmtEur(outputs.supabaseCostCents)} />
-        <Line label="Hostinger VPS (voice)" v={fmtEur(outputs.hostingerCostCents)} />
-        <Line label="Autres" v={fmtEur(outputs.otherFixedCostsCents)} />
-        <Line label="Total fixes" v={fmtEur(outputs.fixedCostsTotalCents)} highlight />
-      </Card>
-
-      {/* Synthèse */}
-      <Card title="Synthèse">
-        <Line label="Total coûts" v={fmtEur(outputs.totalCostsCents)} negative />
-        <Line label="Marge brute" v={fmtEur(outputs.grossMarginCents)} highlight positive={outputs.grossMarginCents >= 0} negative={outputs.grossMarginCents < 0} />
-        <Line label="ARPU (par MAU)" v={fmtEur(outputs.arpuCents)} small />
-        <Line label="ARPPU (par premium)" v={fmtEur(outputs.arppuCents)} small />
-        <Line label="Coût/MAU" v={fmtEur(outputs.costPerMauCents)} small />
-        <Line label="Coût/premium" v={fmtEur(outputs.costPerPremiumCents)} small />
-      </Card>
-
-      {/* Warnings */}
+    <>
+      {/* Warnings en haut */}
       {outputs.warnings.length > 0 && (
-        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/40 p-4 space-y-2">
-          <p className="text-xs uppercase tracking-wide text-amber-400 font-bold">
-            Alertes paliers
+        <div className="rounded-2xl bg-amber-500/10 border border-amber-500/40 p-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">
+            ⚠ Alertes paliers
           </p>
           {outputs.warnings.map((w, i) => (
-            <p key={i} className="text-xs text-amber-200/90">
+            <p key={i} className="text-[11px] text-amber-200/90">
               {w}
             </p>
           ))}
         </div>
       )}
-    </div>
+
+      <Card title="Audience">
+        <Line label="MAU" v={fmtNumber(outputs.mau)} />
+        <Line label="Free actifs" v={fmtNumber(outputs.freeActive)} />
+        <Line
+          label="Premium actifs"
+          v={fmtNumber(outputs.premiumActive)}
+          highlight
+        />
+        <Line label="· monthly" v={fmtNumber(outputs.monthlyCount)} small />
+        <Line label="· yearly" v={fmtNumber(outputs.yearlyCount)} small />
+        <Line label="· lifetime" v={fmtNumber(outputs.lifetimeCount)} small />
+        <Line
+          label="Nouveaux lifetime ce mois"
+          v={fmtNumber(outputs.newLifetimeThisMonth)}
+          small
+        />
+        <Line
+          label="Acquis via affilié"
+          v={fmtNumber(outputs.affiliateAcquired)}
+          small
+        />
+      </Card>
+
+      <Card title="Usage agrégé">
+        <Line label="Calls Navi" v={fmtNumber(outputs.totalNaviCalls)} small />
+        <Line
+          label="Images modérées"
+          v={fmtNumber(outputs.totalImagesModerated)}
+          small
+        />
+        <Line
+          label="Emails envoyés"
+          v={fmtNumber(outputs.totalEmails)}
+          small
+        />
+        <Line
+          label="Minutes vocal"
+          v={fmtNumber(outputs.totalVoiceMinutes)}
+          small
+        />
+        <Line
+          label="Stockage"
+          v={`${outputs.totalStorageGb.toFixed(2)} GB`}
+          small
+        />
+        <Line
+          label="Pages vues"
+          v={fmtNumber(outputs.totalPageViews)}
+          small
+        />
+        <Line
+          label="Bandwidth ~"
+          v={`${outputs.estimatedBandwidthGb.toFixed(2)} GB`}
+          small
+        />
+      </Card>
+
+      <Card title="Revenus mensuels">
+        <Line label="MRR Monthly" v={fmtEur(outputs.mrrFromMonthlyCents)} />
+        <Line
+          label="MRR Yearly (/12)"
+          v={fmtEur(outputs.mrrFromYearlyCents)}
+        />
+        <Line
+          label="Lifetime ce mois"
+          v={fmtEur(outputs.lifetimeOneShotCents)}
+        />
+        <Line
+          label="Lemon brut"
+          v={fmtEur(outputs.lemonGrossRevenueCents)}
+          highlight
+        />
+        <Line
+          label="− Frais MoR"
+          v={`-${fmtEur(outputs.lemonFeesCents)}`}
+          negative
+        />
+        <Line
+          label="− Commissions affiliés"
+          v={`-${fmtEur(outputs.affiliateCommissionsCents)}`}
+          negative
+        />
+        <Line label="+ AdSense" v={fmtEur(outputs.adsenseRevenueCents)} />
+        <Line
+          label="Net total"
+          v={fmtEur(outputs.totalNetRevenueCents)}
+          highlight
+          positive
+        />
+      </Card>
+
+      <Card title="Coûts variables">
+        <Line label="Navi (OpenAI)" v={fmtEur(outputs.naviCostCents)} />
+        <Line label="Modération" v={fmtEur(outputs.moderationCostCents)} />
+        <Line label="Emails" v={fmtEur(outputs.emailCostCents)} />
+        <Line
+          label="Voice bandwidth"
+          v={fmtEur(outputs.voiceBandwidthCostCents)}
+        />
+        <Line label="Storage" v={fmtEur(outputs.storageCostCents)} />
+        <Line
+          label="Total variables"
+          v={fmtEur(outputs.variableCostsTotalCents)}
+          highlight
+        />
+      </Card>
+
+      <Card title="Coûts fixes">
+        <Line label="Vercel" v={fmtEur(outputs.vercelCostCents)} />
+        <Line label="Supabase" v={fmtEur(outputs.supabaseCostCents)} />
+        <Line label="Hostinger VPS" v={fmtEur(outputs.hostingerCostCents)} />
+        <Line label="Autres" v={fmtEur(outputs.otherFixedCostsCents)} />
+        <Line
+          label="Total fixes"
+          v={fmtEur(outputs.fixedCostsTotalCents)}
+          highlight
+        />
+      </Card>
+
+      <Card title="Synthèse">
+        <Line
+          label="Total coûts"
+          v={fmtEur(outputs.totalCostsCents)}
+          negative
+        />
+        <Line
+          label="Marge brute"
+          v={fmtEur(outputs.grossMarginCents)}
+          highlight
+          positive={outputs.grossMarginCents >= 0}
+          negative={outputs.grossMarginCents < 0}
+        />
+        <Line label="ARPU (par MAU)" v={fmtEur(outputs.arpuCents)} small />
+        <Line
+          label="ARPPU (par premium)"
+          v={fmtEur(outputs.arppuCents)}
+          small
+        />
+        <Line label="Coût / MAU" v={fmtEur(outputs.costPerMauCents)} small />
+        <Line
+          label="Coût / premium"
+          v={fmtEur(outputs.costPerPremiumCents)}
+          small
+        />
+      </Card>
+    </>
   );
 }
 
@@ -1044,11 +1104,11 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-surface-900/60 border border-surface-800/60 p-4">
+    <div className="rounded-2xl bg-surface-900/60 border border-surface-800/60 p-3.5">
       <p className="text-[10px] uppercase tracking-wider text-surface-400 mb-2">
         {title}
       </p>
-      <div className="space-y-1.5">{children}</div>
+      <div className="space-y-1">{children}</div>
     </div>
   );
 }
@@ -1083,7 +1143,7 @@ function Line({
         {label}
       </span>
       <span
-        className={`${small ? "text-[11px]" : "text-sm"} ${valColor} ${highlight ? "font-bold" : "font-medium"} tabular-nums`}
+        className={`${small ? "text-[11px]" : "text-sm"} ${valColor} ${highlight ? "font-bold" : "font-medium"} tabular-nums whitespace-nowrap`}
       >
         {v}
       </span>
