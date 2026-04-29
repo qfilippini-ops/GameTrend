@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   getDefaultInputs,
   getHostingerPlans,
@@ -565,13 +566,22 @@ export default function SimulatorClient() {
                 }))}
                 info={
                   <>
-                    Hébergement Next.js. <strong>Hobby</strong> : gratuit
-                    mais limité à 100 GB BP, 100k invocations, pas
-                    d&apos;usage commercial. <strong>Pro</strong> : 20 $/mois
-                    inclut 1 TB BP + 1 M invocations + usage commercial OK.
+                    Hébergement Next.js (front + API routes + cron).
                     <br />
-                    Le simulateur lève une alerte jaune si tu dépasses la
-                    capacité (à monter d&apos;un palier).
+                    <br />
+                    <strong>Quand upgrade ?</strong>
+                    <br />· <strong>Hobby (gratuit)</strong> : OK jusqu&apos;à
+                    ~3-5K MAU. ⚠ Interdit usage commercial → upgrade Pro dès
+                    monétisation active (TOS Vercel).
+                    <br />· <strong>Pro (20 $/mois)</strong> : OK jusqu&apos;à
+                    ~50-100K MAU avec usage standard (1 TB BP, 1 M
+                    invocations inclus).
+                    <br />· <strong>Enterprise</strong> : 100K+ MAU ou besoin
+                    SLA / support dédié.
+                    <br />
+                    <br />
+                    Le simulateur lève une alerte jaune si la projection
+                    dépasse la capacité du palier sélectionné.
                   </>
                 }
               />
@@ -585,13 +595,23 @@ export default function SimulatorClient() {
                 }))}
                 info={
                   <>
-                    DB + Auth + Storage. <strong>Free</strong> : 50k MAU
-                    auth, 500 MB DB, 1 GB storage, mise en pause après 7j
-                    sans activité. <strong>Pro</strong> : 25 $/mois pour
-                    100k MAU, 8 GB DB, 100 GB storage, pas de pause.
+                    DB Postgres + Auth + Storage + Realtime.
                     <br />
-                    Si tu vises &gt; 50k MAU, le passage en Pro est
-                    obligatoire (l&apos;auth est bloquée sinon).
+                    <br />
+                    <strong>Quand upgrade ?</strong>
+                    <br />· <strong>Free</strong> : OK jusqu&apos;à ~2-3K MAU
+                    réels. Limite stricte 50K MAU auth, 500 MB DB, 1 GB
+                    storage. ⚠ <strong>Mise en pause après 7j sans
+                    activité</strong> = casse la prod si tu pars en vacances.
+                    <br />· <strong>Pro (25 $/mois)</strong> : OK jusqu&apos;à
+                    ~50K MAU. Inclut 100K MAU auth, 8 GB DB, 100 GB storage,
+                    pas de pause.
+                    <br />· <strong>Team (~599 $/mois)</strong> : 100K-1M MAU
+                    avec backups journaliers, SOC2.
+                    <br />
+                    <br />
+                    <strong>Recommandation :</strong> passer Pro dès le
+                    lancement public (la pause Free = risque trop gros).
                   </>
                 }
               />
@@ -604,13 +624,28 @@ export default function SimulatorClient() {
                 )}
                 info={
                   <>
-                    Serveur LiveKit auto-hébergé pour le voice. Capacité
-                    estimée (participants vocaux simultanés au pic) :
-                    KVM 2 ≈ 50, KVM 4 ≈ 120, KVM 8 ≈ 300, Cloud ≈ 600.
+                    Serveur LiveKit auto-hébergé pour le voice (groupes
+                    sociaux). Capacité = participants vocaux simultanés au
+                    pic.
                     <br />
-                    <strong>Tarifs :</strong> renouvellement (hors promo
-                    de lancement). Si tu n&apos;utilises pas le voice,
-                    KVM 2 reste suffisant ad vitam.
+                    <br />
+                    <strong>Quand upgrade ?</strong> En supposant que
+                    ~10% de tes premium sont en vocal aux pics (estimation
+                    raisonnable pour une app gaming sociale) :
+                    <br />· <strong>KVM 2</strong> : ≈ 50 participants → OK
+                    jusqu&apos;à <strong>~500 premium</strong> actifs
+                    <br />· <strong>KVM 4</strong> : ≈ 120 participants → OK
+                    jusqu&apos;à <strong>~1 200 premium</strong>
+                    <br />· <strong>KVM 8</strong> : ≈ 300 participants → OK
+                    jusqu&apos;à <strong>~3 000 premium</strong>
+                    <br />· <strong>Cloud Startup</strong> : ≈ 600
+                    participants → OK jusqu&apos;à <strong>~6 000
+                    premium</strong>
+                    <br />
+                    <br />
+                    Si tu n&apos;utilises pas le voice du tout, KVM 2 suffit
+                    ad vitam (juste l&apos;hébergement Coturn). Au-delà de
+                    Cloud Startup, il faut clusteriser LiveKit (multi-node).
                   </>
                 }
               />
@@ -672,40 +707,101 @@ function Section({
   );
 }
 
+/**
+ * Icône info + tooltip rendu via React Portal (document.body) pour ne pas
+ * être clippé par les `overflow-hidden` des sections accordéon parentes.
+ * Repositionne le tooltip à gauche du bouton si débordement à droite.
+ */
 function InfoIcon({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
+  const [coords, setCoords] = useState<{
+    left: number;
+    top: number;
+    placement: "right" | "left";
+  }>({ left: 0, top: 0, placement: "right" });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
+  // Ferme au click extérieur
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
+      const target = e.target as Node;
+      if (
+        btnRef.current?.contains(target) ||
+        tooltipRef.current?.contains(target)
+      ) {
+        return;
       }
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
+  // Ferme au scroll/resize (sinon le tooltip flotte au mauvais endroit)
+  useEffect(() => {
+    if (!open) return;
+    const onScroll = () => setOpen(false);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [open]);
+
+  function toggle(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const tooltipWidth = 288; // w-72 = 18rem = 288px
+      const margin = 12;
+      const overflowsRight =
+        rect.right + tooltipWidth + margin > window.innerWidth;
+      setCoords({
+        left: overflowsRight
+          ? Math.max(margin, rect.left - tooltipWidth - 8)
+          : rect.right + 8,
+        top: rect.top,
+        placement: overflowsRight ? "left" : "right",
+      });
+    }
+    setOpen((o) => !o);
+  }
+
   return (
-    <span ref={ref} className="relative inline-flex">
+    <>
       <button
+        ref={btnRef}
         type="button"
         aria-label="Plus d'informations"
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen((o) => !o);
-        }}
+        onClick={toggle}
         className="inline-flex w-4 h-4 rounded-full bg-surface-700 hover:bg-surface-600 text-surface-200 text-[10px] font-bold items-center justify-center shrink-0"
       >
         i
       </button>
-      {open && (
-        <span className="absolute z-50 left-5 top-0 w-64 max-w-[80vw] p-2.5 rounded-lg bg-surface-950 border border-surface-700 text-[11px] text-surface-200 leading-snug shadow-xl">
-          {children}
-        </span>
-      )}
-    </span>
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={tooltipRef}
+            style={{
+              position: "fixed",
+              left: coords.left,
+              top: coords.top,
+              zIndex: 9999,
+              width: 288,
+              maxWidth: "calc(100vw - 24px)",
+            }}
+            className="p-3 rounded-lg bg-surface-950 border border-surface-700 text-[11px] text-surface-200 leading-snug shadow-2xl"
+          >
+            {children}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
