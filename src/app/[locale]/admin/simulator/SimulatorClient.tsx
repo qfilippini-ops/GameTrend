@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getDefaultInputs,
   getHostingerPlans,
@@ -178,6 +178,16 @@ export default function SimulatorClient() {
                 onChange={(v) => update("totalUsers", v)}
                 step={100}
                 min={0}
+                info={
+                  <>
+                    Nombre cumulatif de comptes créés depuis le lancement
+                    (actifs ou inactifs). Sert de base pour calculer le MAU
+                    et le nombre de lifetime acquis ce mois.
+                    <br />
+                    <strong>Impact :</strong> ↑ → ↑ revenus pub (free actifs),
+                    ↑ achats lifetime, ↑ coûts storage/modération.
+                  </>
+                }
               />
               <SliderRow
                 label="% de comptes actifs (MAU rate)"
@@ -186,6 +196,18 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Portion des inscrits qui se connectent au moins 1× sur
+                    30 jours. Calculé via <code>profiles.last_seen_at</code>.
+                    <br />
+                    <strong>Repères :</strong> 70% = excellent au lancement,
+                    30-50% = typique en année 2-3 sur app sociale.
+                    <br />
+                    <strong>Impact :</strong> ↑ → ↑ MAU, ↑ pool de conversion
+                    premium, ↑ pages vues = ↑ pub.
+                  </>
+                }
               />
             </Section>
 
@@ -198,6 +220,19 @@ export default function SimulatorClient() {
                 max={50}
                 step={0.5}
                 suffix="%"
+                info={
+                  <>
+                    LA métrique business clé : portion d&apos;utilisateurs
+                    actifs qui souscrivent (toutes formules confondues).
+                    <br />
+                    <strong>Repères :</strong> 1-3% = standard freemium,
+                    5% = bon, &gt;10% = exceptionnel (Spotify ~46%, mais
+                    c&apos;est du paywall obligatoire).
+                    <br />
+                    <strong>Impact :</strong> levier #1 sur le revenu, doublé
+                    le taux double quasi tout (MRR + ARR + lifetime).
+                  </>
+                }
               />
               <SliderRow
                 label="% Premium acquis via affilié"
@@ -206,6 +241,17 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Portion des nouveaux abonnés arrivés via le lien d&apos;un
+                    ambassadeur (système actuel : <code>/r/&lt;code&gt;</code>).
+                    <br />
+                    <strong>Impact :</strong> ↑ génère plus de commissions à
+                    reverser MAIS souvent rentable car remplace de la pub
+                    payante (CAC plus bas). Sans budget acquisition,
+                    20-40% est un bon objectif via tes early adopters.
+                  </>
+                }
               />
               <SliderRow
                 label="Commission affilié sur le net"
@@ -214,6 +260,19 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Ce que tu reverses à l&apos;ambassadeur, calculé sur le
+                    montant NET (après les 5% de frais Lemon).
+                    <br />
+                    <strong>Réglage actuel :</strong> 40%, défini dans
+                    <code>src/lib/affiliate/config.ts</code>.
+                    <br />
+                    <strong>Repères :</strong> 20% = conservateur, 30-40% =
+                    standard SaaS, 50%+ = très généreux (utilisé par certains
+                    pour booster le bouche-à-oreille au lancement).
+                  </>
+                }
               />
             </Section>
 
@@ -225,6 +284,16 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Part des premium qui choisissent le plan mensuel
+                    (6,99 €). MRR récurrent stable, mais churn plus élevé
+                    (résiliation facile chaque mois).
+                    <br />
+                    <strong>Impact :</strong> ↑ → ↑ MRR direct mais cashflow
+                    plus volatil.
+                  </>
+                }
               />
               <SliderRow
                 label="Yearly"
@@ -233,6 +302,16 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Part des premium qui choisissent le plan annuel (49 €).
+                    Cashflow upfront, meilleure rétention (pas de friction
+                    mensuelle), mais ARPU mensuel plus bas (4,08 €/mois eq).
+                    <br />
+                    <strong>Impact :</strong> ↑ → ↑ trésorerie immédiate, ↓
+                    MRR pur mais ↑ stabilité.
+                  </>
+                }
               />
               <SliderRow
                 label="Lifetime"
@@ -241,6 +320,16 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Part des premium qui ont acheté le lifetime (99 €,
+                    limité aux 100 premiers comptes). Contribue 0 € au MRR
+                    mais reste premium ad vitam (coûts variables continus).
+                    <br />
+                    <strong>Impact :</strong> ↑ → boost initial revenu mais
+                    aucune récurrence après.
+                  </>
+                }
               />
               <SliderRow
                 label="% de comptes achetant un Lifetime ce mois"
@@ -252,6 +341,16 @@ export default function SimulatorClient() {
                 max={5}
                 step={0.1}
                 suffix="%"
+                info={
+                  <>
+                    Taux de NOUVEAUX achats lifetime ce mois (one-shot, pas
+                    récurrent). Influencé par les early adopters, le FOMO
+                    sur les 100 premiers, tes campagnes.
+                    <br />
+                    <strong>Repères :</strong> 0,5-2% au lancement, 0% après
+                    épuisement des 100 places.
+                  </>
+                }
               />
             </Section>
 
@@ -261,18 +360,43 @@ export default function SimulatorClient() {
                 value={inputs.monthlyPriceCents}
                 onChange={(v) => update("monthlyPriceCents", v)}
                 hint={`= ${fmtEur(inputs.monthlyPriceCents)}/mois`}
+                info={
+                  <>
+                    Prix du plan mensuel en centimes (699 = 6,99 €). Augmenter
+                    de 1 € = +14% revenu pour le même nombre de premium si
+                    aucun churn n&apos;est induit.
+                    <br />
+                    <strong>Élasticité :</strong> au-dessus de 9-10 € le taux
+                    de conversion baisse souvent significativement (à tester).
+                  </>
+                }
               />
               <NumberRow
                 label="Yearly (centimes EUR)"
                 value={inputs.yearlyPriceCents}
                 onChange={(v) => update("yearlyPriceCents", v)}
                 hint={`= ${fmtEur(inputs.yearlyPriceCents)}/an = ${fmtEur(Math.round(inputs.yearlyPriceCents / 12))}/mois`}
+                info={
+                  <>
+                    Prix du plan annuel. Réduction implicite : 49 €/an =
+                    4,08 €/mois soit -42% vs monthly. Standard SaaS = -20 à
+                    -50% pour inciter à l&apos;engagement annuel.
+                  </>
+                }
               />
               <NumberRow
                 label="Lifetime (centimes EUR)"
                 value={inputs.lifetimePriceCents}
                 onChange={(v) => update("lifetimePriceCents", v)}
                 hint={`= ${fmtEur(inputs.lifetimePriceCents)} unique`}
+                info={
+                  <>
+                    Prix du lifetime (one-shot). Bonne pratique : 12-24× le
+                    prix monthly pour rester rentable. Ici 99 € = 14×
+                    monthly → break-even si l&apos;utilisateur reste 14 mois
+                    (ce qu&apos;il fera s&apos;il a payé lifetime).
+                  </>
+                }
               />
             </Section>
 
@@ -282,18 +406,48 @@ export default function SimulatorClient() {
                 value={inputs.naviCostPerPremiumCents}
                 onChange={(v) => update("naviCostPerPremiumCents", v)}
                 hint="OpenAI gpt-5-nano. Varie selon usage Outbid."
+                info={
+                  <>
+                    Coût moyen OpenAI par utilisateur premium et par mois,
+                    en centimes EUR. Calculé via tokens × tarif
+                    gpt-5-nano (0,05 $/M input, 0,40 $/M output).
+                    <br />
+                    <strong>Référence :</strong> 1 verdict Navi typique
+                    (~2000 tokens reasoning + 500 output) ≈ 0,025 c. Donc
+                    5 c/mois = 200 verdicts/premium/mois.
+                  </>
+                }
               />
               <NumberRow
                 label="Coût modération par MAU / mois"
                 value={inputs.moderationCostPerMauCents}
                 onChange={(v) => update("moderationCostPerMauCents", v)}
                 hint="Sightengine ~0,1c/image. Dépend du nb d'uploads."
+                info={
+                  <>
+                    Sightengine vérifie chaque image uploadée (covers
+                    presets, avatars, bannières). ~0,1 c/image (modèles
+                    nudity-2.1 + gore).
+                    <br />
+                    <strong>Repère :</strong> 1 c/MAU/mois = 10 images
+                    modérées par utilisateur actif/mois.
+                  </>
+                }
               />
               <NumberRow
                 label="Coût emails par MAU / mois"
                 value={inputs.emailCostPerMauCents}
                 onChange={(v) => update("emailCostPerMauCents", v)}
                 hint="Resend gratuit jusqu'à 3000/mois, ensuite ~0,04c/email."
+                info={
+                  <>
+                    Resend : 3000 emails/mois gratuits (plan Free), puis
+                    ~0,04 c/email au-delà (plan Pro 20 $/mois pour 50k).
+                    <br />
+                    À 0 c tant que tu restes sous le quota gratuit. Mets ~1c
+                    si tu prévois beaucoup d&apos;emails (campagnes, notifs).
+                  </>
+                }
               />
               <NumberRow
                 label="Coût bandwidth voice par premium / mois"
@@ -302,12 +456,30 @@ export default function SimulatorClient() {
                   update("voiceBandwidthCostPerPremiumCents", v)
                 }
                 hint="VPS LiveKit. Inclus dans le forfait jusqu'à saturation."
+                info={
+                  <>
+                    Coût marginal de la bande passante voice consommée par
+                    premium et par mois. <strong>0 c</strong> tant que tu ne
+                    satures pas la BP du VPS Hostinger (forfait fixe, BP
+                    incluse). Au-delà = upgrade nécessaire (passage à
+                    KVM4 ou Cloud Startup).
+                  </>
+                }
               />
               <NumberRow
                 label="Coût storage par MAU / mois"
                 value={inputs.storageCostPerMauCents}
                 onChange={(v) => update("storageCostPerMauCents", v)}
                 hint="Covers / avatars. Inclus dans Supabase Pro jusqu'à 100GB."
+                info={
+                  <>
+                    Stockage Supabase (covers presets, avatars, bannières).
+                    Free : 1 GB inclus. Pro : 100 GB inclus, puis 0,021 $/GB.
+                    <br />
+                    À 0 c tant que tu es sous quota. Mets ~0,5 c quand tu
+                    passes la barre des 100 GB.
+                  </>
+                }
               />
             </Section>
 
@@ -318,18 +490,48 @@ export default function SimulatorClient() {
                 onChange={(v) => update("adsenseRpmEur", v)}
                 step={0.1}
                 hint="Gaming/social FR : 0,30 → 1 €. À ajuster selon ton historique."
+                info={
+                  <>
+                    Revenue Per Mille = ce que Google AdSense te paie pour
+                    1000 impressions affichées. Très variable selon le
+                    marché et la qualité du trafic.
+                    <br />
+                    <strong>Repères France :</strong> gaming/social = 0,30 à
+                    1 €, finance = 5-15 €, B2B = 10-30 €. À remplacer par ta
+                    vraie valeur via le dashboard AdSense.
+                  </>
+                }
               />
               <NumberRow
                 label="Pages vues par utilisateur free / mois"
                 value={inputs.pageViewsPerFreeUser}
                 onChange={(v) => update("pageViewsPerFreeUser", v)}
                 step={5}
+                info={
+                  <>
+                    Nombre de pages distinctes qu&apos;un free actif visite
+                    par mois en moyenne. Trouvable dans PostHog (event
+                    $pageview / nb users).
+                    <br />
+                    <strong>Repères :</strong> 30 = ~1 page/jour
+                    (occasionnel), 100 = utilisateur engagé, 300 = power user.
+                  </>
+                }
               />
               <NumberRow
                 label="Slots pub par page (moyenne)"
                 value={inputs.adSlotsPerPage}
                 onChange={(v) => update("adSlotsPerPage", v)}
                 step={1}
+                info={
+                  <>
+                    Nombre moyen de blocs publicitaires affichés par page
+                    (compte tes <code>&lt;AdSlot /&gt;</code> dans le code).
+                    <br />
+                    <strong>Trade-off :</strong> ↑ slots = ↑ revenus mais ↓
+                    UX et risque de rejet AdSense. 2-3 est un bon équilibre.
+                  </>
+                }
               />
               <SliderRow
                 label="% de free qui voient la pub (consentement RGPD)"
@@ -338,6 +540,17 @@ export default function SimulatorClient() {
                 min={0}
                 max={100}
                 suffix="%"
+                info={
+                  <>
+                    Portion d&apos;utilisateurs qui acceptent les cookies
+                    pub via le bandeau RGPD. En EU, beaucoup refusent.
+                    <br />
+                    <strong>Repères :</strong> 60% est typique (40% refusent
+                    ou ne se prononcent pas). Sans consentement, AdSense
+                    affiche des pubs non personnalisées au RPM ~3-5× plus
+                    bas, ou rien.
+                  </>
+                }
               />
             </Section>
 
@@ -350,6 +563,17 @@ export default function SimulatorClient() {
                   value: k,
                   label: v.label,
                 }))}
+                info={
+                  <>
+                    Hébergement Next.js. <strong>Hobby</strong> : gratuit
+                    mais limité à 100 GB BP, 100k invocations, pas
+                    d&apos;usage commercial. <strong>Pro</strong> : 20 $/mois
+                    inclut 1 TB BP + 1 M invocations + usage commercial OK.
+                    <br />
+                    Le simulateur lève une alerte jaune si tu dépasses la
+                    capacité (à monter d&apos;un palier).
+                  </>
+                }
               />
               <SelectRow
                 label="Plan Supabase"
@@ -359,6 +583,17 @@ export default function SimulatorClient() {
                   value: k,
                   label: v.label,
                 }))}
+                info={
+                  <>
+                    DB + Auth + Storage. <strong>Free</strong> : 50k MAU
+                    auth, 500 MB DB, 1 GB storage, mise en pause après 7j
+                    sans activité. <strong>Pro</strong> : 25 $/mois pour
+                    100k MAU, 8 GB DB, 100 GB storage, pas de pause.
+                    <br />
+                    Si tu vises &gt; 50k MAU, le passage en Pro est
+                    obligatoire (l&apos;auth est bloquée sinon).
+                  </>
+                }
               />
               <SelectRow
                 label="VPS Hostinger (LiveKit)"
@@ -367,12 +602,34 @@ export default function SimulatorClient() {
                 options={Object.entries(getHostingerPlans()).map(
                   ([k, v]) => ({ value: k, label: v.label })
                 )}
+                info={
+                  <>
+                    Serveur LiveKit auto-hébergé pour le voice. Capacité
+                    estimée (participants vocaux simultanés au pic) :
+                    KVM 2 ≈ 50, KVM 4 ≈ 120, KVM 8 ≈ 300, Cloud ≈ 600.
+                    <br />
+                    <strong>Tarifs :</strong> renouvellement (hors promo
+                    de lancement). Si tu n&apos;utilises pas le voice,
+                    KVM 2 reste suffisant ad vitam.
+                  </>
+                }
               />
               <NumberRow
                 label="Autres fixes (centimes EUR/mois)"
                 value={inputs.otherFixedCostsCents}
                 onChange={(v) => update("otherFixedCostsCents", v)}
                 hint="Domaine, comptable SASU, sentry, etc."
+                info={
+                  <>
+                    Tout ce qui n&apos;est pas couvert par les paliers
+                    ci-dessus :
+                    <br />· Domaine .fr ≈ 100 c (1 €/mois au prorata)
+                    <br />· Comptable SASU ≈ 5000 c (50 €/mois)
+                    <br />· Sentry / monitoring ≈ 0-2600 c
+                    <br />· PostHog Pro si dépassement quota gratuit
+                    <br />· Assurance pro RC, etc.
+                  </>
+                }
               />
             </Section>
           </div>
@@ -415,6 +672,58 @@ function Section({
   );
 }
 
+function InfoIcon({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <span ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="Plus d'informations"
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen((o) => !o);
+        }}
+        className="inline-flex w-4 h-4 rounded-full bg-surface-700 hover:bg-surface-600 text-surface-200 text-[10px] font-bold items-center justify-center shrink-0"
+      >
+        i
+      </button>
+      {open && (
+        <span className="absolute z-50 left-5 top-0 w-64 max-w-[80vw] p-2.5 rounded-lg bg-surface-950 border border-surface-700 text-[11px] text-surface-200 leading-snug shadow-xl">
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function LabelWithInfo({
+  label,
+  info,
+}: {
+  label: string;
+  info?: React.ReactNode;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{label}</span>
+      {info && <InfoIcon>{info}</InfoIcon>}
+    </span>
+  );
+}
+
 function NumberRow({
   label,
   value,
@@ -422,6 +731,7 @@ function NumberRow({
   step = 1,
   min,
   hint,
+  info,
 }: {
   label: string;
   value: number;
@@ -429,10 +739,13 @@ function NumberRow({
   step?: number;
   min?: number;
   hint?: string;
+  info?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col">
-      <label className="text-xs text-surface-400 mb-1">{label}</label>
+      <label className="text-xs text-surface-400 mb-1">
+        <LabelWithInfo label={label} info={info} />
+      </label>
       <input
         type="number"
         value={value}
@@ -459,6 +772,7 @@ function SliderRow({
   max,
   step = 1,
   suffix,
+  info,
 }: {
   label: string;
   value: number;
@@ -467,11 +781,14 @@ function SliderRow({
   max: number;
   step?: number;
   suffix?: string;
+  info?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col">
       <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-surface-400">{label}</label>
+        <label className="text-xs text-surface-400">
+          <LabelWithInfo label={label} info={info} />
+        </label>
         <span className="text-xs text-white font-medium tabular-nums">
           {value}
           {suffix}
@@ -495,15 +812,19 @@ function SelectRow({
   value,
   onChange,
   options,
+  info,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: Array<{ value: string; label: string }>;
+  info?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col">
-      <label className="text-xs text-surface-400 mb-1">{label}</label>
+      <label className="text-xs text-surface-400 mb-1">
+        <LabelWithInfo label={label} info={info} />
+      </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}

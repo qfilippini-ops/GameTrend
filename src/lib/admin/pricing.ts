@@ -98,8 +98,8 @@ export const FIXED_MONTHLY_COSTS_EUR: FixedCost[] = [
   {
     service: "livekit_vps",
     label: "VPS Hostinger KVM2 (LiveKit)",
-    monthly_cents: 700,
-    note: "~7€/mois pour le serveur LiveKit auto-hébergé",
+    monthly_cents: 1799,
+    note: "17,99€/mois (renouvellement, hors promo) pour le serveur LiveKit auto-hébergé",
   },
   {
     service: "domain",

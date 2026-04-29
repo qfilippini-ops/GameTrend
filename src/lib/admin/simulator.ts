@@ -188,29 +188,30 @@ const SUPABASE_PLANS: Record<
   },
 };
 
-/** Hostinger VPS : capacité voice estimée (participants simultanés LiveKit). */
+/** Hostinger VPS : capacité voice estimée (participants simultanés LiveKit).
+ *  Tarifs hors promotion (renouvellement). À jour avril 2026. */
 const HOSTINGER_PLANS: Record<
   HostingerPlan,
   { label: string; monthlyCents: number; maxVoiceParticipants: number }
 > = {
   kvm2: {
-    label: "KVM 2 (~7 €/mois)",
-    monthlyCents: 700,
+    label: "KVM 2 (~17,99 €/mois)",
+    monthlyCents: 1799,
     maxVoiceParticipants: 50, // ordre de grandeur LiveKit single-node
   },
   kvm4: {
-    label: "KVM 4 (~14 €/mois)",
-    monthlyCents: 1400,
+    label: "KVM 4 (~27,99 €/mois)",
+    monthlyCents: 2799,
     maxVoiceParticipants: 120,
   },
   kvm8: {
-    label: "KVM 8 (~28 €/mois)",
-    monthlyCents: 2800,
+    label: "KVM 8 (~47,99 €/mois)",
+    monthlyCents: 4799,
     maxVoiceParticipants: 300,
   },
   cloud: {
-    label: "Cloud Pro (~45 €/mois)",
-    monthlyCents: 4500,
+    label: "Cloud Startup (~79,99 €/mois)",
+    monthlyCents: 7999,
     maxVoiceParticipants: 600,
   },
 };
