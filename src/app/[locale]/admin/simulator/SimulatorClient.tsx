@@ -129,8 +129,9 @@ export default function SimulatorClient() {
   }
 
   return (
-    // max-w-none + larges paddings pour exploiter le PC
-    <main className="min-h-screen bg-surface-950 text-surface-100">
+    // Le layout racine retire la contrainte `max-w-lg` sur les routes
+    // /admin/* (cf. MainContainer.tsx), donc on a toute la largeur ici.
+    <div className="min-h-screen bg-surface-950 text-surface-100">
       <div className="max-w-[1700px] mx-auto p-4 lg:p-6 space-y-5">
         {/* ─── Header ───────────────────────────────────────────────── */}
         <header className="flex items-center justify-between flex-wrap gap-3">
@@ -604,7 +605,7 @@ export default function SimulatorClient() {
           </aside>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
 

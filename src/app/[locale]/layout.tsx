@@ -8,6 +8,7 @@ import { Suspense } from "react";
 import "../globals.css";
 import { routing } from "@/i18n/routing";
 import BottomNav from "@/components/layout/BottomNav";
+import MainContainer from "@/components/layout/MainContainer";
 import ActiveRoomBadge from "@/components/ActiveRoomBadge";
 import KickedToast from "@/components/KickedToast";
 import Heartbeat from "@/components/Heartbeat";
@@ -200,7 +201,7 @@ export default async function LocaleLayout({
               <Suspense><PWAInstallBanner /></Suspense>
               <Heartbeat />
               <ReferralClaimer />
-              <main className="pb-24 max-w-lg mx-auto">{children}</main>
+              <MainContainer>{children}</MainContainer>
               <BottomNav />
               <Suspense><ActiveRoomBadge /></Suspense>
               <GroupInviteToasts />
