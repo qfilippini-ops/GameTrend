@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 // ─── Types alignés avec /api/admin/dashboard/data ──────────────────────────
@@ -145,13 +146,21 @@ export default function AdminDashboardClient() {
               {data.period.days_in_month}
             </p>
           </div>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="px-3 py-1.5 text-sm rounded-lg bg-surface-800 hover:bg-surface-700 text-surface-200 disabled:opacity-50"
-          >
-            {loading ? "…" : "Rafraîchir"}
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/fr/admin/simulator"
+              className="px-3 py-1.5 text-sm rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/30"
+            >
+              Simulateur →
+            </Link>
+            <button
+              onClick={load}
+              disabled={loading}
+              className="px-3 py-1.5 text-sm rounded-lg bg-surface-800 hover:bg-surface-700 text-surface-200 disabled:opacity-50"
+            >
+              {loading ? "…" : "Rafraîchir"}
+            </button>
+          </div>
         </header>
 
         {/* KPI cards */}

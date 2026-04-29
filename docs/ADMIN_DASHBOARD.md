@@ -173,6 +173,75 @@ chiffres OpenAI continuent d'être tracés via `usage_log` (logging maison).
 - Saisie manuelle élargie : cash dispo (pour calculer le runway), revenus
   exceptionnels
 
+
+## Simulateur de scale
+
+URL : **`/fr/admin/simulator`** (lien depuis le dashboard).
+
+### Objectif
+
+Permettre de jouer sur les paramètres (audience, conversion, mix, tarifs,
+coûts) pour anticiper la rentabilité à différentes échelles. Tous les
+calculs sont réalisés côté client en pure-functional, recalcul en temps réel
+à chaque changement.
+
+### Variables paramétrables
+
+- **Audience** : total comptes, % MAU
+- **Conversion premium** : % MAU → premium, % via affilié, taux de
+  commission affilié
+- **Mix** : monthly / yearly / lifetime (somme normalisée à 100%) +
+  taux d'acquisition lifetime mensuel
+- **Tarifs** : prix monthly/yearly/lifetime
+- **Coûts variables** : coût Navi par premium, modération par MAU, emails,
+  voice bandwidth, storage
+- **Pub** : RPM AdSense, pages vues par free, slots par page, taux de
+  consentement RGPD
+- **Coûts fixes** : paliers Vercel (Hobby/Pro/Enterprise), Supabase
+  (Free/Pro/Team), Hostinger (KVM2/4/8/Cloud), autres
+
+### Sorties calculées
+
+- Composition (MAU, premium par plan, acquis via affilié)
+- Revenus : MRR monthly, MRR yearly (annualisé), lifetime ce mois, AdSense,
+  fees Lemon, commissions affiliés, net total
+- Coûts variables détaillés
+- Coûts fixes détaillés
+- Synthèse : marge brute (€ et %), ARPU, ARPPU, coût/MAU, coût/premium
+- **Warnings de paliers** : si un plan d'infra va saturer (ex: MAU dépasse
+  100k sur Supabase Pro), le simulateur l'indique en jaune
+
+### Persistance
+
+Les paramètres sont **sauvegardés automatiquement dans le localStorage**
+(`gt_admin_simulator_v1`) pour persister entre les sessions. Bouton
+"Réinitialiser" pour revenir aux valeurs par défaut.
+
+### Pré-remplissage avec valeurs réelles
+
+Bouton **"Charger valeurs actuelles"** → fetch `/api/admin/simulator/baseline`
+qui calcule depuis Supabase :
+- Total comptes, MAU, % conversion réels
+- Mix monthly/yearly/lifetime des premium actifs
+- Coûts variables effectifs sur les 30 derniers jours (depuis `usage_log`),
+  divisés par MAU/premium pour avoir des ratios par utilisateur
+
+Ça permet de partir d'une baseline 100% fidèle puis de jouer "et si j'avais
+10× plus d'utilisateurs ?".
+
+### Hypothèses simplificatrices
+
+- Le **MRR yearly** est annualisé / 12 (lissé sur 12 mois, ne reflète pas
+  le pic encaissement à la souscription)
+- Les **commissions affiliés** sont calculées sur le NET (gross - 5% Lemon),
+  comme dans `webhooks/lemon/route.ts`
+- Les **paliers Hostinger** ont une capacité voice estimée (50/120/300/600
+  participants simultanés) à ajuster selon tes mesures réelles
+- Les **bandwidth Vercel** sont estimés à 50 KB/page vue (front simple),
+  6 invocations/page (1 Next page + 5 API)
+- Les **lifetime cumulés** sont supposés rester actifs ad vitam (pas de
+  churn modélisé)
+
 ## Tarifs en config
 
 Les tarifs des services tiers sont centralisés dans
