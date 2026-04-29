@@ -277,6 +277,51 @@ async function handlePaymentSuccess(
   const totalCents = Number(attrs.total ?? 0);
   const currency = attrs.currency ?? "EUR";
   const lsInvoiceId = String(data.id);
+  const paidAt = attrs.created_at ?? new Date().toISOString();
+
+  // Récupère plan + sub_id depuis la sub existante (créée par
+  // subscription_created en amont). Tolère le cas où la sub n'existerait
+  // pas encore (ordre webhook inversé) en fallback "monthly".
+  let plan: string = "monthly";
+  let subId: string | null = null;
+  if (lsSubId) {
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("id, plan")
+      .eq("ls_subscription_id", lsSubId)
+      .maybeSingle<{ id: string; plan: string }>();
+    if (sub) {
+      plan = sub.plan;
+      subId = sub.id;
+    }
+  }
+
+  // INSERT idempotent dans subscription_payments. UNIQUE sur ls_invoice_id
+  // garantit qu'un même paiement ne soit pas compté deux fois si le webhook
+  // est rejoué (Lemon retry sur 5xx).
+  // Cast any : table absente du type Database généré, à régénérer après
+  // application de schema_subscription_payments_v1.sql.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: payErr } = await (
+    supabase.from("subscription_payments") as any
+  ).upsert(
+    {
+      user_id: userId,
+      subscription_id: subId,
+      ls_invoice_id: lsInvoiceId,
+      ls_subscription_id: lsSubId,
+      ls_order_id: attrs.order_id ? String(attrs.order_id) : null,
+      plan,
+      amount_cents: totalCents,
+      currency,
+      paid_at: paidAt,
+      raw_event: data,
+    },
+    { onConflict: "ls_invoice_id" }
+  );
+  if (payErr) {
+    console.error("[lemon-webhook] subscription_payments upsert failed", payErr);
+  }
 
   if (lsSubId) {
     await supabase
@@ -399,25 +444,57 @@ async function handleOrderCreated(
   const lsCustomerId = attrs.customer_id ? String(attrs.customer_id) : null;
   const totalCents = Number(attrs.total ?? 0);
 
-  await supabase.from("subscriptions").upsert(
+  const { data: subRow } = await supabase
+    .from("subscriptions")
+    .upsert(
+      {
+        user_id: userId,
+        ls_subscription_id: `lifetime_${lsOrderId}`,
+        ls_customer_id: lsCustomerId,
+        ls_order_id: lsOrderId,
+        variant_id: variantId,
+        plan: "lifetime",
+        status: "active",
+        amount_cents: totalCents,
+        currency: attrs.currency ?? "EUR",
+        trial_ends_at: null,
+        renews_at: null,
+        ends_at: null,
+        raw_event: data,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "ls_subscription_id" }
+    )
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  // INSERT idempotent dans subscription_payments pour le paiement lifetime
+  // (one-shot, jamais de renouvellement). On utilise lsOrderId comme
+  // pseudo-invoice_id (le order Lemon n'a pas d'invoice distinct).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: payErr } = await (
+    supabase.from("subscription_payments") as any
+  ).upsert(
     {
       user_id: userId,
+      subscription_id: subRow?.id ?? null,
+      ls_invoice_id: `lifetime_order_${lsOrderId}`,
       ls_subscription_id: `lifetime_${lsOrderId}`,
-      ls_customer_id: lsCustomerId,
       ls_order_id: lsOrderId,
-      variant_id: variantId,
       plan: "lifetime",
-      status: "active",
       amount_cents: totalCents,
       currency: attrs.currency ?? "EUR",
-      trial_ends_at: null,
-      renews_at: null,
-      ends_at: null,
+      paid_at: attrs.created_at ?? new Date().toISOString(),
       raw_event: data,
-      updated_at: new Date().toISOString(),
     },
-    { onConflict: "ls_subscription_id" }
+    { onConflict: "ls_invoice_id" }
   );
+  if (payErr) {
+    console.error(
+      "[lemon-webhook] subscription_payments lifetime upsert failed",
+      payErr
+    );
+  }
 
   await supabase
     .from("profiles")

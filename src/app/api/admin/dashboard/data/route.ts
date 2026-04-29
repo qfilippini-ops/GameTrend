@@ -95,34 +95,39 @@ export async function GET() {
   }
   const arrCents = mrrCents * 12;
 
-  // ─── 3. Revenus mois courant depuis subscriptions ────────────────────────
-  // Toutes les transactions Lemon enregistrées via le webhook ce mois.
-  type SubRow = {
+  // ─── 3. Revenus mois courant depuis subscription_payments ────────────────
+  // Source de vérité : 1 row = 1 paiement effectif. Évite le bug où
+  // `subscriptions` (1 row par sub, mis à jour à chaque renouvellement)
+  // perdait les renouvellements et comptait les checkouts annulés à 0€.
+  // Cast any : table absente du Database type généré, à régénérer après
+  // migration schema_subscription_payments_v1.sql.
+  type PaymentRow = {
     plan: string;
     amount_cents: number;
     currency: string;
-    status: string;
-    created_at: string;
+    paid_at: string;
   };
-  const { data: monthSubs } = await admin
-    .from("subscriptions")
-    .select("plan, amount_cents, currency, status, created_at")
-    .gte("created_at", monthStart.toISOString())
-    .lt("created_at", nextMonthStart.toISOString())
-    .returns<SubRow[]>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: monthPaymentsRaw } = await (admin as any)
+    .from("subscription_payments")
+    .select("plan, amount_cents, currency, paid_at")
+    .gte("paid_at", monthStart.toISOString())
+    .lt("paid_at", nextMonthStart.toISOString());
+  const monthPayments = (monthPaymentsRaw as PaymentRow[] | null) ?? [];
 
   let lemonGrossCents = 0;
   let lemonFeesCents = 0;
   const revenueByPlan: Record<string, number> = {};
-  for (const s of monthSubs ?? []) {
-    // Lemon stocke le montant brut du paiement. On convertit en EUR si USD
-    // (Lemon facture en USD, on utilise le taux du pricing.ts).
-    let cents = s.amount_cents;
-    if (s.currency === "USD") cents = Math.round(cents * USD_TO_EUR);
+  for (const p of monthPayments) {
+    // Lemon facture en USD ou EUR selon la config store. On convertit en EUR
+    // si USD via le taux pricing.ts.
+    let cents = p.amount_cents;
+    if (p.currency === "USD") cents = Math.round(cents * USD_TO_EUR);
     lemonGrossCents += cents;
     lemonFeesCents += estimateLemonFeesCents(cents, "EUR");
-    revenueByPlan[s.plan] = (revenueByPlan[s.plan] ?? 0) + cents;
+    revenueByPlan[p.plan] = (revenueByPlan[p.plan] ?? 0) + cents;
   }
+  const transactionCount = monthPayments.length;
 
   // ─── 4. Revenus AdSense / autres depuis revenue_snapshots ────────────────
   const { data: extraRevenue } = await admin
@@ -272,7 +277,7 @@ export async function GET() {
       extra_eur_cents: extraRevenueCents,
       by_plan_eur_cents: revenueByPlan,
       extra_by_source_eur_cents: extraRevenueBySource,
-      transaction_count: monthSubs?.length ?? 0,
+      transaction_count: transactionCount,
     },
     costs: {
       fixed_monthly_total_eur_cents: fixedMonthlyTotal,
